@@ -20,6 +20,13 @@ $(NAME): $(OBJS)
 	@echo "\n-------------------- Building $(NAME) --------------------"
 	$(CXX) $(CXXFLAGS) $(OBJS) -o $(NAME)
 	@echo "-------------------- We Still Use Wildcard Please Change!!!!!!!!! --------------------"
+	@echo "-------------------- We Still Use Wildcard Please Change!!!!!!!!! --------------------"
+	@echo "-------------------- We Still Use Wildcard Please Change!!!!!!!!! --------------------"
+	@echo "-------------------- We Still Use Wildcard Please Change!!!!!!!!! --------------------"
+	@echo "-------------------- We Still Use Wildcard Please Change!!!!!!!!! --------------------"
+	@echo "-------------------- We Still Use Wildcard Please Change!!!!!!!!! --------------------"
+	@echo "-------------------- We Still Use Wildcard Please Change!!!!!!!!! --------------------"
+	@echo "-------------------- We Still Use Wildcard Please Change!!!!!!!!! --------------------"
 
 # Compile .cpp -> obj/.o with progress
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp

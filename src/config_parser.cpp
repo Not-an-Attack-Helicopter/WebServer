@@ -1,33 +1,5 @@
 #include "config_parser.hpp"
 
-//-------------------------------Helper_Functions-------------------------------//
-Config parse_config_file(const std::string& config_file)
-{
-	Config config;
-	std::ifstream file(config_file);
-	if (!file.is_open())
-	{
-		std::cerr << "Error: Could not open config file: " << config_file << std::endl;
-		exit(EXIT_FAILURE);
-	}
-	std::string line;
-	std::vector<std::string> tokens;
-	while(std::getline(file, line))
-	{
-		// Remove comments
-		size_t comment_pos = line.find('#');
-		if (comment_pos != std::string::npos)
-			line = line.substr(0, comment_pos);
-		// Trim whitespace
-		line = trim(line);
-		if (line.empty())
-			continue;
-		tokens.push_back(line);
-	}
-
-	return config;
-}
-
 //-------------------------------Constructors_&_Destructor-------------------------------//
 config_parser::config_parser()
 {

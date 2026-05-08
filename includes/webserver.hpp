@@ -29,6 +29,7 @@
 #include <dirent.h>     // opendir, readdir, closedir
 #include <sys/stat.h>   // stat
 #include <cstring>      // strerror, memset, memcpy
+#include <fstream>
 
 /*******************************
  * ⚙️ Process / signals
@@ -60,3 +61,4 @@
 #include "types.hpp" //
 #include "config_parser.hpp"
 #include "utils.hpp"
+#include "parse_helper.hpp"
