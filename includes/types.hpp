@@ -1,0 +1,28 @@
+#pragma once
+
+#include "webserver.hpp"
+
+struct LocationConfig {
+    std::string             path;
+    std::vector<std::string> methods;       // GET, POST, DELETE
+    std::string             root;
+    std::string             index;
+    std::string             redirect;       // return 301 /url
+    bool                    autoindex;
+    std::string             upload_dir;
+    std::string             cgi_extension;  // .py, .php
+    std::string             cgi_path;
+};
+
+struct ServerConfig {
+    std::string                  host;
+    int                          port;
+    std::vector<std::string>     server_names;
+    size_t                       client_max_body_size;
+    std::map<int, std::string>   error_pages;   // 404 -> /404.html
+    std::vector<LocationConfig>  locations;
+};
+
+struct Config {
+    std::vector<ServerConfig> servers;
+};

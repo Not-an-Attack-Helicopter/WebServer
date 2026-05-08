@@ -54,3 +54,9 @@
 #include <sys/time.h>    // timeval
 #include <sys/epoll.h>   // epoll_create, epoll_ctl, epoll_wait
 
+/*******************************
+ * 👤 User defined headers
+ *******************************/
+#include "types.hpp" //
+#include "config_parser.hpp"
+#include "utils.hpp"
