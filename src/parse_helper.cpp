@@ -23,32 +23,69 @@ static std::string directive_value(const std::string& line)
 
 static std::vector<std::string> Tokenizer(const std::string& config_file)
 {
-	std::string line;
-	std::vector<std::string> tokens;
 	std::ifstream file(config_file.c_str());
-
 	if (!file.is_open())
 	{
 		std::cerr << "Error: Could not open config file: " << config_file << std::endl;
 		exit(EXIT_FAILURE);
 	}
+
+	std::string content;
+	std::string line;
 	while (std::getline(file, line))
 	{
+		if (!line.empty() && line[line.size() - 1] == '\r')
+			line = line.substr(0, line.size() - 1);
 		size_t comment_pos = line.find('#');
 		if (comment_pos != std::string::npos)
 			line = line.substr(0, comment_pos);
-		line = trim(line);
-		if (line.empty())
-			continue;
-		if (line != "}" && line[line.size() - 1] != '{')
+		content += line + " ";
+	}
+
+	std::vector<std::string> tokens;
+	std::string current;
+	for (size_t i = 0; i < content.size(); ++i)
+	{
+		char c = content[i];
+		if (c == '{')
 		{
-			if (line[line.size() - 1] != ';')
+			std::string tok = trim(current) + " {";
+			if (trim(current).empty())
 			{
-				std::cerr << "Error: missing semicolon: " << line << std::endl;
+				std::cerr << "Error: unexpected '{' with no preceding keyword" << std::endl;
 				exit(EXIT_FAILURE);
 			}
+			tokens.push_back(trim(tok));
+			current.clear();
 		}
-		tokens.push_back(line);
+		else if (c == '}')
+		{
+			std::string leftover = trim(current);
+			if (!leftover.empty())
+			{
+				std::cerr << "Error: missing semicolon: " << leftover << std::endl;
+				exit(EXIT_FAILURE);
+			}
+			tokens.push_back("}");
+			current.clear();
+		}
+		else if (c == ';')
+		{
+			std::string tok = trim(current);
+			if (!tok.empty())
+				tokens.push_back(tok + ";");
+			current.clear();
+		}
+		else
+		{
+			current += c;
+		}
+	}
+	std::string leftover = trim(current);
+	if (!leftover.empty())
+	{
+		std::cerr << "Error: unexpected content at end of file (missing '}' or ';'?): " << leftover << std::endl;
+		exit(EXIT_FAILURE);
 	}
 	return tokens;
 }
@@ -154,7 +191,6 @@ ServerConfig parse_server_block(const std::vector<std::string>& tokens, size_t& 
 			server.client_max_body_size = (size_t)std::atol(val.c_str());
 		else if (key == "error_page")
 		{
-			// "error_page 404 /path.html" -> val = "404 /path.html"
 			std::istringstream iss(val);
 			std::string code_str;
 			std::string path;
