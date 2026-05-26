@@ -2,6 +2,8 @@
 
 #include "webserver.hpp"
 
+
+// Configuration
 struct LocationConfig {
     std::string             path;
     std::vector<std::string> methods;       // GET, POST, DELETE
@@ -25,4 +27,13 @@ struct ServerConfig {
 
 struct Config {
     std::vector<ServerConfig> servers;
+};
+
+// Client
+
+enum ParseState {
+    PS_READING_HEADERS,
+    PS_READING_BODY,
+    PS_COMPLETE,
+    PS_ERROR
 };

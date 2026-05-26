@@ -5,7 +5,7 @@ int main(int argc, char **argv)
 {
 
 	std::cout << "Starting WebServer..." << std::endl;
-	// webserver server;
+	// Server server;
 	if (argc >= 3 && std::string(argv[1]) == "-v")
 	{
 		std::cout << "Using: " << argv[2] << std::endl;

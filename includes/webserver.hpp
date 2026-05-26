@@ -62,3 +62,7 @@
 #include "config_parser.hpp"
 #include "utils.hpp"
 #include "parse_helper.hpp"
+#include "HTTPRequest.hpp"
+#include "HTTPResponse.hpp"
+#include "client.hpp"
+#include "server.hpp"
