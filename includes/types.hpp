@@ -1,6 +1,9 @@
 #pragma once
 
-#include "webserver.hpp"
+#include <string>
+#include <vector>
+#include <map>
+#include <cstddef>
 
 
 // Configuration
@@ -32,6 +35,7 @@ struct Config {
 // Client
 
 enum ParseState {
+    PS_REQUEST_LINE,
     PS_READING_HEADERS,
     PS_READING_BODY,
     PS_COMPLETE,

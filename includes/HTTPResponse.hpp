@@ -1,5 +1,6 @@
 #pragma once
-#include "webserver.hpp"
+#include <string>
+#include <map>
 
 class HTTPResponse {
 private:

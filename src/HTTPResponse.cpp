@@ -1,8 +1,9 @@
+#include <sstream>
 #include "HTTPResponse.hpp"
 
 
 //constructors / destructor
-HTTPResponse::HTTPResponse() : statusCode(200), contentType("text/html"), body("") {}
+HTTPResponse::HTTPResponse() : _status_code(200), _reason_phrase("OK"), _body("") {}
 
 HTTPResponse::~HTTPResponse() {}
 
@@ -21,30 +22,48 @@ std::string HTTPResponse::_defaultReason(int code)
 }
 
 // Setters
-void HTTPResponse::setStatus(int code, const std::string& reason = "")
+void HTTPResponse::setStatus(int code, const std::string& reason)
 {
-	statusCode = code;
-	reasonPhrase = reason.empty() ? _defaultReason(code) : reason;
+	_status_code = code;
+	_reason_phrase = reason.empty() ? _defaultReason(code) : reason;
 }
 void HTTPResponse::setHeader(const std::string& key, const std::string& value)
 {
-	headers[key] = value;
+	_headers[key] = value;
 }
-void HTTPResponse::setBody(const std::string& body, const std::string& content_type = "text/html")
+void HTTPResponse::setBody(const std::string& body, const std::string& content_type)
 {
-	this->body = body;
+	_body = body;
 	setHeader("Content-Type", content_type);
-	setHeader("Content-Length", std::to_string(body.size()));
+	std::ostringstream oss;
+	oss << body.size();
+	setHeader("Content-Length", oss.str());
 }
 
 
 // Getters
-int                                       HTTPResponse::getStatusCode()   const { return statusCode; }
-const std::string&                        HTTPResponse::getReasonPhrase() const { return reasonPhrase; }
-const std::string&                        HTTPResponse::getBody()         const { return body; }
-const std::map<std::string, std::string>& HTTPResponse::getHeaders()      const { return headers; }
+int                                       HTTPResponse::getStatusCode()   const { return _status_code; }
+const std::string&                        HTTPResponse::getReasonPhrase() const { return _reason_phrase; }
+const std::string&                        HTTPResponse::getBody()         const { return _body; }
+const std::map<std::string, std::string>& HTTPResponse::getHeaders()      const { return _headers; }
 
 // Produce the raw HTTP/1.1 string ready to write to the socket
-std::string HTTPResponse::serialize() const;
+std::string HTTPResponse::serialize() const
+{
+	std::ostringstream oss;
+	oss << _status_code;
+	std::string response = "HTTP/1.1 " + oss.str() + " " + _reason_phrase + "\r\n";
+	for (std::map<std::string, std::string>::const_iterator it = _headers.begin(); it != _headers.end(); ++it) {
+		response += it->first + ": " + it->second + "\r\n";
+	}
+	response += "\r\n" + _body;
+	return response;
+}
 
-void HTTPResponse::reset();
+void HTTPResponse::reset()
+{
+	_status_code = 200;
+	_reason_phrase = "OK";
+	_headers.clear();
+	_body.clear();
+}

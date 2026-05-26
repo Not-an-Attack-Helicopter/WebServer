@@ -1,5 +1,8 @@
 #pragma once
-#include "webserver.hpp"
+#include <string>
+#include <map>
+#include <cstddef>
+#include "types.hpp"
 
 class HTTPRequest {
 private:

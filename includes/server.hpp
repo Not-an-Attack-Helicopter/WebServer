@@ -1,6 +1,8 @@
 #pragma once
 #include "webserver.hpp"
 
+class Client;
+
 class Server {
 private:
     Config                          _config;
