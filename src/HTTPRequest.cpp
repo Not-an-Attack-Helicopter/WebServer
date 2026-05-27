@@ -163,6 +163,7 @@ bool    HTTPRequest::_parse_body(const std::string& raw, size_t header_end)
 			return false;
 		}
 		_state = PS_COMPLETE;
+		_complete = true;
 		return true;
 	}
 

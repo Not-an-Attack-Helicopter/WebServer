@@ -36,12 +36,22 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
 	"$$(printf '#%.0s' $$(seq 1 $(COUNT)))" $(COUNT) $(TOTAL)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+# Tester – compiles every source except main.cpp, then links tester.cpp
+TESTER_NAME := tester
+TESTER_SRCS := $(filter-out $(SRC_DIR)/main.cpp, $(wildcard $(SRC_DIR)/*.cpp))
+TESTER_OBJS := $(TESTER_SRCS:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o)
+
+tester: $(TESTER_OBJS)
+	@echo "\n-------------------- Building $(TESTER_NAME) --------------------"
+	$(CXX) $(CXXFLAGS) $(TESTER_OBJS) -o $(TESTER_NAME)
+	@echo "-------------------- Done --------------------"
+
 clean:
 	rm -rf $(OBJ_DIR)
 
 fclean: clean
-	rm -f $(NAME)
+	rm -f $(NAME) $(TESTER_NAME)
 
 re: fclean all
 
-.PHONY: all clean fclean re
+.PHONY: all clean fclean re tester
