@@ -129,12 +129,17 @@ LocationConfig parse_location_block(const std::vector<std::string>& tokens, size
 			loc.upload_dir = val;
 		else if (key == "cgi_ext")
 		{
-			if(!valid_CGI_ext(val))
+			std::istringstream iss(val);
+			std::string ext;
+			while (iss >> ext)
 			{
-				std::cerr << "Error: invalid CGI extension: " << val << std::endl;
-				exit(EXIT_FAILURE);
+				if (!valid_CGI_ext(ext))
+				{
+					std::cerr << "Error: invalid CGI extension: " << ext << std::endl;
+					exit(EXIT_FAILURE);
+				}
+				loc.cgi_extension.push_back(ext);
 			}
-			loc.cgi_extension = val;
 		}
 		else if (key == "cgi_path")
 		{
@@ -272,9 +277,9 @@ bool valid_conf_ext(const std::string& filename)
 }
 
 
-bool valid_CGI_ext(const std::string& path)
+bool valid_CGI_ext(const std::string& ext)
 {
-	const std::string valid_exts[] = {".py", ".sh"};
+	const std::string valid_exts[] = {".py", ".sh", ".php"};
 	const size_t s = sizeof(valid_exts) / sizeof(valid_exts[0]);
 	return (std::find(valid_exts, valid_exts + s, ext) != valid_exts + s);
 }
