@@ -276,10 +276,6 @@ bool valid_CGI_ext(const std::string& path)
 {
 	const std::string valid_exts[] = {".py", ".sh"};
 	const size_t s = sizeof(valid_exts) / sizeof(valid_exts[0]);
-	size_t dot = path.rfind('.');
-	if (dot == std::string::npos || dot == path.size() - 1)
-		return false;
-	std::string ext = path.substr(dot);
 	return (std::find(valid_exts, valid_exts + s, ext) != valid_exts + s);
 }
 
