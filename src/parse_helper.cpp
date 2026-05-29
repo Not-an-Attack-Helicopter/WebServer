@@ -173,7 +173,7 @@ LocationConfig parse_location_block(const std::vector<std::string>& tokens, size
 }
 
 
-ServerConfig parse_server_block(const std::vector<std::string>& tokens, size_t& i)
+ServerConfig parse_server_block(const std::vector<std::string>& tokens, size_t& i, const Config& config)
 {
 	ServerConfig server;
 	server.port = 80;
@@ -241,6 +241,11 @@ ServerConfig parse_server_block(const std::vector<std::string>& tokens, size_t& 
 		exit(EXIT_FAILURE);
 	}
 	++i;
+	if (is_address_already_used(config, server.host, server.port))
+	{
+		std::cerr << "Error: host " << server.host << " port " << server.port << " is already used by another server block" << std::endl;
+		exit(EXIT_FAILURE);
+	}
 	return server;
 }
 
@@ -257,7 +262,7 @@ Config parse_config_file(const std::string& config_file)
 	for (size_t i = 0; i < tokens.size(); )
 	{
 		if (tokens[i] == "server {")
-			config.servers.push_back(parse_server_block(tokens, i));
+			config.servers.push_back(parse_server_block(tokens, i, config));
 		else
 		{
 			std::cerr << "Error: unexpected token outside server block: " << tokens[i] << std::endl;
@@ -279,7 +284,7 @@ bool valid_conf_ext(const std::string& filename)
 
 bool valid_CGI_ext(const std::string& ext)
 {
-	const std::string valid_exts[] = {".py", ".sh", ".php"};
+	const std::string valid_exts[] = {".py", ".sh"};
 	const size_t s = sizeof(valid_exts) / sizeof(valid_exts[0]);
 	return (std::find(valid_exts, valid_exts + s, ext) != valid_exts + s);
 }
