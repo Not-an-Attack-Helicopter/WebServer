@@ -281,5 +281,9 @@ bool valid_CGI_ext(const std::string& path)
 bool valid_CGI(const std::string& path)
 {
 	struct stat buffer;
-	return (stat(path.c_str(), &buffer) == 0 && (buffer.st_mode & S_IXUSR));
+	if (stat(path.c_str(), &buffer) != 0)
+		return false;
+	return (buffer.st_mode & S_IXUSR)   // owner can execute
+		|| (buffer.st_mode & S_IXGRP)   // group can execute
+		|| (buffer.st_mode & S_IXOTH);  // others can execute
 }
