@@ -15,7 +15,7 @@ struct LocationConfig {
     std::string             redirect;       // return 301 /url
     bool                    autoindex;
     std::string             upload_dir;
-    std::string             cgi_extension;  // .py, .php
+    std::vector<std::string> cgi_extension;  // .py, .php
     std::vector<std::string> cgi_path;      // /usr/bin/python3, /bin/bash
 };
 
