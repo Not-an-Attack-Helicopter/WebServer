@@ -128,9 +128,23 @@ LocationConfig parse_location_block(const std::vector<std::string>& tokens, size
 		else if (key == "upload_dir")
 			loc.upload_dir = val;
 		else if (key == "cgi_ext")
+		{
+			if(!valid_CGI_ext(val))
+			{
+				std::cerr << "Error: invalid CGI extension: " << val << std::endl;
+				exit(EXIT_FAILURE);
+			}
 			loc.cgi_extension = val;
+		}
 		else if (key == "cgi_path")
+		{	
+			if(!valid_CGI(val))
+			{
+				std::cerr << "Error: invalid CGI path: " << val << std::endl;
+				exit(EXIT_FAILURE);
+			}
 			loc.cgi_path = val;
+		}
 		else
 		{
 			std::cerr << "Error: unknown directive in location block: " << key << std::endl;
@@ -222,6 +236,11 @@ ServerConfig parse_server_block(const std::vector<std::string>& tokens, size_t& 
 
 Config parse_config_file(const std::string& config_file)
 {
+	if(!valid_conf_ext(config_file))
+	{
+		std::cerr << "Error: invalid config file extension: " << config_file << std::endl;
+		exit(EXIT_FAILURE);
+	}
 	std::vector<std::string> tokens = Tokenizer(config_file);
 	Config config;
 
@@ -236,4 +255,31 @@ Config parse_config_file(const std::string& config_file)
 		}
 	}
 	return config;
+}
+
+bool valid_conf_ext(const std::string& filename)
+{
+	size_t dot = filename.rfind('.');
+	if (dot == std::string::npos || dot == filename.size() - 1)
+		return false;
+	std::string ext = filename.substr(dot);
+	return (ext == ".conf");
+}
+
+
+bool valid_CGI_ext(const std::string& path)
+{
+	int s = 2;
+	std::string valid_exts[s] = {".py", ".php"};
+	size_t dot = path.rfind('.');
+	if (dot == std::string::npos || dot == path.size() - 1)
+		return false;
+	std::string ext = path.substr(dot);
+	return (std::find(valid_exts, valid_exts + s, ext) != valid_exts + s);
+}
+
+bool valid_CGI(const std::string& path)
+{
+	struct stat buffer;
+	return (stat(path.c_str(), &buffer) == 0 && (buffer.st_mode & S_IXUSR));
 }
