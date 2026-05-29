@@ -284,7 +284,5 @@ bool valid_CGI(const std::string& path)
 	struct stat buffer;
 	if (stat(path.c_str(), &buffer) != 0)
 		return false;
-	return (buffer.st_mode & S_IXUSR)
-		|| (buffer.st_mode & S_IXGRP)
-		|| (buffer.st_mode & S_IXOTH);
+	return S_ISREG(buffer.st_mode) && access(path.c_str(), X_OK) == 0;
 }
