@@ -269,8 +269,8 @@ bool valid_conf_ext(const std::string& filename)
 
 bool valid_CGI_ext(const std::string& path)
 {
-	int s = 2;
-	std::string valid_exts[s] = {".py", ".php"};
+	const std::string valid_exts[] = {".py", ".php"};
+	const size_t s = sizeof(valid_exts) / sizeof(valid_exts[0]);
 	size_t dot = path.rfind('.');
 	if (dot == std::string::npos || dot == path.size() - 1)
 		return false;
