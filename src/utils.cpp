@@ -44,6 +44,16 @@ bool valid_port(const std::string& port_str)
 	return port > 0 && port <= 65535;
 }
 
+bool is_address_already_used(const Config& config, const std::string& host, int port)
+{
+	for (size_t i = 0; i < config.servers.size(); ++i)
+	{
+		if (config.servers[i].port == port && config.servers[i].host == host)
+			return true;
+	}
+	return false;
+}
+
 bool valid_config_line(const std::string& line)
 {
     // List of valid keywords
