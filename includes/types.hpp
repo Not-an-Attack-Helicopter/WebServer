@@ -16,7 +16,7 @@ struct LocationConfig {
     bool                    autoindex;
     std::string             upload_dir;
     std::string             cgi_extension;  // .py, .php
-    std::string             cgi_path;
+    std::vector<std::string> cgi_path;      // /usr/bin/python3, /bin/bash
 };
 
 struct ServerConfig {

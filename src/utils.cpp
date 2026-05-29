@@ -105,7 +105,12 @@ void print_conf(const Config& config) {
 			std::cout << "            autoindex: " << (location->autoindex ? "on" : "off") << ";\n";
 			std::cout << "            upload_dir: " << location->upload_dir << ";\n";
 			std::cout << "            cgi_extension: " << location->cgi_extension << ";\n";
-			std::cout << "            cgi_path: " << location->cgi_path << ";\n";
+			std::cout << "            cgi_path: [";
+			for (size_t j = 0; j < location->cgi_path.size(); ++j) {
+				std::cout << location->cgi_path[j];
+				if (j < location->cgi_path.size() - 1) std::cout << ", ";
+			}
+			std::cout << "];\n";
 			std::cout << "        }\n";
 		}
 		std::cout << "    }\n";

@@ -137,13 +137,18 @@ LocationConfig parse_location_block(const std::vector<std::string>& tokens, size
 			loc.cgi_extension = val;
 		}
 		else if (key == "cgi_path")
-		{	
-			if(!valid_CGI(val))
+		{
+			std::istringstream iss(val);
+			std::string p;
+			while (iss >> p)
 			{
-				std::cerr << "Error: invalid CGI path: " << val << std::endl;
-				exit(EXIT_FAILURE);
+				if (!valid_CGI(p))
+				{
+					std::cerr << "Error: invalid CGI path: " << p << std::endl;
+					exit(EXIT_FAILURE);
+				}
+				loc.cgi_path.push_back(p);
 			}
-			loc.cgi_path = val;
 		}
 		else
 		{
@@ -269,7 +274,7 @@ bool valid_conf_ext(const std::string& filename)
 
 bool valid_CGI_ext(const std::string& path)
 {
-	const std::string valid_exts[] = {".py", ".php"};
+	const std::string valid_exts[] = {".py", ".sh"};
 	const size_t s = sizeof(valid_exts) / sizeof(valid_exts[0]);
 	size_t dot = path.rfind('.');
 	if (dot == std::string::npos || dot == path.size() - 1)
@@ -283,7 +288,7 @@ bool valid_CGI(const std::string& path)
 	struct stat buffer;
 	if (stat(path.c_str(), &buffer) != 0)
 		return false;
-	return (buffer.st_mode & S_IXUSR)   // owner can execute
-		|| (buffer.st_mode & S_IXGRP)   // group can execute
-		|| (buffer.st_mode & S_IXOTH);  // others can execute
+	return (buffer.st_mode & S_IXUSR)
+		|| (buffer.st_mode & S_IXGRP)
+		|| (buffer.st_mode & S_IXOTH);
 }
