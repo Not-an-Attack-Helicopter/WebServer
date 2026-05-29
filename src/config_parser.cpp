@@ -10,7 +10,6 @@ config_parser::config_parser()
 
 config_parser::config_parser(std::string config_file)
 {
-	this->config = parse_config_file("Config_Files/default.conf");
 	this->config = parse_config_file(config_file);
 	return;
 };
