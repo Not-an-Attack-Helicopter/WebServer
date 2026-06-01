@@ -103,6 +103,12 @@ LocationConfig parse_location_block(const std::vector<std::string>& tokens, size
 	else
 		loc.path = "/";
 
+	if (loc.path.empty() || loc.path[0] != '/')
+	{
+		std::cerr << "Error: invalid location path (must start with '/'): " << loc.path << std::endl;
+		exit(EXIT_FAILURE);
+	}
+
 	++i;
 
 	while (i < tokens.size() && tokens[i] != "}")
