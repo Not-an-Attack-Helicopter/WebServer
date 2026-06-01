@@ -94,6 +94,8 @@ LocationConfig parse_location_block(const std::vector<std::string>& tokens, size
 {
 	LocationConfig loc;
 	loc.autoindex = false;
+	std::vector<std::string> tmp_exts;
+	std::vector<std::string> tmp_paths;
 
 	const std::string& header = tokens[i];
 	size_t first_space = header.find(' ');
@@ -121,7 +123,14 @@ LocationConfig parse_location_block(const std::vector<std::string>& tokens, size
 			std::istringstream iss(val);
 			std::string method;
 			while (iss >> method)
+			{
+				if (!is_valid_method(method))
+				{
+					std::cerr << "Error: invalid HTTP method: " << method << std::endl;
+					exit(EXIT_FAILURE);
+				}
 				loc.methods.push_back(method);
+			}
 		}
 		else if (key == "autoindex")
 			loc.autoindex = (val == "on");
@@ -130,7 +139,14 @@ LocationConfig parse_location_block(const std::vector<std::string>& tokens, size
 		else if (key == "root")
 			loc.root = val;
 		else if (key == "return")
+		{
+			if (val.empty() || val[0] != '/')
+			{
+				std::cerr << "Error: invalid return value (must start with '/'): " << val << std::endl;
+				exit(EXIT_FAILURE);
+			}
 			loc.redirect = val;
+		}
 		else if (key == "upload_dir")
 			loc.upload_dir = val;
 		else if (key == "cgi_ext")
@@ -144,7 +160,7 @@ LocationConfig parse_location_block(const std::vector<std::string>& tokens, size
 					std::cerr << "Error: invalid CGI extension: " << ext << std::endl;
 					exit(EXIT_FAILURE);
 				}
-				loc.cgi_extension.push_back(ext);
+				tmp_exts.push_back(ext);
 			}
 		}
 		else if (key == "cgi_path")
@@ -158,7 +174,7 @@ LocationConfig parse_location_block(const std::vector<std::string>& tokens, size
 					std::cerr << "Error: invalid CGI path: " << p << std::endl;
 					exit(EXIT_FAILURE);
 				}
-				loc.cgi_path.push_back(p);
+				tmp_paths.push_back(p);
 			}
 		}
 		else
@@ -173,6 +189,21 @@ LocationConfig parse_location_block(const std::vector<std::string>& tokens, size
 	{
 		std::cerr << "Error: unclosed location block '" << loc.path << "' (missing '}}')" << std::endl;
 		exit(EXIT_FAILURE);
+	}
+	if (tmp_exts.size() != tmp_paths.size())
+	{
+		std::cerr << "Error: cgi_ext and cgi_path count mismatch in location '" << loc.path << "'" << std::endl;
+		exit(EXIT_FAILURE);
+	}
+	{
+		std::map<std::string, std::string> cgi_map;
+		for (size_t k = 0; k < tmp_exts.size(); ++k)
+			cgi_map[tmp_exts[k]] = tmp_paths[k];
+		for (std::map<std::string, std::string>::const_iterator it = cgi_map.begin(); it != cgi_map.end(); ++it)
+		{
+			loc.cgi_extension.push_back(it->first);
+			loc.cgi_path.push_back(it->second);
+		}
 	}
 	++i;
 	return loc;
@@ -218,22 +249,49 @@ ServerConfig parse_server_block(const std::vector<std::string>& tokens, size_t& 
 				server.server_names.push_back(name);
 		}
 		else if (key == "client_max_body_size")
+		{
+			if (!is_valid_body_size(std::atoi(val.c_str())))
+			{
+				std::cerr << "Error: invalid client_max_body_size: " << val << std::endl;
+				exit(EXIT_FAILURE);
+			}
 			server.client_max_body_size = (size_t)std::atol(val.c_str());
+		}
 		else if (key == "error_page")
 		{
 			std::istringstream iss(val);
 			std::string code_str;
 			std::string path;
 			if (iss >> code_str >> path)
+			{
+				if (!is_valid_error_code(std::atoi(code_str.c_str())))
+				{
+					std::cerr << "Error: invalid error code: " << code_str << std::endl;
+					exit(EXIT_FAILURE);
+				}
 				server.error_pages[std::atoi(code_str.c_str())] = path;
+			}
 		}
 		else if (key == "location")
 		{
-
-			server.locations.push_back(parse_location_block(tokens, i));
+			LocationConfig loc = parse_location_block(tokens, i);
+			for (std::vector<LocationConfig>::const_iterator it = server.locations.begin(); it != server.locations.end(); ++it)
+			{
+				const LocationConfig& existing = *it;
+				if (existing.path == loc.path)
+				{
+					std::cerr << "Error: duplicate location path: " << loc.path << std::endl;
+					exit(EXIT_FAILURE);
+				}
+			}
+			server.locations.push_back(loc);
 			continue;
 		}
-		else if (key != "root" && key != "index")
+		else if (key == "root")
+			server.root = val;
+		else if (key == "index")
+			server.index = val;
+		else
 		{
 			std::cerr << "Error: unknown directive in server block: " << key << std::endl;
 			exit(EXIT_FAILURE);
@@ -247,6 +305,8 @@ ServerConfig parse_server_block(const std::vector<std::string>& tokens, size_t& 
 		exit(EXIT_FAILURE);
 	}
 	++i;
+	if (server.host.empty())
+		server.host = "0.0.0.0";
 	if (is_address_already_used(config, server.host, server.port))
 	{
 		std::cerr << "Error: host " << server.host << " port " << server.port << " is already used by another server block" << std::endl;
@@ -274,6 +334,11 @@ Config parse_config_file(const std::string& config_file)
 			std::cerr << "Error: unexpected token outside server block: " << tokens[i] << std::endl;
 			exit(EXIT_FAILURE);
 		}
+	}
+	if (config.servers.empty())
+	{
+		std::cerr << "Error: config file has no server blocks" << std::endl;
+		exit(EXIT_FAILURE);
 	}
 	return config;
 }

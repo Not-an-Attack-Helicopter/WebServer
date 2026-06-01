@@ -94,6 +94,8 @@ void print_conf(const Config& config) {
 		std::cout << "server {\n";
 		std::cout << "    host: " << server->host << ";\n";
 		std::cout << "    port: " << server->port << ";\n";
+		std::cout << "    root: " << server->root << ";\n";
+		std::cout << "    index: " << server->index << ";\n";
 		std::cout << "    client_max_body_size: " << server->client_max_body_size << ";\n";
 		std::cout << "    error_pages {\n";
 		for (std::map<int, std::string>::const_iterator error_page = server->error_pages.begin(); error_page != server->error_pages.end(); ++error_page) {
@@ -131,4 +133,21 @@ void print_conf(const Config& config) {
 		std::cout << "    }\n";
 		std::cout << "}\n";
 	}
+}
+
+bool is_valid_method(const std::string& method)
+{
+	const std::string valid_methods[] = {"GET", "POST", "DELETE"};
+	const size_t s = sizeof(valid_methods) / sizeof(valid_methods[0]);
+	return (std::find(valid_methods, valid_methods + s, method) != valid_methods + s);
+}
+
+bool is_valid_body_size(const int size)
+{
+	return size >= 0;
+}
+
+bool is_valid_error_code(const int code)
+{
+	return code >= 400 && code < 600;
 }

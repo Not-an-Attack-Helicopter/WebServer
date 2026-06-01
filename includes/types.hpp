@@ -15,13 +15,15 @@ struct LocationConfig {
     std::string             redirect;       // return 301 /url
     bool                    autoindex;
     std::string             upload_dir;
-    std::vector<std::string> cgi_extension;  // .py, .php
+    std::vector<std::string> cgi_extension;  // .py, .sh
     std::vector<std::string> cgi_path;      // /usr/bin/python3, /bin/bash
 };
 
 struct ServerConfig {
     std::string                  host;
     int                          port;
+    std::string                  root;
+    std::string                  index;
     std::vector<std::string>     server_names;
     size_t                       client_max_body_size;
     std::map<int, std::string>   error_pages;   // 404 -> /404.html
