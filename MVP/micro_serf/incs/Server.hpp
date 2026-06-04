@@ -1,7 +1,7 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   MicroServer.hpp                                    :+:      :+:    :+:   */
+/*   Server.hpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
 /*   By: bstorck <marvin@42.fr>                     +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
@@ -17,17 +17,49 @@
 // # include <string>
 // # include <netdb.h>
 # include <netinet/in.h>
-# include <sys/socket.h>
+// # include <sys/socket.h>
+# include <map>
+#include <sys/epoll.h>
+# include "Client.hpp"
 
-class MicroServer {
+class Server {
 
 	public:
-		MicroServer(void);
-		~MicroServer(void);
-		MicroServer(const MicroServer& other);
-		MicroServer& operator = (const MicroServer& other);
+		Server(void);
+		~Server(void);
+		Server(const Server& other);
+		Server& operator = (const Server& other);
+
+		void							setNonblockFlag(int fd);
+
+		// void							bindSocket(void);
+		// void							listenToSocket(void);
+		void							prepareListeningPort(void);
+		void							prepareEPollInstance(void);
+		void							acceptConnectionRequest(int nfds);
+		void							func1(void);
 
 		class SocketException : public std::exception {
+		public:
+			virtual const char*		what(void) const throw ();
+		};
+
+		class GetFlagsException : public std::exception {
+		public:
+			virtual const char*		what(void) const throw ();
+		};
+
+		class SetFlagsException : public std::exception {
+		public:
+			virtual const char*		what(void) const throw ();
+		};
+
+		class EPollCreateException : public std::exception {
+		public:
+			virtual const char*		what(void) const throw ();
+		};
+
+		class EPollControlException : public std::exception {
 		public:
 			virtual const char*		what(void) const throw ();
 		};
@@ -48,18 +80,31 @@ class MicroServer {
 		};
 
 	private:
-		struct sockaddr_in				_sa;
-		struct sockaddr_storage			_client_addr;
-
-		socklen_t						_addr_size;
-
-		int								_socket_fd;
-		int								_client_fd;
-		static int						_status;
+		static const int				MAXEVENTS = 100;
+		static const int				BACKLOG = 10;
 
 		static const in_port_t			PORT = 4242;
-		static const int				BACKLOG = 10;
+
+		struct sockaddr_in				_sa;
+
+		int								_status;
+		int								_sockfd;
+		int								_epfd;
+
+		epoll_event						_ev;
+		epoll_event						_events[MAXEVENTS];
+
+		std::map<int, Client>			_clients;
+
 
 };
 
 #endif
+
+		// struct sockaddr_storage			_ca;
+
+		// socklen_t						_addrSize;
+
+		// int								_clientfd;
+
+		// static const char*				_message;
