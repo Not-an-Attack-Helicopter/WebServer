@@ -18,6 +18,7 @@
 # include <netdb.h>
 
 class AddressInfo {
+
 	public:
 		~AddressInfo();
 
@@ -44,8 +45,9 @@ class AddressInfo {
 		char						_buff6[INET6_ADDRSTRLEN];
 		static const int			LEN6 = sizeof(_buff6);
 
-		AddressInfo(const AddressInfo& other);
-		AddressInfo& operator = (const AddressInfo& other);
+		// AddressInfo(const AddressInfo& other);
+		// AddressInfo& operator = (const AddressInfo& other);
+
 };
 
 #endif

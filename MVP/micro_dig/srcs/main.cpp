@@ -21,6 +21,22 @@ int main(int ac, char** av) {
 
 	if (ac == 1) {
 
+		std::cerr << "usage: " << av[0] << " <hostname>" << std::endl;
+		return (0);
+
+	} else if (ac == 2) {
+
+		try {
+			AddressInfo::getInstance(av[1]).gai();
+		} catch (const std::exception& e) {
+			std::cerr << "\e[31mError: " << e.what() << "\e[0m" << std::endl;
+			return (1);
+		}
+
+		return (0);
+
+	} else {
+
 		char	buffer[INET_ADDRSTRLEN];
 		int		len = sizeof(buffer);
 
@@ -48,74 +64,66 @@ int main(int ac, char** av) {
 		std::cout << "sa.sin_addr.s_addr (host order)\t\t" << ntohl(sa.sin_addr.s_addr) << std::endl;
 		std::cout << "sa.sin_addr.s_addr (network order)\t" << sa.sin_addr.s_addr << std::endl;
 
+		std::cout << "\n0\t\e[31m" << gai_strerror(0) << "\e[0m" << std::endl;
+		for (int i = 1; i < 14; ++i) {
+			std::cout << "-" << i << "\t\e[31m" << gai_strerror(-i) << "\e[0m" << std::endl;
+		}
+
 		std::cout << "\ntry: " << av[0] << " <hostname>" << std::endl;
 
 		return (0);
-
-	} else if (ac == 2) {
-
-		try {
-			AddressInfo::getInstance(av[1]).gai();
-		} catch (const std::exception& e) {
-			std::cerr << "\e[31mError: " << e.what() << "\e[0m" << std::endl;
-		}
-
-		// delete ai;
-
-		return (0);
-
-	} else {
-
-		std::cerr << "usage: " << av[0] << " <hostname>" << std::endl;
-		return (1);
 
 	}
 
 }
 
-// struct addrinfo		req = {};
-// struct addrinfo*	pai = 0;
-// struct addrinfo*	head = 0;
-// int					status;
-// char				buff[INET_ADDRSTRLEN];
-// int					len = sizeof(buff);
-// char				buff6[INET6_ADDRSTRLEN];
-// int					len6 = sizeof(buff6);
-
-// req.ai_family = AF_UNSPEC;
-// req.ai_socktype = SOCK_STREAM;
-
-// status = getaddrinfo(av[1], 0, &req, &pai);
-// if (status) {
-// 	std::cerr << "getaddrinfo: " << gai_strerror(status) << std::endl;
-// 	return (2);
-// }
-
-// std::cout << "IP addresses for " << av[1] << ":" << std::endl;
-
-// head = pai;
-
-// while (head) {
-
-// 	if (head->ai_family == AF_INET) {
-
-// 		struct sockaddr_in* ipv4 = (struct sockaddr_in*) head->ai_addr;
-// 		inet_ntop(AF_INET, &(ipv4->sin_addr), buff, len);
-// 		std::cout << "IPv4: " << buff << std::endl;
-
-// 	} else {
-
-// 		struct sockaddr_in6* ipv6 = (struct sockaddr_in6*) head->ai_addr;
-// 		inet_ntop(AF_INET6, &(ipv6->sin6_addr), buff6, len6);
-// 		std::cout << "IPv6: " << buff6 << std::endl;
-
+// else if (ac == 2) {
+// 	struct addrinfo		req = {};
+// 	struct addrinfo*	pai = nullptr;
+// 	struct addrinfo*	head = nullptr;
+// 	int					status = 0;
+// 	char				buff[INET_ADDRSTRLEN];
+// 	int					len = sizeof(buff);
+// 	char				buff6[INET6_ADDRSTRLEN];
+// 	int					len6 = sizeof(buff6);
+//
+// 	req.ai_family = AF_UNSPEC;
+// 	req.ai_socktype = SOCK_STREAM;
+//
+// 	status = getaddrinfo(av[1], 0, &req, &pai);
+// 	if (status) {
+// 		std::cerr << "getaddrinfo: " << gai_strerror(status) << std::endl;
+// 		return (1);
 // 	}
-
-// 	head = head->ai_next;
-
+//
+// 	std::cout << "IP addresses for " << av[1] << ":" << std::endl;
+//
+// 	head = pai;
+//
+// 	while (head) {
+//
+// 		if (head->ai_family == AF_INET) {
+//
+// 			struct sockaddr_in* ipv4 = (struct sockaddr_in*) head->ai_addr;
+// 			inet_ntop(AF_INET, &(ipv4->sin_addr), buff, len);
+// 			std::cout << "IPv4: " << buff << std::endl;
+//
+// 		} else {
+//
+// 			struct sockaddr_in6* ipv6 = (struct sockaddr_in6*) head->ai_addr;
+// 			inet_ntop(AF_INET6, &(ipv6->sin6_addr), buff6, len6);
+// 			std::cout << "IPv6: " << buff6 << std::endl;
+//
+// 		}
+//
+// 		head = head->ai_next;
+//
+// 	}
+//
+// 	freeaddrinfo(pai);
+// 	return (0);
 // }
-
-// freeaddrinfo(pai);
 
 // AddressInfo ai(av[1]);
 // AddressInfo* ai = new AddressInfo(av[1]);
+// delete ai;

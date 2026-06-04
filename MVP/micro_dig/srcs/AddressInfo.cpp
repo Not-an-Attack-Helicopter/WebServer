@@ -70,7 +70,7 @@ AddressInfo* AddressInfo::_instance = NULL;
 /*	@brief Constructor	*/
 AddressInfo::AddressInfo(const std::string& hostname) : _hostname(hostname) {
 	std::cerr << "\e[3;93mAddressInfo Constructor called\e[0m" << std::endl;
-	_pai = 0;
+	_pai = NULL;
 	_req.ai_flags = 0;
 	_req.ai_family = 0;
 	_req.ai_socktype = 0;
