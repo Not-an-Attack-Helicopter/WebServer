@@ -13,13 +13,13 @@
 #ifndef MICRO_SERVER_H
 # define MICRO_SERVER_H
 
-# include <exception>
-// # include <string>
 // # include <netdb.h>
 # include <netinet/in.h>
 // # include <sys/socket.h>
+# include <sys/epoll.h>
+// # include <string>
+# include <exception>
 # include <map>
-#include <sys/epoll.h>
 # include "Client.hpp"
 
 class Server {
@@ -31,13 +31,15 @@ class Server {
 		Server& operator = (const Server& other);
 
 		void							setNonblockFlag(int fd);
+		void							setReadInterest(int fd);
 
+		// void							createSocket(void);
 		// void							bindSocket(void);
 		// void							listenToSocket(void);
 		void							prepareListeningPort(void);
 		void							prepareEPollInstance(void);
-		void							acceptConnectionRequest(int nfds);
-		void							func1(void);
+		void							handleIncomingEvents(void);
+		void							acceptConnectRequest(void);
 
 		class SocketException : public std::exception {
 		public:
@@ -53,6 +55,11 @@ class Server {
 		public:
 			virtual const char*		what(void) const throw ();
 		};
+
+		// class FcntlException : public std::exception {
+		// public:
+		// 	virtual const char*		what(void) const throw ();
+		// };
 
 		class EPollCreateException : public std::exception {
 		public:
@@ -80,31 +87,31 @@ class Server {
 		};
 
 	private:
+		static const in_addr_t			SERVERADDRESS = INADDR_LOOPBACK;
+		static const in_port_t			PORT = 4242;
+
 		static const int				MAXEVENTS = 100;
 		static const int				BACKLOG = 10;
 
-		static const in_port_t			PORT = 4242;
-
-		struct sockaddr_in				_sa;
-
-		int								_status;
+		// int								_status;
 		int								_sockfd;
 		int								_epfd;
+
+		sockaddr_in						_sa;
 
 		epoll_event						_ev;
 		epoll_event						_events[MAXEVENTS];
 
 		std::map<int, Client>			_clients;
 
-
 };
 
 #endif
 
-		// struct sockaddr_storage			_ca;
+// sockaddr_storage			_ca;
 
-		// socklen_t						_addrSize;
+// socklen_t						_addrSize;
 
-		// int								_clientfd;
+// int								_clientfd;
 
-		// static const char*				_message;
+// static const char*				_message;
