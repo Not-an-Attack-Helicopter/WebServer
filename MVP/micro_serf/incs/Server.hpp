@@ -32,10 +32,6 @@ class Server {
 
 		void							setNonblockFlag(int fd);
 		void							setReadInterest(int fd);
-
-		// void							createSocket(void);
-		// void							bindSocket(void);
-		// void							listenToSocket(void);
 		void							prepareListeningPort(void);
 		void							prepareEPollInstance(void);
 		void							handleIncomingEvents(void);
@@ -46,37 +42,37 @@ class Server {
 			virtual const char*		what(void) const throw ();
 		};
 
-		class GetFlagsException : public std::exception {
-		public:
-			virtual const char*		what(void) const throw ();
-		};
-
-		class SetFlagsException : public std::exception {
-		public:
-			virtual const char*		what(void) const throw ();
-		};
-
-		// class FcntlException : public std::exception {
-		// public:
-		// 	virtual const char*		what(void) const throw ();
-		// };
-
-		class EPollCreateException : public std::exception {
-		public:
-			virtual const char*		what(void) const throw ();
-		};
-
-		class EPollControlException : public std::exception {
-		public:
-			virtual const char*		what(void) const throw ();
-		};
-
 		class BindException : public std::exception {
 		public:
 			virtual const char*		what(void) const throw ();
 		};
 
 		class ListenException : public std::exception {
+		public:
+			virtual const char*		what(void) const throw ();
+		};
+
+		class CreateEPollException : public std::exception {
+		public:
+			virtual const char*		what(void) const throw ();
+		};
+
+		class ModifyEPollException : public std::exception {
+		public:
+			virtual const char*		what(void) const throw ();
+		};
+
+		class EventPollingException : public std::exception {
+		public:
+			virtual const char*		what(void) const throw ();
+		};
+
+		class GetFlagsException : public std::exception {
+		public:
+			virtual const char*		what(void) const throw ();
+		};
+
+		class SetFlagsException : public std::exception {
 		public:
 			virtual const char*		what(void) const throw ();
 		};
@@ -93,7 +89,6 @@ class Server {
 		static const int				MAXEVENTS = 100;
 		static const int				BACKLOG = 10;
 
-		// int								_status;
 		int								_sockfd;
 		int								_epfd;
 
@@ -108,10 +103,17 @@ class Server {
 
 #endif
 
-// sockaddr_storage			_ca;
+		// void							createSocket(void);
+		// void							bindSocket(void);
+		// void							listenToSocket(void);
 
+// class FcntlException : public std::exception {
+// public:
+// 	virtual const char*		what(void) const throw ();
+// };
+
+// int								_status;
+// sockaddr_storage				_ca;
 // socklen_t						_addrSize;
-
 // int								_clientfd;
-
 // static const char*				_message;

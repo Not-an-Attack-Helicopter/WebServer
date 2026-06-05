@@ -34,10 +34,15 @@ class Client {
 
 		socklen_t*					getAddrlenPointer(void) const;
 
+		// static int					count;
+
 	private:
+
 		sockaddr_storage			_addr;
 
 		socklen_t					_addrlen;
+
+		// const int					_id;
 
 		std::string					_readBuffer;
 		std::string					_writeBuffer;

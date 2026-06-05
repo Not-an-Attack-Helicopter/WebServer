@@ -22,22 +22,80 @@ void setNonblockFlag(int fd) {
 
 int main(void) {
 
+	// Server* microSerf = new Server();
+	Server microServ;
+
 	try {
-		// Server* microSerf = new Server();
-		Server microSerf(void);
+		microServ.prepareListeningPort();
 	} catch (Server::SocketException& e) {
 		std::cerr	<< "\e[31mError: socket: " << e.what() << "\e[0m"
 					<< std::endl;
-	} catch (Server::GetFlagsException& e) {
-		std::cerr	<< "\e[31mError: fcntl(F_GETFL): " << e.what() << "\e[0m"
+		return 1;
+	} catch (Server::BindException& e) {
+		std::cerr	<< "\e[31mError: bind: " << e.what() << "\e[0m"
 					<< std::endl;
-	} catch (Server::SetFlagsException& e) {
-		std::cerr	<< "\e[31mError: fcntl(F_SETFL): " << e.what() << "\e[0m"
+		return 1;
+	} catch (Server::ListenException& e) {
+		std::cerr	<< "\e[31mError: listen: " << e.what() << "\e[0m"
 					<< std::endl;
+		return 1;
 	} catch (const std::exception& e) {
 		std::cerr	<< "\e[31mError: No server created. " << e.what() << "\e[0m"
 					<< std::endl;
+		return 1;
+	}
+
+	try {
+		microServ.prepareEPollInstance();
+	} catch (Server::CreateEPollException& e) {
+		std::cerr	<< "\e[31mError: epoll_create " << e.what() << "\e[0m"
+					<< std::endl;
+		return 1;
+	} catch (Server::ModifyEPollException& e) {
+		std::cerr	<< "\e[31mError: epoll_ctl: " << e.what() << "\e[0m"
+					<< std::endl;
+		return 1;
+	} catch (const std::exception& e) {
+		std::cerr	<< "\e[31mError: No epoll instance created. " << e.what() << "\e[0m"
+					<< std::endl;
+		return 1;
+	}
+
+	try {
+		microServ.handleIncomingEvents();
+	} catch (Server::EventPollingException& e) {
+		std::cerr	<< "\e[31mError: epoll_wait: " << e.what() << "\e[0m"
+					<< std::endl;
+		return 1;
+	} catch (Server::AcceptException& e) {
+		std::cerr	<< "\e[31mError: accept: " << e.what() << "\e[0m"
+					<< std::endl;
+		return 1;
+	} catch (Server::GetFlagsException& e) {
+		std::cerr	<< "\e[31mError: fcntl(F_GETFL): " << e.what() << "\e[0m"
+					<< std::endl;
+		return 1;
+	} catch (Server::SetFlagsException& e) {
+		std::cerr	<< "\e[31mError: fcntl(F_SETFL): " << e.what() << "\e[0m"
+					<< std::endl;
+		return 1;
+	} catch (Server::ModifyEPollException& e) {
+		std::cerr	<< "\e[31mError: epoll_ctl: " << e.what() << "\e[0m"
+					<< std::endl;
+		return 1;
+	} catch (const std::exception& e) {
+		std::cerr	<< "\e[31mError: Event handling failed. " << e.what() << "\e[0m"
+					<< std::endl;
+		return 1;
 	}
 
 	return 0;
 }
+
+	// catch (Server::GetFlagsException& e) {
+	// 	std::cerr	<< "\e[31mError: fcntl(F_GETFL): " << e.what() << "\e[0m"
+	// 				<< std::endl;
+	// } catch (Server::SetFlagsException& e) {
+	// 	std::cerr	<< "\e[31mError: fcntl(F_SETFL): " << e.what() << "\e[0m"
+	// 				<< std::endl;
+	// }
