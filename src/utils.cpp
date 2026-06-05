@@ -151,3 +151,27 @@ bool is_valid_error_code(const int code)
 {
 	return code >= 400 && code < 600;
 }
+
+std::string get_content_type(const std::string& path)
+{
+	size_t dot = path.rfind('.');
+	if (dot == std::string::npos || dot == path.size() - 1)
+		return "application/octet-stream";
+	std::string ext = path.substr(dot);
+	if (ext == ".html" || ext == ".htm")
+		return "text/html";
+	else if (ext == ".css")
+		return "text/css";
+	else if (ext == ".js")
+		return "application/javascript";
+	else if (ext == ".jpg" || ext == ".jpeg")
+		return "image/jpeg";
+	else if (ext == ".png")
+		return "image/png";
+	else if (ext == ".gif")
+		return "image/gif";
+	else if (ext == ".py" || ext == ".sh")
+		return "text/x-script";
+	else
+		return "application/octet-stream";
+}
