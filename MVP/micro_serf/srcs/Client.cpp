@@ -21,15 +21,19 @@
 
 /*	@brief Constructor	*/
 Client::Client(void) : _addrlen(sizeof(_addr))/*, _id(++count)*/ {
-	// std::cerr << "\e[3;93mClient Constructor called: " << _id << "\e[0m" << std::endl;
-	std::cerr << "\e[3;93mClient Constructor called\e[0m" << std::endl;
+	// std::cerr	<< "\e[3;93mClient Constructor called: "
+	// 			<< _id << "\e[0m" << std::endl;
+	std::cerr	<< "\e[3;93mClient Constructor called\e[0m"
+				<< std::endl;
 	return;
 }
 
 /*	@brief Destructor	*/
 Client::~Client(void) {
-	// std::cerr << "\e[3;93mClient Destructor called: " << _id << "\e[0m" << std::endl;
-	std::cerr << "\e[3;93mClient Destructor called\e[0m" << std::endl;
+	// std::cerr	<< "\e[3;93mClient Destructor called: "
+	// 			<< _id << "\e[0m" << std::endl;
+	std::cerr	<< "\e[3;93mClient Destructor called\e[0m"
+				<< std::endl;
 	return;
 }
 
@@ -40,16 +44,20 @@ Client::Client(const Client& other)
 		// _id(other._id * 10),
 		_readBuffer(other._readBuffer),
 		_writeBuffer(other._writeBuffer) {
-	// std::cerr	<< "\e[3;93mClient Copy Constructor called: " << other._id << " -> " << _id << "\e[0m" << std::endl;
-	std::cerr	<< "\e[3;93mClient Copy Constructor called\e[0m" << std::endl;
+	// std::cerr	<< "\e[3;93mClient Copy Constructor called: "
+	// 				<< other._id << " -> " << _id << "\e[0m" << std::endl;
+	std::cerr	<< "\e[3;93mClient Copy Constructor called\e[0m"
+				<< std::endl;
 	// *this = other;
 	return;
 }
 
 /*	@brief Copy Assignment Operator	*/
 Client& Client::operator = (const Client& other) {
-	// std::cerr	<< "\e[3;93mClient Copy Assignment Operator called: " << other._id << " -> " << _id  << "\e[0m" << std::endl;
-	std::cerr	<< "\e[3;93mClient Copy Assignment Operator called\e[0m" << std::endl;
+	// std::cerr	<< "\e[3;93mClient Copy Assignment Operator called: "
+	// 			<< other._id << " -> " << _id  << "\e[0m" << std::endl;
+	std::cerr	<< "\e[3;93mClient Copy Assignment Operator called\e[0m"
+				<< std::endl;
 	if (this != &other) {
 		_addr = other._addr;
 		_addrlen = other._addrlen;

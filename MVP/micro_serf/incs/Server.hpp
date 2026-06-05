@@ -103,9 +103,9 @@ class Server {
 
 #endif
 
-		// void							createSocket(void);
-		// void							bindSocket(void);
-		// void							listenToSocket(void);
+// void							createSocket(void);
+// void							bindSocket(void);
+// void							listenToSocket(void);
 
 // class FcntlException : public std::exception {
 // public:

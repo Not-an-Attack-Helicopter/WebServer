@@ -25,7 +25,8 @@
 
 /*	@brief Constructor	*/
 Server::Server(void) {
-	std::cerr << "\e[3;93mServer Constructor called\e[0m" << std::endl;
+	std::cerr	<< "\e[3;93mServer Constructor called\e[0m"
+				<< std::endl;
 	_sockfd = 0;
 	_epfd = 0;
 	_sa.sin_family = 0;
@@ -39,20 +40,23 @@ Server::Server(void) {
 
 /*	@brief Destructor	*/
 Server::~Server(void) {
-	std::cerr << "\e[3;93mServer Destructor called\e[0m" << std::endl;
+	std::cerr	<< "\e[3;93mServer Destructor called\e[0m"
+				<< std::endl;
 	return;
 }
 
 /*	@brief Copy Constructor	*/
 Server::Server(const Server& other) {
-	std::cerr	<< "\e[3;93mServer Copy Constructor called\e[0m" << std::endl;
+	std::cerr	<< "\e[3;93mServer Copy Constructor called\e[0m"
+				<< std::endl;
 	*this = other;
 	return;
 }
 
 /*	@brief Copy Assignment Operator	*/
 Server& Server::operator = (const Server& other) {
-	std::cerr	<< "\e[3;93mServer Copy Assignment Operator called\e[0m" << std::endl;
+	std::cerr	<< "\e[3;93mServer Copy Assignment Operator called\e[0m"
+				<< std::endl;
 	if (this != &other) {}
 	return *this;
 }
@@ -89,17 +93,20 @@ void Server::prepareListeningPort(void) {
 		throw SocketException();
 	}
 	// setNonblockFlag(_sockfd);
-	std::cout << "\e[3;93mCreated server socket fd: " << _sockfd << "\e[0m" << std::endl;
+	std::cout	<< "\e[3;93mCreated server socket fd: " << _sockfd
+				<< "\e[0m" << std::endl;
 	status = bind(_sockfd, (sockaddr*)&_sa, sizeof(_sa));
 	if (status == -1) {
 		throw BindException();
 	}
-	std::cout << "\e[3;93mBound socket to localhost:" << PORT << "\e[0m" << std::endl;
+	std::cout	<< "\e[3;93mBound socket to localhost:" << PORT
+				<< "\e[0m" << std::endl;
 	status = listen(_sockfd, BACKLOG);
 	if (status == -1) {
 		throw ListenException();
 	}
-	std::cout << "\e[3;93mListening on port " << PORT << "\e[0m" << std::endl;
+	std::cout	<< "\e[3;93mListening on port " << PORT
+				<< "\e[0m" << std::endl;
 	return;
 }
 
@@ -109,7 +116,8 @@ void Server::prepareEPollInstance(void) {
 		throw CreateEPollException();
 	}
 	setReadInterest(_sockfd);
-	std::cout << "\e[3;93mPrepared epoll instance epfd: " << _epfd << "\e[0m" << std::endl;
+	std::cout	<< "\e[3;93mPrepared epoll instance epfd: " << _epfd
+				<< "\e[0m" << std::endl;
 }
 
 void Server::handleIncomingEvents(void) {
@@ -149,8 +157,8 @@ void Server::acceptConnectRequest(void) {
 	std::cout	<< "\e[3;93mNew connection! Socket fd: "
 				<< _sockfd << ", client fd: " << fd
 				<< "\e[0m" << std::endl;
-	_clients.erase(fd);
 	close(fd);
+	_clients.erase(fd);
 	return ;
 }
 
