@@ -32,10 +32,15 @@ class Server {
 
 		void							setNonblockFlag(int fd);
 		void							setReadInterest(int fd);
+		void							addWriteInterest(int fd);
+		void							removeWriteInterest(int fd);
 		void							prepareListeningPort(void);
 		void							prepareEPollInstance(void);
 		void							handleIncomingEvents(void);
 		void							acceptConnectRequest(void);
+		void							handleReadEvent(epoll_event e);
+		void							handleWriteEvent(epoll_event e);
+		void							cleanUpAllRessources(void);
 
 		class SocketException : public std::exception {
 		public:
@@ -78,6 +83,16 @@ class Server {
 		};
 
 		class AcceptException : public std::exception {
+		public:
+			virtual const char*		what(void) const throw ();
+		};
+
+		class ReadDataException : public std::exception {
+		public:
+			virtual const char*		what(void) const throw ();
+		};
+
+		class FlushDataException : public std::exception {
 		public:
 			virtual const char*		what(void) const throw ();
 		};

@@ -83,6 +83,15 @@ int main(void) {
 		std::cerr	<< "\e[31mError: epoll_ctl: " << e.what()
 					<< "\e[0m" << std::endl;
 		return 1;
+	} catch (Server::ReadDataException& e) {
+		// std::cerr	<< "\e[31mError: recv: " << e.what()
+		std::cerr	<< "\e[31mServer shutdown initiated"
+					<< "\e[0m" << std::endl;
+		return 1;
+	} catch (Server::FlushDataException& e) {
+		std::cerr	<< "\e[31mError: send: " << e.what()
+					<< "\e[0m" << std::endl;
+		return 1;
 	} catch (const std::exception& e) {
 		std::cerr	<< "\e[31mError: Event handling failed. " << e.what()
 					<< "\e[0m" << std::endl;

@@ -42,8 +42,8 @@ Client::Client(const Client& other)
 	:	_addr(other._addr),
 		_addrlen(other._addrlen),
 		// _id(other._id * 10),
-		_readBuffer(other._readBuffer),
-		_writeBuffer(other._writeBuffer) {
+		_incomingData(other._incomingData),
+		_outgoingData(other._outgoingData) {
 	// std::cerr	<< "\e[3;93mClient Copy Constructor called: "
 	// 				<< other._id << " -> " << _id << "\e[0m" << std::endl;
 	std::cerr	<< "\e[3;93mClient Copy Constructor called\e[0m"
@@ -61,24 +61,41 @@ Client& Client::operator = (const Client& other) {
 	if (this != &other) {
 		_addr = other._addr;
 		_addrlen = other._addrlen;
-		_readBuffer = other._readBuffer;
-		_writeBuffer = other._writeBuffer;
+		_incomingData = other._incomingData;
+		_outgoingData = other._outgoingData;
 	}
 	return *this;
 }
 
-bool Client::hasPendingWrites(void) const {
-	return !_writeBuffer.empty();
+const std::string& Client::getIncomingData(void) const {
+	return (_incomingData);
 }
 
-void Client::queueResponse(const std::string& message) {
-	_writeBuffer.append(message);
+const std::string& Client::getOutgoingData(void) const {
+	return (_outgoingData);
+}
+
+void Client::queueIncomingData(char buffer[1024]) {
+	_incomingData.append(buffer);
 	return;
 }
 
-size_t Client::flush(int fd) {
-	int ret = fd;
-	return ret;
+void Client::queueOutgoingData(const std::string& message) {
+	_outgoingData.append(message);
+	return;
+}
+
+bool Client::hasPendingData(void) const {
+	return !_outgoingData.empty();
+}
+
+int Client::flushPendingData(int fd) {
+	// std::cout << "Trying to send: " << _outgoingData << std::endl;
+	ssize_t n = send(fd, _outgoingData.c_str(), sizeof(_outgoingData), 0);
+	_outgoingData.erase(0, n);
+	// std::cout << _outgoingData.empty() << std::endl;
+	// std::cout << "-----\n" << _outgoingData << "-----\n" << std::endl;
+	return n;
 }
 
 sockaddr* Client::getAddrPointer(void) const {

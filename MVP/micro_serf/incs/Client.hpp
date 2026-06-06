@@ -24,11 +24,15 @@ class Client {
 		Client(const Client& other);
 		Client& operator = (const Client& other);
 
-		bool						hasPendingWrites(void) const;
+		const std::string&			getIncomingData(void) const;
+		const std::string&			getOutgoingData(void) const;
 
-		void						queueResponse(const std::string& message);
+		void						queueIncomingData(char buffer[1024]);
+		void						queueOutgoingData(const std::string& message);
 
-		size_t						flush(int fd);
+		bool						hasPendingData(void) const;
+
+		int							flushPendingData(int fd);
 
 		sockaddr*					getAddrPointer(void) const;
 
@@ -42,8 +46,8 @@ class Client {
 		socklen_t					_addrlen;
 
 
-		std::string					_readBuffer;
-		std::string					_writeBuffer;
+		std::string					_incomingData;
+		std::string					_outgoingData;
 };
 
 #endif
