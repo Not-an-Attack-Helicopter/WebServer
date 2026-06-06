@@ -104,9 +104,15 @@ void Server::removeWriteInterest(int fd) {
 	return;
 }
 
-void Server::prepareListeningPort(void) {
+// void Server::prepareListeningPort(void) {
+void Server::prepareListeningPort(const std::string& address) {
 	int status = 0;
-	_sa.sin_addr.s_addr = htonl(SERVERADDRESS);
+	// _sa.sin_addr.s_addr = htonl(SERVERADDRESS);
+	if (address == "") {
+		_sa.sin_addr.s_addr = htonl(SERVERADDRESS);
+	} else {
+		inet_pton(AF_INET, address.c_str(), &_sa.sin_addr);
+	}
 	_sa.sin_port = htons(PORT);
 	_sa.sin_family = AF_INET;
 	_sockfd = socket(_sa.sin_family, SOCK_STREAM | O_NONBLOCK, 0);

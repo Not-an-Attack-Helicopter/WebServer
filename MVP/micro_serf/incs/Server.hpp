@@ -34,7 +34,8 @@ class Server {
 		void							setReadInterest(int fd);
 		void							addWriteInterest(int fd);
 		void							removeWriteInterest(int fd);
-		void							prepareListeningPort(void);
+		// void							prepareListeningPort(void);
+		void							prepareListeningPort(const std::string& address);
 		void							prepareEPollInstance(void);
 		void							handleIncomingEvents(void);
 		void							acceptConnectRequest(void);

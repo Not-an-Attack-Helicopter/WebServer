@@ -20,13 +20,20 @@ void setNonblockFlag(int fd) {
 	fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 }
 
-int main(void) {
+// int main(void) {
+int main(int ac, char** av) {
+
+	std::string address;
+	if (ac == 2) {
+		address = *av[1];
+	}
 
 	// Server* microServ = new Server();
 	Server microServ;
 
 	try {
-		microServ.prepareListeningPort();
+		// microServ.prepareListeningPort();
+		microServ.prepareListeningPort(address);
 	} catch (Server::SocketException& e) {
 		std::cerr	<< "\e[31mError: socket: " << e.what()
 					<< "\e[0m" << std::endl;
