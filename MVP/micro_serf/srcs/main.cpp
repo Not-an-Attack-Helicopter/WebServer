@@ -92,7 +92,7 @@ int main(int ac, char** av) {
 		return 1;
 	} catch (Server::ReadDataException& e) {
 		// std::cerr	<< "\e[31mError: recv: " << e.what()
-		std::cerr	<< "\e[31mServer shutdown initiated"
+		std::cout	<< "\e[31mServer shutdown initiated"
 					<< "\e[0m" << std::endl;
 		return 1;
 	} catch (Server::FlushDataException& e) {
