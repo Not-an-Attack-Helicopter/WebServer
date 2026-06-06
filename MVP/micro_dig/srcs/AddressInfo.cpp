@@ -24,7 +24,7 @@ int AddressInfo::_status = 0;
 AddressInfo::~AddressInfo(void) {
 	std::cerr << "\e[3;93mAddressInfo Destructor called\e[0m" << std::endl;
 	freeaddrinfo(_pai);
-	return ;
+	return;
 }
 
 void AddressInfo::gai(void) {
@@ -49,7 +49,7 @@ void AddressInfo::gai(void) {
 		}
 		head = head->ai_next;
 	}
-	return ;
+	return;
 }
 
 const char* AddressInfo::GetAddressInfoException::what(void) const throw () {
@@ -58,7 +58,7 @@ const char* AddressInfo::GetAddressInfoException::what(void) const throw () {
 
 AddressInfo& AddressInfo::getInstance(const std::string& hostname) {
 	static AddressInfo _instance(hostname);
-	return (_instance);
+	return _instance;
 }
 
   //~~~~~~~~~~~//
@@ -83,7 +83,7 @@ AddressInfo::AddressInfo(const std::string& hostname) : _hostname(hostname) {
 	for (int i = 0; i < LEN6; ++i) {
 		_buff6[i] = 0;
 	}
-	return ;
+	return;
 }
 
 // /*	@brief Copy Constructor	*/
