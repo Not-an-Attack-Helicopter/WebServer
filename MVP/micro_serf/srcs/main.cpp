@@ -25,7 +25,7 @@ int main(int ac, char** av) {
 
 	std::string address;
 	if (ac == 2) {
-		address = *av[1];
+		address = av[1];
 	}
 
 	// Server* microServ = new Server();
