@@ -1,7 +1,7 @@
 # This is a webserver created for the 42 Common core of 42 Luxemburg
 
 ## about
-*this project was created by: gpochen sholz bstork*
+*this project was created by: gpochon sholz bstork*
 the goal of this project was to create a webserver that is written in c++98 that is compatible with HTTP.
 
 ## setup
