@@ -27,9 +27,12 @@ CGIResult run_cgi(const std::string& path, const std::vector<std::string>& args,
             _exit(1);
         close(in_pipe[0]);
         close(out_pipe[1]);
-        // todo: build argv/envp, then execve
+        std::vector<char*> argv;
+        for (size_t i = 0; i < args.size(); ++i)
+            argv.push_back(const_cast<char*>(args[i].c_str()));
+        argv.push_back(NULL);
+        // todo: build envp, then execve
         (void)path;
-        (void)args;
         (void)env;
         _exit(1);
     }
