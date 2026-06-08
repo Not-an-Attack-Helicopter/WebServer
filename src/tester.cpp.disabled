@@ -231,9 +231,34 @@ static void test_response_empty_body()
     ASSERT(raw.substr(sep + 4) == "",  "no body after separator");
 }
 
+static void test_response_header_overwrite()
+{
+    print_section("HTTPResponse - header overwrite");
+    HTTPResponse res;
+
+    res.setHeader("X-Test", "one");
+    res.setHeader("X-Test", "two");
+
+    std::string raw = res.serialize();
+    ASSERT(raw.find("X-Test: two") != std::string::npos, "header value overwritten");
+    ASSERT(raw.find("X-Test: one") == std::string::npos, "old header value removed");
+}
+
+static void test_response_default_reason_405()
+{
+    print_section("HTTPResponse - default reason 405");
+    HTTPResponse res;
+
+    res.setStatus(405);
+
+    ASSERT(res.getReasonPhrase() == "Method Not Allowed", "default reason phrase for 405");
+    ASSERT(res.serialize().find("405 Method Not Allowed") != std::string::npos, "serialized 405 status line");
+}
+
 // --------------------------------------------------------------------------
 // Entry point
 // --------------------------------------------------------------------------
+
 int main()
 {
     // HTTPRequest
@@ -251,6 +276,8 @@ int main()
     test_response_content_length();
     test_response_reset();
     test_response_empty_body();
+    test_response_header_overwrite();
+    test_response_default_reason_405();
 
     // Summary
     std::cout << "\n----------------------------------------\n";
