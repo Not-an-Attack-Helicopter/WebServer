@@ -24,30 +24,34 @@ class Client {
 		Client(const Client& other);
 		Client& operator = (const Client& other);
 
+// DEBUG
 		const std::string&			getIncomingData(void) const;
-		const std::string&			getOutgoingData(void) const;
-
-		void						queueIncomingData(char buffer[1024]);
-		void						queueOutgoingData(const std::string& message);
-
-		bool						hasPendingData(void) const;
-
-		int							flushPendingData(int fd);
+		// const std::string&			getOutgoingData(void) const;
+		const std::string			getBuffer(void) const;
+// DEBUG
 
 		sockaddr*					getAddrPointer(void) const;
 
 		socklen_t*					getAddrlenPointer(void) const;
 
+		void						queueIncomingData(size_t len);
+		void						queueOutgoingData(const std::string& message);
+
+		bool						hasPendingData(void) const;
+
+		ssize_t						fillPendingData(int fd);
+		ssize_t						flushPendingData(int fd);
 
 	private:
-
 		sockaddr_storage			_addr;
 
 		socklen_t					_addrlen;
 
+		char						_buffer[1024];
 
 		std::string					_incomingData;
 		std::string					_outgoingData;
+
 };
 
 #endif

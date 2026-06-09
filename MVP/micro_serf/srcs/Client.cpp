@@ -13,25 +13,22 @@
 #include "../incs/Client.hpp"
 #include <iostream>
 
-// int Client::count = 0;
-
   //~~~~~~~~~~//
  /*  Public  */
 //~~~~~~~~~~//
 
 /*	@brief Constructor	*/
-Client::Client(void) : _addrlen(sizeof(_addr))/*, _id(++count)*/ {
-	// std::cerr	<< "\e[3;93mClient Constructor called: "
-	// 			<< _id << "\e[0m" << std::endl;
+Client::Client(void) : _addrlen(sizeof(_addr)) {
 	std::cerr	<< "\e[3;93mClient Constructor called\e[0m"
 				<< std::endl;
+	for (size_t i = 0; i < sizeof(_buffer); ++i) {
+		_buffer[i] = 0;
+	}
 	return;
 }
 
 /*	@brief Destructor	*/
 Client::~Client(void) {
-	// std::cerr	<< "\e[3;93mClient Destructor called: "
-	// 			<< _id << "\e[0m" << std::endl;
 	std::cerr	<< "\e[3;93mClient Destructor called\e[0m"
 				<< std::endl;
 	return;
@@ -41,42 +38,60 @@ Client::~Client(void) {
 Client::Client(const Client& other)
 	:	_addr(other._addr),
 		_addrlen(other._addrlen),
-		// _id(other._id * 10),
+		_buffer(""),
 		_incomingData(other._incomingData),
 		_outgoingData(other._outgoingData) {
-	// std::cerr	<< "\e[3;93mClient Copy Constructor called: "
-	// 				<< other._id << " -> " << _id << "\e[0m" << std::endl;
 	std::cerr	<< "\e[3;93mClient Copy Constructor called\e[0m"
 				<< std::endl;
+	for (size_t i = 0; i < sizeof(_buffer); ++i) {
+		_buffer[i] = other._buffer[i];
+	}
 	// *this = other;
 	return;
 }
 
 /*	@brief Copy Assignment Operator	*/
 Client& Client::operator = (const Client& other) {
-	// std::cerr	<< "\e[3;93mClient Copy Assignment Operator called: "
-	// 			<< other._id << " -> " << _id  << "\e[0m" << std::endl;
 	std::cerr	<< "\e[3;93mClient Copy Assignment Operator called\e[0m"
 				<< std::endl;
 	if (this != &other) {
 		_addr = other._addr;
 		_addrlen = other._addrlen;
+		for (size_t i = 0; i < sizeof(_buffer); ++i) {
+			_buffer[i] = other._buffer[i];
+		}
 		_incomingData = other._incomingData;
 		_outgoingData = other._outgoingData;
 	}
 	return *this;
 }
 
+// DEBUG
 const std::string& Client::getIncomingData(void) const {
-	return (_incomingData);
+	return _incomingData;
 }
 
-const std::string& Client::getOutgoingData(void) const {
-	return (_outgoingData);
+// const std::string& Client::getOutgoingData(void) const {
+// 	return _outgoingData;
+// }
+
+const std::string Client::getBuffer(void) const {
+	const std::string ret = _buffer;
+	return ret;
+}
+// DEBUG
+
+sockaddr* Client::getAddrPointer(void) const {
+	return (sockaddr*)&_addr;
 }
 
-void Client::queueIncomingData(char buffer[1024]) {
-	_incomingData.append(buffer);
+socklen_t* Client::getAddrlenPointer(void) const {
+	return (socklen_t*)&_addrlen;
+}
+
+void Client::queueIncomingData(size_t len){
+	// std::cout << "Buffer:\n" << _buffer << "\nEnd" << std::endl;
+	_incomingData.append(_buffer, len);
 	return;
 }
 
@@ -89,19 +104,19 @@ bool Client::hasPendingData(void) const {
 	return !_outgoingData.empty();
 }
 
-int Client::flushPendingData(int fd) {
-	// std::cout << "Trying to send: " << _outgoingData << std::endl;
-	ssize_t n = send(fd, _outgoingData.c_str(), sizeof(_outgoingData), 0);
-	_outgoingData.erase(0, n);
-	// std::cout << _outgoingData.empty() << std::endl;
-	// std::cout << "-----\n" << _outgoingData << "-----\n" << std::endl;
+ssize_t Client::fillPendingData(int fd) {
+	ssize_t n = recv(fd, _buffer, sizeof(_buffer), 0);
 	return n;
 }
 
-sockaddr* Client::getAddrPointer(void) const {
-	return (sockaddr*)&_addr;
-}
-
-socklen_t* Client::getAddrlenPointer(void) const {
-	return (socklen_t*)&_addrlen;
+ssize_t Client::flushPendingData(int fd) {
+	size_t len = 0;
+	std::string s = _outgoingData;
+	for (std::string::iterator i = s.begin(); i != s.end(); ++i) {
+		++len;
+	}
+	ssize_t n = send(fd, _outgoingData.c_str(), len, 0);
+	_outgoingData.erase(0, n);
+	// std::cout << (_outgoingData.empty() ? "Buffer empty" : "Buffer not empty") << std::endl;
+	return n;
 }

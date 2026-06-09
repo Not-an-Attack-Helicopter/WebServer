@@ -10,8 +10,8 @@
 /*                                                                            */
 /* ************************************************************************** */
 
-#ifndef MICRO_SERVER_H
-# define MICRO_SERVER_H
+#ifndef SERVER_H
+# define SERVER_H
 
 // # include <netdb.h>
 # include <netinet/in.h>
@@ -39,9 +39,10 @@ class Server {
 		void							prepareEPollInstance(void);
 		void							handleIncomingEvents(void);
 		void							acceptConnectRequest(void);
-		void							handleReadEvent(epoll_event e);
-		void							handleWriteEvent(epoll_event e);
+		void							handleReadEvent(int fd);
+		void							handleWriteEvent(int fd);
 		void							cleanUpAllRessources(void);
+		void							cleanUpClient(std::map<int, Client*>::iterator it);
 
 		class SocketException : public std::exception {
 		public:
@@ -110,10 +111,9 @@ class Server {
 
 		sockaddr_in						_sa;
 
-		epoll_event						_ev;
 		epoll_event						_events[MAXEVENTS];
 
-		std::map<int, Client>			_clients;
+		std::map<int, Client*>			_clients;
 
 };
 
@@ -129,6 +129,7 @@ class Server {
 // };
 
 // int								_status;
+// epoll_event						_ev;
 // sockaddr_storage				_ca;
 // socklen_t						_addrSize;
 // int								_clientfd;
