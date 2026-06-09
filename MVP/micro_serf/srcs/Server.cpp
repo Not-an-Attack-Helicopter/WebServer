@@ -463,30 +463,6 @@ const char* Server::FlushDataException::what(void) const throw () {
 // 	}
 // }
 
-// void Server::cleanUpAllRessources(void) {
-// 	if (!_clients.empty()) {
-// 		int lowest = _clients.begin()->first;
-// 		int highest = _clients.rbegin()->first;
-// 		for (int i = lowest; i <= highest; ++i) {
-// 			std::map<int, Client>::iterator it = _clients.find(i);
-// 			if (it != _clients.end()) {
-// 				epoll_ctl(_epfd, EPOLL_CTL_DEL, i, NULL);
-// 				close(i);
-// 				_clients.erase(it);
-// 			}
-// 		}
-// 	}
-// 	epoll_ctl(_epfd, EPOLL_CTL_DEL, _sockfd, NULL);
-// 	close(_sockfd);
-// 	close(_epfd);
-// 	return;
-// }
-
-// if (_clients.count(i)) {
-// 	close(i);
-// 	_clients.erase(i);
-// }
-
 // const char* Server::FcntlException::what(void) const throw () {
 // 	// return "SetFlagsException\n";
 // 	return strerror(errno));
@@ -557,6 +533,46 @@ const char* Server::FlushDataException::what(void) const throw () {
 // 	}
 // }
 
+// if (_clients.count(i)) {
+// 	close(i);
+// 	_clients.erase(i);
+// }
+
+// void Server::cleanUpAllRessources(void) {
+// 	if (!_clients.empty()) {
+// 		int lowest = _clients.begin()->first;
+// 		int highest = _clients.rbegin()->first;
+// 		for (int i = lowest; i <= highest; ++i) {
+// 			std::map<int, Client>::iterator it = _clients.find(i);
+// 			if (it != _clients.end()) {
+// 				epoll_ctl(_epfd, EPOLL_CTL_DEL, i, NULL);
+// 				close(i);
+// 				_clients.erase(it);
+// 			}
+// 		}
+// 	}
+// 	epoll_ctl(_epfd, EPOLL_CTL_DEL, _sockfd, NULL);
+// 	close(_sockfd);
+// 	close(_epfd);
+// 	return;
+// }
+
+// if (!_clients.empty()) {
+// 	int lowest = _clients.begin()->first;
+// 	int highest = _clients.rbegin()->first;
+// 	for (int i = lowest; i <= highest; ++i) {
+// 		std::map<int, Client*>::iterator it = _clients.find(i);
+// 		if (it == _clients.end()) {
+// 			break;
+// 		} else {
+// 			epoll_ctl(_epfd, EPOLL_CTL_DEL, i, NULL);
+// 			close(i);
+// 			delete it->second;
+// 			_clients.erase(it);
+// 		}
+// 	}
+// }
+
 // if (!_clients.empty()) {
 // 	int lowest = _clients.begin()->first;
 // 	int highest = _clients.rbegin()->first;
@@ -590,22 +606,6 @@ const char* Server::FlushDataException::what(void) const throw () {
 // 						<< std::endl;
 // 			_clients.erase(it);
 // 			// disconnect client
-// 		}
-// 	}
-// }
-
-// if (!_clients.empty()) {
-// 	int lowest = _clients.begin()->first;
-// 	int highest = _clients.rbegin()->first;
-// 	for (int i = lowest; i <= highest; ++i) {
-// 		std::map<int, Client*>::iterator it = _clients.find(i);
-// 		if (it == _clients.end()) {
-// 			break;
-// 		} else {
-// 			epoll_ctl(_epfd, EPOLL_CTL_DEL, i, NULL);
-// 			close(i);
-// 			delete it->second;
-// 			_clients.erase(it);
 // 		}
 // 	}
 // }
