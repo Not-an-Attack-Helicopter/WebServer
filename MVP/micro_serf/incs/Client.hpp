@@ -25,9 +25,11 @@ class Client {
 		Client& operator = (const Client& other);
 
 // DEBUG
+		unsigned short				getHostPort(void) const;
+		const std::string			getHostAddress(void) const;
+		const std::string			getBuffer(void) const;
 		const std::string&			getIncomingData(void) const;
 		// const std::string&			getOutgoingData(void) const;
-		const std::string			getBuffer(void) const;
 // DEBUG
 
 		sockaddr*					getAddrPointer(void) const;

@@ -11,6 +11,8 @@
 /* ************************************************************************** */
 
 #include "../incs/Client.hpp"
+#include <arpa/inet.h>
+#include <netinet/in.h>
 #include <iostream>
 
   //~~~~~~~~~~//
@@ -67,6 +69,23 @@ Client& Client::operator = (const Client& other) {
 }
 
 // DEBUG
+	unsigned short Client::getHostPort(void) const {
+	sockaddr_in* addr_in = (sockaddr_in*)&_addr;
+	return ntohs(addr_in->sin_port);
+}
+
+const std::string Client::getHostAddress(void) const {
+	char ipstr[INET_ADDRSTRLEN] = {0};
+	sockaddr_in* addr_in = (sockaddr_in*)&_addr;
+	inet_ntop(AF_INET, &addr_in->sin_addr, ipstr, INET_ADDRSTRLEN);
+	return std::string(ipstr);
+}
+
+const std::string Client::getBuffer(void) const {
+	const std::string ret = _buffer;
+	return ret;
+}
+
 const std::string& Client::getIncomingData(void) const {
 	return _incomingData;
 }
@@ -74,11 +93,6 @@ const std::string& Client::getIncomingData(void) const {
 // const std::string& Client::getOutgoingData(void) const {
 // 	return _outgoingData;
 // }
-
-const std::string Client::getBuffer(void) const {
-	const std::string ret = _buffer;
-	return ret;
-}
 // DEBUG
 
 sockaddr* Client::getAddrPointer(void) const {
@@ -106,6 +120,20 @@ bool Client::hasPendingData(void) const {
 
 ssize_t Client::fillPendingData(int fd) {
 	ssize_t n = recv(fd, _buffer, sizeof(_buffer), 0);
+	std::string cmd = _buffer;
+	if (cmd.size() > 4) {
+		cmd.erase(4);
+	}
+	if (cmd == "SHUT") {
+		_buffer[0] = 0;
+		return 2000;
+	}
+	if (cmd == "STOP") {
+		return 3000;
+	}
+	if (cmd == "KILL") {
+		return 4000;
+	}
 	return n;
 }
 

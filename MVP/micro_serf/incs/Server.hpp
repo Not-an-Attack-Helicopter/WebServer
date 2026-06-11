@@ -31,18 +31,18 @@ class Server {
 		Server& operator = (const Server& other);
 
 		void							setNonblockFlag(int fd);
-		void							setReadInterest(int fd);
-		void							addWriteInterest(int fd);
-		void							removeWriteInterest(int fd);
+		void							setReadInterest(int index, int fd);
+		void							addWriteInterest(int index, int fd);
+		void							removeWriteInterest(int index, int fd);
 		// void							prepareListeningPort(void);
-		void							prepareListeningPort(const std::string& address);
-		void							prepareEPollInstance(void);
-		void							handleIncomingEvents(void);
-		void							acceptConnectRequest(void);
-		void							handleReadEvent(int fd);
-		void							handleWriteEvent(int fd);
-		void							cleanUpAllRessources(void);
-		void							cleanUpClient(std::map<int, Client*>::iterator it);
+		void							prepareListeningPort(int index, const std::string& address, unsigned short port);
+		void							prepareEPollInstance(int index);
+		void							handleIncomingEvents(int index);
+		void							acceptConnectRequest(int index);
+		void							handleReadEvent(int index, int fd);
+		void							handleWriteEvent(int index, int fd);
+		void							cleanUpAllRessources(int index);
+		void							cleanUpClient(int index, std::map<int, Client*>::iterator it);
 
 		class SocketException : public std::exception {
 		public:
@@ -100,20 +100,23 @@ class Server {
 		};
 
 	private:
-		static const in_addr_t			SERVERADDRESS = INADDR_LOOPBACK;
-		static const in_port_t			PORT = 4242;
 
+		static const int				MAXSOCKETS = 10;
 		static const int				MAXEVENTS = 100;
 		static const int				BACKLOG = 10;
 
-		int								_sockfd;
-		int								_epfd;
+		// change all these to std::map<int, whatever>! Fixed arrays are dumdum!
+		bool							_shut[MAXSOCKETS];
+		bool							_stop[MAXSOCKETS];
+		bool							_kill;
+		int								_sockfd[MAXSOCKETS];
+		int								_epfd[MAXSOCKETS];
 
-		sockaddr_in						_sa;
+		sockaddr_in						_sa[MAXSOCKETS];
 
-		epoll_event						_events[MAXEVENTS];
+		epoll_event						_events[MAXSOCKETS][MAXEVENTS];
 
-		std::map<int, Client*>			_clients;
+		std::map<int, Client*>			_clients[MAXSOCKETS];
 
 };
 
@@ -128,6 +131,8 @@ class Server {
 // 	virtual const char*		what(void) const throw ();
 // };
 
+// static const in_addr_t			SERVERADDRESS = INADDR_LOOPBACK;
+// static const in_port_t			PORT = 4242;
 // int								_status;
 // epoll_event						_ev;
 // sockaddr_storage				_ca;
