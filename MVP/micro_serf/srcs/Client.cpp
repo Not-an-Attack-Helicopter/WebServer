@@ -138,13 +138,11 @@ ssize_t Client::fillPendingData(int fd) {
 }
 
 ssize_t Client::flushPendingData(int fd) {
-	size_t len = 0;
-	std::string s = _outgoingData;
-	for (std::string::iterator i = s.begin(); i != s.end(); ++i) {
-		++len;
+	ssize_t n = send(fd, _outgoingData.c_str(), _outgoingData.size(), 0);
+	if (n <= 0) {
+		return n;
 	}
-	ssize_t n = send(fd, _outgoingData.c_str(), len, 0);
-	_outgoingData.erase(0, n);
+	_outgoingData.erase(0, static_cast<size_t>(n));
 	// std::cout << (_outgoingData.empty() ? "Buffer empty" : "Buffer not empty") << std::endl;
 	return n;
 }

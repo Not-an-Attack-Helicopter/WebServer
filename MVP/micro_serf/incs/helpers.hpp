@@ -1,3 +1,5 @@
+#pragma once
+
 // #include "webserver.hpp"
 #include "types.hpp"
 
