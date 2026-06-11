@@ -1,4 +1,5 @@
 #include "webserver.hpp"
+#include <stdexcept>
 
 LocationConfig  parse_location_block(const std::vector<std::string>& tokens, size_t& i);
 ServerConfig    parse_server_block(const std::vector<std::string>& tokens, size_t& i, const Config& config);
