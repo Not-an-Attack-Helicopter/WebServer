@@ -42,13 +42,13 @@ ConfigParser::~ConfigParser()
 
 
 //-------------------------------getters-------------------------------//
-// std::vector<ServerConfig>& ConfigParser::get_config()
-// {
-// 	return _serverConfigs;
-// }
+std::vector<ServerConfig>& ConfigParser::getAllConfigs()
+{
+	return _serverConfigs;
+}
 
 
-const ServerConfig& ConfigParser::getServerConfig(size_t index) const {
+const ServerConfig& ConfigParser::getSingleConfig(size_t index) const {
 	return _serverConfigs[index];
 }
 

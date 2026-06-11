@@ -1,9 +1,11 @@
 #include "../incs/helpers.hpp"
 #include "../incs/utils.hpp"
 #include <algorithm>
-#include <iostream>
+#include <stdexcept>
+// #include <iostream>
 #include <sstream>
 #include <fstream>
+#include <cstdlib>
 #include <unistd.h>
 #include <sys/stat.h>
 
@@ -183,7 +185,7 @@ LocationConfig parse_location_block(const std::vector<std::string>& tokens, size
 	}
 	if (i >= tokens.size())
 	{
-		throw std::runtime_error("Error: unclosed location block '" + loc.path + "' (missing '}}')");
+		throw std::runtime_error("Error: unclosed location block '" + loc.path + "' (missing '}')");
 	}
 	if (tmp_exts.size() != tmp_paths.size())
 	{
@@ -299,7 +301,7 @@ ServerConfig parse_server_block(const std::vector<std::string>& tokens, size_t& 
 		std::ostringstream oss;
 		oss << "Error: host " << server.host << " port " << server.port << " is already used by another server block";
 		throw std::runtime_error(oss.str());
-
+	}
 	return server;
 }
 

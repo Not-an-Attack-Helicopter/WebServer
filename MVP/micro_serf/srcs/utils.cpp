@@ -1,7 +1,10 @@
 #include "../incs/utils.hpp"
+#include "../incs/colors.hpp"
 #include <algorithm>
 #include <iostream>
 #include <sstream>
+#include <cstdlib>
+#include <cctype>
 
 std::string trim(const std::string& str)
 {
@@ -23,7 +26,7 @@ bool valid_ip(const std::string& ip)
 			return false;
 		for (size_t i = 0; i < token.size(); ++i)
 		{
-			if (!std::isdigit(token[i]))
+			if (!std::isdigit(static_cast<unsigned char>(token[i])))
 				return false;
 		}
 		int num = std::atoi(token.c_str());
@@ -94,6 +97,7 @@ bool valid_config_line(const std::string& line)
 
 void print_conf(const std::vector<ServerConfig>& config) {
 	for (std::vector<ServerConfig>::const_iterator server = config.begin(); server != config.end(); ++server) {
+		std::cout << INFO;
 		std::cout << "server {\n";
 		std::cout << "    host: " << server->host << ";\n";
 		std::cout << "    port: " << server->port << ";\n";
@@ -135,6 +139,7 @@ void print_conf(const std::vector<ServerConfig>& config) {
 		}
 		std::cout << "    }\n";
 		std::cout << "}\n";
+		std::cout << RESET;
 	}
 }
 

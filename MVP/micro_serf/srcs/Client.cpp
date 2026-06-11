@@ -11,6 +11,7 @@
 /* ************************************************************************** */
 
 #include "../incs/Client.hpp"
+#include "../incs/colors.hpp"
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <iostream>
@@ -21,7 +22,7 @@
 
 /*	@brief Constructor	*/
 Client::Client(void) : _addrlen(sizeof(_addr)) {
-	std::cerr	<< "\e[3;93mClient Constructor called\e[0m"
+	std::cerr	<< DEBUG << "Client Constructor called" << RESET
 				<< std::endl;
 	for (size_t i = 0; i < sizeof(_buffer); ++i) {
 		_buffer[i] = 0;
@@ -31,7 +32,7 @@ Client::Client(void) : _addrlen(sizeof(_addr)) {
 
 /*	@brief Destructor	*/
 Client::~Client(void) {
-	std::cerr	<< "\e[3;93mClient Destructor called\e[0m"
+	std::cerr	<< DEBUG << "Client Destructor called" << RESET
 				<< std::endl;
 	return;
 }
@@ -43,7 +44,7 @@ Client::Client(const Client& other)
 		_buffer(""),
 		_incomingData(other._incomingData),
 		_outgoingData(other._outgoingData) {
-	std::cerr	<< "\e[3;93mClient Copy Constructor called\e[0m"
+	std::cerr	<< DEBUG << "Client Copy Constructor called" << RESET
 				<< std::endl;
 	for (size_t i = 0; i < sizeof(_buffer); ++i) {
 		_buffer[i] = other._buffer[i];
@@ -54,7 +55,7 @@ Client::Client(const Client& other)
 
 /*	@brief Copy Assignment Operator	*/
 Client& Client::operator = (const Client& other) {
-	std::cerr	<< "\e[3;93mClient Copy Assignment Operator called\e[0m"
+	std::cerr	<< DEBUG << "Client Copy Assignment Operator called" << RESET
 				<< std::endl;
 	if (this != &other) {
 		_addr = other._addr;
@@ -119,13 +120,20 @@ bool Client::hasPendingData(void) const {
 }
 
 ssize_t Client::fillPendingData(int fd) {
-	ssize_t n = recv(fd, _buffer, sizeof(_buffer), 0);
+	ssize_t n = recv(fd, _buffer, sizeof(_buffer) - 1, 0);
+	if (n <= 0) {
+		return n;
+	}
+	_buffer[n] = '\0';
+	// DEBUG
+	// Interpret the first 4 bytes as an admin command.
+	// std::string cmd(_buffer, (n < 4 ? (size_t)n : (size_t)4));
 	std::string cmd = _buffer;
 	if (cmd.size() > 4) {
 		cmd.erase(4);
 	}
 	if (cmd == "SHUT") {
-		_buffer[0] = 0;
+		// _buffer[0] = '\0';
 		return 2000;
 	}
 	if (cmd == "STOP") {
@@ -134,6 +142,7 @@ ssize_t Client::fillPendingData(int fd) {
 	if (cmd == "KILL") {
 		return 4000;
 	}
+	// DEBUG
 	return n;
 }
 
@@ -143,6 +152,7 @@ ssize_t Client::flushPendingData(int fd) {
 		return n;
 	}
 	_outgoingData.erase(0, static_cast<size_t>(n));
-	// std::cout << (_outgoingData.empty() ? "Buffer empty" : "Buffer not empty") << std::endl;
+	std::cerr	<< DEBUG << (_outgoingData.empty() ? "Full flush" : "Partial flush")
+				<< RESET << std::endl;
 	return n;
 }

@@ -22,6 +22,9 @@
 # include <map>
 # include "Client.hpp"
 
+# define EINADDR	"Did not provide a character string representing a valid \
+					network address in the specified address family.\n"
+
 class Server {
 
 	public:
@@ -44,7 +47,12 @@ class Server {
 		void							cleanUpAllRessources(int index);
 		void							cleanUpClient(int index, std::map<int, Client*>::iterator it);
 
-		class ConvertAddrException : public std::exception {
+		class AFNotSupportedException : public std::exception {
+		public:
+			virtual const char*		what(void) const throw ();
+		};
+
+		class InvalidAddressException : public std::exception {
 		public:
 			virtual const char*		what(void) const throw ();
 		};
@@ -113,7 +121,7 @@ class Server {
 		// change all these to std::map<int, whatever>! Fixed arrays are dumdum!
 		bool							_shut[MAXSOCKETS];
 		bool							_stop[MAXSOCKETS];
-		bool							_kill;
+		// bool							_kill;
 		int								_sockfd[MAXSOCKETS];
 		int								_epfd[MAXSOCKETS];
 
