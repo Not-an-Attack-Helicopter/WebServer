@@ -290,13 +290,19 @@ ServerConfig parse_server_block(const std::vector<std::string>& tokens, size_t& 
 		server.host = "0.0.0.0";
 	if (is_address_already_used(config, server.host, server.port))
 	{
-		throw std::runtime_error("Error: host " + server.host + " port " + std::to_string(server.port) + " is already used by another server block");
+		std::ostringstream oss;
+		oss << "Error: host " << server.host << " port " << server.port << " is already used by another server block";
+		throw std::runtime_error(oss.str());
 	}
 	return server;
 }
 
 Config parse_config_file(const std::string& config_file)
 {
+	if(!valid_CGI(config_file))
+	{
+		throw std::runtime_error("Error: you dont have the ability to read the Config file: " + config_file);
+	}
 	if(!valid_conf_ext(config_file))
 	{
 		throw std::runtime_error("Error: invalid config file extension: " + config_file);
