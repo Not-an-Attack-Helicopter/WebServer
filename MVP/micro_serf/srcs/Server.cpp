@@ -115,7 +115,10 @@ void Server::removeWriteInterest(int index, int fd) {
 // void Server::prepareListeningPort(void) {
 void Server::prepareListeningPort(int index, const std::string& address, unsigned short port) {
 	int status = 0;
-	inet_pton(AF_INET, address.c_str(), &_sa[index].sin_addr);
+	status = inet_pton(AF_INET, address.c_str(), &_sa[index].sin_addr);
+	if (status == -1) {
+		throw ConvertAddrException();
+	}
 	_sa[index].sin_port = htons(port);
 	_sa[index].sin_family = AF_INET;
 	_sockfd[index] = socket(_sa[index].sin_family, SOCK_STREAM | O_NONBLOCK, 0);
@@ -130,10 +133,11 @@ void Server::prepareListeningPort(int index, const std::string& address, unsigne
 		throw BindException();
 	}
 	char ipstr[INET_ADDRSTRLEN] = {0};
-	inet_ntop(_sa[index].sin_family, &_sa[index].sin_addr, ipstr, INET_ADDRSTRLEN);
-	std::cout	<< "\e[3;93mBound the socket to "
-				<< ipstr << ":" << ntohs(_sa[index].sin_port)
-				<< "\e[0m" << std::endl;
+	if (inet_ntop(_sa[index].sin_family, &_sa[index].sin_addr, ipstr, INET_ADDRSTRLEN)) {
+		std::cout	<< "\e[3;93mBound the socket to "
+					<< ipstr << ":" << ntohs(_sa[index].sin_port)
+					<< "\e[0m" << std::endl;
+	}
 	status = listen(_sockfd[index], BACKLOG);
 	if (status == -1) {
 		throw ListenException();
@@ -317,6 +321,11 @@ void Server::cleanUpClient(int index, std::map<int, Client*>::iterator it) {
 	std::cerr	<< "\e[31mErasing container entry for above client"
 				<< "\e[0m" << std::endl;
 	_clients[index].erase(it);
+}
+
+const char* Server::ConvertAddrException::what(void) const throw () {
+	// return "ConvertAddrException\n";
+	return strerror(errno);
 }
 
 const char* Server::SocketException::what(void) const throw () {

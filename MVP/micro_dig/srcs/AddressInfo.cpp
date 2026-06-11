@@ -10,9 +10,9 @@
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "../incs/AddressInfo.hpp"
-#include <arpa/inet.h>
 #include <iostream>
+#include <arpa/inet.h>
+#include "../incs/AddressInfo.hpp"
 
 int AddressInfo::_status = 0;
 

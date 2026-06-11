@@ -40,7 +40,7 @@ bool valid_port(const std::string& port_str)
 		return false;
 	for (size_t i = 0; i < port_str.size(); ++i)
 	{
-		if (!std::isdigit(port_str[i]))
+		if (!std::isdigit(static_cast<unsigned char>(port_str[i])))
 			return false;
 	}
 	int port = std::atoi(port_str.c_str());
