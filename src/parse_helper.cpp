@@ -26,8 +26,7 @@ static std::vector<std::string> Tokenizer(const std::string& config_file)
 	std::ifstream file(config_file.c_str());
 	if (!file.is_open())
 	{
-		std::cerr << "Error: Could not open config file: " << config_file << std::endl;
-		exit(EXIT_FAILURE);
+		throw std::runtime_error("Could not open config file: " + config_file);
 	}
 
 	std::string content;
@@ -52,8 +51,7 @@ static std::vector<std::string> Tokenizer(const std::string& config_file)
 			std::string tok = trim(current) + " {";
 			if (trim(current).empty())
 			{
-				std::cerr << "Error: unexpected '{' with no preceding keyword" << std::endl;
-				exit(EXIT_FAILURE);
+				throw std::runtime_error("Error: unexpected '{' with no preceding keyword");
 			}
 			tokens.push_back(trim(tok));
 			current.clear();
@@ -63,8 +61,7 @@ static std::vector<std::string> Tokenizer(const std::string& config_file)
 			std::string leftover = trim(current);
 			if (!leftover.empty())
 			{
-				std::cerr << "Error: missing semicolon: " << leftover << std::endl;
-				exit(EXIT_FAILURE);
+				throw std::runtime_error("Error: missing semicolon: " + leftover);
 			}
 			tokens.push_back("}");
 			current.clear();
@@ -84,8 +81,7 @@ static std::vector<std::string> Tokenizer(const std::string& config_file)
 	std::string leftover = trim(current);
 	if (!leftover.empty())
 	{
-		std::cerr << "Error: unexpected content at end of file (missing '}' or ';'?): " << leftover << std::endl;
-		exit(EXIT_FAILURE);
+		throw std::runtime_error("Error: unexpected content at end of file (missing '}' or ';'?): " + leftover);
 	}
 	return tokens;
 }
@@ -107,8 +103,7 @@ LocationConfig parse_location_block(const std::vector<std::string>& tokens, size
 
 	if (loc.path.empty() || loc.path[0] != '/')
 	{
-		std::cerr << "Error: invalid location path (must start with '/'): " << loc.path << std::endl;
-		exit(EXIT_FAILURE);
+		throw std::runtime_error("Error: invalid location path (must start with '/'): " + loc.path);
 	}
 
 	++i;
@@ -126,8 +121,7 @@ LocationConfig parse_location_block(const std::vector<std::string>& tokens, size
 			{
 				if (!is_valid_method(method))
 				{
-					std::cerr << "Error: invalid HTTP method: " << method << std::endl;
-					exit(EXIT_FAILURE);
+					throw std::runtime_error("Error: invalid HTTP method: " + method);
 				}
 				loc.methods.push_back(method);
 			}
@@ -142,8 +136,7 @@ LocationConfig parse_location_block(const std::vector<std::string>& tokens, size
 		{
 			if (val.empty() || val[0] != '/')
 			{
-				std::cerr << "Error: invalid return value (must start with '/'): " << val << std::endl;
-				exit(EXIT_FAILURE);
+				throw std::runtime_error("Error: invalid return value (must start with '/'): " + val);
 			}
 			loc.redirect = val;
 		}
@@ -157,8 +150,7 @@ LocationConfig parse_location_block(const std::vector<std::string>& tokens, size
 			{
 				if (!valid_CGI_ext(ext))
 				{
-					std::cerr << "Error: invalid CGI extension: " << ext << std::endl;
-					exit(EXIT_FAILURE);
+					throw std::runtime_error("Error: invalid CGI extension: " + ext);
 				}
 				tmp_exts.push_back(ext);
 			}
@@ -171,29 +163,25 @@ LocationConfig parse_location_block(const std::vector<std::string>& tokens, size
 			{
 				if (!valid_CGI(p))
 				{
-					std::cerr << "Error: invalid CGI path: " << p << std::endl;
-					exit(EXIT_FAILURE);
+					throw std::runtime_error("Error: invalid CGI path: " + p);
 				}
 				tmp_paths.push_back(p);
 			}
 		}
 		else
 		{
-			std::cerr << "Error: unknown directive in location block: " << key << std::endl;
-			exit(EXIT_FAILURE);
+			throw std::runtime_error("Error: unknown directive in location block: " + key);
 		}
 
 		++i;
 	}
 	if (i >= tokens.size())
 	{
-		std::cerr << "Error: unclosed location block '" << loc.path << "' (missing '}}')" << std::endl;
-		exit(EXIT_FAILURE);
+		throw std::runtime_error("Error: unclosed location block '" + loc.path + "' (missing '}}')");
 	}
 	if (tmp_exts.size() != tmp_paths.size())
 	{
-		std::cerr << "Error: cgi_ext and cgi_path count mismatch in location '" << loc.path << "'" << std::endl;
-		exit(EXIT_FAILURE);
+		throw std::runtime_error("Error: cgi_ext and cgi_path count mismatch in location '" + loc.path + "'");
 	}
 	{
 		std::map<std::string, std::string> cgi_map;
@@ -227,8 +215,7 @@ ServerConfig parse_server_block(const std::vector<std::string>& tokens, size_t& 
 		{
 			if (!valid_port(val))
 			{
-				std::cerr << "Error: invalid port value: " << val << std::endl;
-				exit(EXIT_FAILURE);
+				throw std::runtime_error("Error: invalid port value: " + val);
 			}
 			server.port = std::atoi(val.c_str());
 		}
@@ -236,8 +223,7 @@ ServerConfig parse_server_block(const std::vector<std::string>& tokens, size_t& 
 		{
 			if (!valid_ip(val))
 			{
-				std::cerr << "Error: invalid host IP: " << val << std::endl;
-				exit(EXIT_FAILURE);
+				throw std::runtime_error("Error: invalid host IP: " + val);
 			}
 			server.host = val;
 		}
@@ -252,8 +238,7 @@ ServerConfig parse_server_block(const std::vector<std::string>& tokens, size_t& 
 		{
 			if (!is_valid_body_size(std::atoi(val.c_str())))
 			{
-				std::cerr << "Error: invalid client_max_body_size: " << val << std::endl;
-				exit(EXIT_FAILURE);
+				throw std::runtime_error("Error: invalid client_max_body_size: " + val);
 			}
 			server.client_max_body_size = (size_t)std::atol(val.c_str());
 		}
@@ -266,8 +251,7 @@ ServerConfig parse_server_block(const std::vector<std::string>& tokens, size_t& 
 			{
 				if (!is_valid_error_code(std::atoi(code_str.c_str())))
 				{
-					std::cerr << "Error: invalid error code: " << code_str << std::endl;
-					exit(EXIT_FAILURE);
+					throw std::runtime_error("Error: invalid error code: " + code_str);
 				}
 				server.error_pages[std::atoi(code_str.c_str())] = path;
 			}
@@ -280,8 +264,7 @@ ServerConfig parse_server_block(const std::vector<std::string>& tokens, size_t& 
 				const LocationConfig& existing = *it;
 				if (existing.path == loc.path)
 				{
-					std::cerr << "Error: duplicate location path: " << loc.path << std::endl;
-					exit(EXIT_FAILURE);
+					throw std::runtime_error("Error: duplicate location path: " + loc.path);
 				}
 			}
 			server.locations.push_back(loc);
@@ -293,34 +276,36 @@ ServerConfig parse_server_block(const std::vector<std::string>& tokens, size_t& 
 			server.index = val;
 		else
 		{
-			std::cerr << "Error: unknown directive in server block: " << key << std::endl;
-			exit(EXIT_FAILURE);
+			throw std::runtime_error("Error: unknown directive in server block: " + key);
 		}
 
 		++i;
 	}
 	if (i >= tokens.size())
 	{
-		std::cerr << "Error: unclosed server block (missing '}')" << std::endl;
-		exit(EXIT_FAILURE);
+		throw std::runtime_error("Error: unclosed server block (missing '}')");
 	}
 	++i;
 	if (server.host.empty())
 		server.host = "0.0.0.0";
 	if (is_address_already_used(config, server.host, server.port))
 	{
-		std::cerr << "Error: host " << server.host << " port " << server.port << " is already used by another server block" << std::endl;
-		exit(EXIT_FAILURE);
+		std::ostringstream oss;
+		oss << "Error: host " << server.host << " port " << server.port << " is already used by another server block";
+		throw std::runtime_error(oss.str());
 	}
 	return server;
 }
 
 Config parse_config_file(const std::string& config_file)
 {
+	if(!valid_read(config_file))
+	{
+		throw std::runtime_error("Error: you dont have the ability to read the Config file: " + config_file);
+	}
 	if(!valid_conf_ext(config_file))
 	{
-		std::cerr << "Error: invalid config file extension: " << config_file << std::endl;
-		exit(EXIT_FAILURE);
+		throw std::runtime_error("Error: invalid config file extension: " + config_file);
 	}
 	std::vector<std::string> tokens = Tokenizer(config_file);
 	Config config;
@@ -331,14 +316,12 @@ Config parse_config_file(const std::string& config_file)
 			config.servers.push_back(parse_server_block(tokens, i, config));
 		else
 		{
-			std::cerr << "Error: unexpected token outside server block: " << tokens[i] << std::endl;
-			exit(EXIT_FAILURE);
+			throw std::runtime_error("Error: unexpected token outside server block: " + tokens[i]);
 		}
 	}
 	if (config.servers.empty())
 	{
-		std::cerr << "Error: config file has no server blocks" << std::endl;
-		exit(EXIT_FAILURE);
+		throw std::runtime_error("Error: config file has no server blocks");
 	}
 	return config;
 }
@@ -366,4 +349,12 @@ bool valid_CGI(const std::string& path)
 	if (stat(path.c_str(), &buffer) != 0)
 		return false;
 	return S_ISREG(buffer.st_mode) && access(path.c_str(), X_OK) == 0;
+}
+
+bool valid_read(const std::string& path)
+{
+	struct stat buffer;
+	if (stat(path.c_str(), &buffer) != 0)
+		return false;
+	return S_ISREG(buffer.st_mode) && access(path.c_str(), R_OK) == 0;
 }

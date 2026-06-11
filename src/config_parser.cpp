@@ -1,28 +1,28 @@
 #include "config_parser.hpp"
 
 //-------------------------------Constructors_&_Destructor-------------------------------//
-config_parser::config_parser()
+ConfigParser::ConfigParser()
 {
 	this->config = parse_config_file("Config_Files/default.conf");
 	return;
 };
 
 
-config_parser::config_parser(std::string config_file)
+ConfigParser::ConfigParser(std::string config_file)
 {
 	this->config = parse_config_file(config_file);
 	return;
 };
 
 
-config_parser::config_parser(const config_parser& other)
+ConfigParser::ConfigParser(const ConfigParser& other)
 {
 	this->config = other.config;
 	return;
 };
 
 
-config_parser& config_parser::operator=(const config_parser& other)
+ConfigParser& ConfigParser::operator=(const ConfigParser& other)
 {
 	if (this != &other)
 	{
@@ -32,14 +32,14 @@ config_parser& config_parser::operator=(const config_parser& other)
 };
 
 
-config_parser::~config_parser()
+ConfigParser::~ConfigParser()
 {
 	return;
 };
 
 
 //-------------------------------getters-------------------------------//
-Config config_parser::get_config() const
+Config ConfigParser::get_config() const
 {
 	return config;
 }
