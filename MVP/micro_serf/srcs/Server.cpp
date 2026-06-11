@@ -118,14 +118,10 @@ void Server::prepareListeningPort(int index, const std::string& address, unsigne
 	int status = 0;
 	status = inet_pton(AF_INET, address.c_str(), &_sa[index].sin_addr);
 	if (status == -1) {
-<<<<<<< HEAD
 		throw AFNotSupportedException();
 	}
 	if (status == 0) {
 		throw InvalidAddressException();
-=======
-		throw ConvertAddrException();
->>>>>>> refs/remotes/origin/benstor214
 	}
 	_sa[index].sin_port = htons(port);
 	_sa[index].sin_family = AF_INET;
@@ -142,15 +138,9 @@ void Server::prepareListeningPort(int index, const std::string& address, unsigne
 	}
 	char ipstr[INET_ADDRSTRLEN] = {0};
 	if (inet_ntop(_sa[index].sin_family, &_sa[index].sin_addr, ipstr, INET_ADDRSTRLEN)) {
-<<<<<<< HEAD
 		std::cout	<< DEBUG << "Bound the socket to "
 					<< ipstr << ":" << ntohs(_sa[index].sin_port)
 					<< RESET << std::endl;
-=======
-		std::cout	<< "\e[3;93mBound the socket to "
-					<< ipstr << ":" << ntohs(_sa[index].sin_port)
-					<< "\e[0m" << std::endl;
->>>>>>> refs/remotes/origin/benstor214
 	}
 	status = listen(_sockfd[index], BACKLOG);
 	if (status == -1) {
@@ -357,7 +347,6 @@ void Server::cleanUpClient(int index, std::map<int, Client*>::iterator it) {
 	_clients[index].erase(it);
 }
 
-<<<<<<< HEAD
 const char* Server::AFNotSupportedException::what(void) const throw () {
 	// return "AFNotSupportedException\n";
 	return strerror(errno);
@@ -368,13 +357,6 @@ const char* Server::InvalidAddressException::what(void) const throw () {
 	// return strerror(errno);
 }
 
-=======
-const char* Server::ConvertAddrException::what(void) const throw () {
-	// return "ConvertAddrException\n";
-	return strerror(errno);
-}
-
->>>>>>> refs/remotes/origin/benstor214
 const char* Server::SocketException::what(void) const throw () {
 	// return "SocketException\n";
 	return strerror(errno);

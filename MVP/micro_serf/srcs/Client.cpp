@@ -152,11 +152,7 @@ ssize_t Client::flushPendingData(int fd) {
 		return n;
 	}
 	_outgoingData.erase(0, static_cast<size_t>(n));
-<<<<<<< HEAD
 	std::cerr	<< DEBUG << (_outgoingData.empty() ? "Full flush" : "Partial flush")
 				<< RESET << std::endl;
-=======
-	// std::cout << (_outgoingData.empty() ? "Buffer empty" : "Buffer not empty") << std::endl;
->>>>>>> refs/remotes/origin/benstor214
 	return n;
 }

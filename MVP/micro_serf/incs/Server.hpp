@@ -47,16 +47,13 @@ class Server {
 		void							cleanUpAllRessources(int index);
 		void							cleanUpClient(int index, std::map<int, Client*>::iterator it);
 
-<<<<<<< HEAD
+
 		class AFNotSupportedException : public std::exception {
 		public:
 			virtual const char*		what(void) const throw ();
 		};
 
 		class InvalidAddressException : public std::exception {
-=======
-		class ConvertAddrException : public std::exception {
->>>>>>> refs/remotes/origin/benstor214
 		public:
 			virtual const char*		what(void) const throw ();
 		};
