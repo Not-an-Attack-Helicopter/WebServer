@@ -299,7 +299,7 @@ ServerConfig parse_server_block(const std::vector<std::string>& tokens, size_t& 
 
 Config parse_config_file(const std::string& config_file)
 {
-	if(!valid_CGI(config_file))
+	if(!valid_read(config_file))
 	{
 		throw std::runtime_error("Error: you dont have the ability to read the Config file: " + config_file);
 	}
@@ -349,4 +349,12 @@ bool valid_CGI(const std::string& path)
 	if (stat(path.c_str(), &buffer) != 0)
 		return false;
 	return S_ISREG(buffer.st_mode) && access(path.c_str(), X_OK) == 0;
+}
+
+bool valid_read(const std::string& path)
+{
+	struct stat buffer;
+	if (stat(path.c_str(), &buffer) != 0)
+		return false;
+	return S_ISREG(buffer.st_mode) && access(path.c_str(), R_OK) == 0;
 }
