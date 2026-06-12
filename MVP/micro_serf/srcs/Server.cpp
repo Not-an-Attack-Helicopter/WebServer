@@ -166,8 +166,7 @@ void Server::prepareListeningPort(const std::string& address, unsigned short por
 }
 
 void Server::handleIncomingEvents(void) {
-	bool run = true;
-	while (run) {
+	while (true) {
 		int nfds = epoll_wait(_epfd, _events, MAXEVENTS, -1);
 		if (nfds == -1) {
 			throw EventPollingException();
