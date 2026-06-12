@@ -13,39 +13,35 @@
 #ifndef SERVER_H
 # define SERVER_H
 
-// # include <netdb.h>
 # include <netinet/in.h>
-// # include <sys/socket.h>
 # include <sys/epoll.h>
-// # include <string>
-# include <exception>
+// # include <netdb.h>
 # include <map>
+# include <string>
+# include <vector>
+# include <exception>
 # include "Client.hpp"
 
-# define EINADDR	"Did not provide a character string representing a valid \
-					network address in the specified address family.\n"
+# define EINADDR	"Did not provide a character string representing a valid network address in the specified address family."
 
 class Server {
 
 	public:
 		Server(void);
 		~Server(void);
-		Server(const Server& other);
-		Server& operator = (const Server& other);
 
 		void							setNonblockFlag(int fd);
-		void							setReadInterest(int index, int fd);
-		void							addWriteInterest(int index, int fd);
-		void							removeWriteInterest(int index, int fd);
-		// void							prepareListeningPort(void);
-		void							prepareListeningPort(int index, const std::string& address, unsigned short port);
-		void							prepareEPollInstance(int index);
-		void							handleIncomingEvents(int index);
+		void							setReadInterest(int fd);
+		void							addWriteInterest(int fd);
+		void							removeWriteInterest(int fd);
+		void							prepareEPollInstance(void);
+		void							prepareListeningPort(const std::string& address, unsigned short port);
+		void							handleIncomingEvents(void);
 		void							acceptConnectRequest(int index);
-		void							handleReadEvent(int index, int fd);
-		void							handleWriteEvent(int index, int fd);
-		void							cleanUpAllRessources(int index);
-		void							cleanUpClient(int index, std::map<int, Client*>::iterator it);
+		void							handleReadEvent(int fd);
+		void							handleWriteEvent(int fd);
+		void							cleanUpAllRessources();
+		void							cleanUpClient(std::map<int, Client*>::iterator it);
 
 
 		class AFNotSupportedException : public std::exception {
@@ -114,23 +110,23 @@ class Server {
 		};
 
 	private:
+		Server(const Server& other);
+		Server& operator = (const Server& other);
 
-		static const int				MAXSOCKETS = 10;
-		static const int				MAXEVENTS = 100;
-		static const int				BACKLOG = 10;
+		static const int				MAXEVENTS = 10;
+		// static const int				BACKLOG = 10;
 
-		// change all these to std::map<int, whatever>! Fixed arrays are dumdum!
-		bool							_shut[MAXSOCKETS];
-		bool							_stop[MAXSOCKETS];
+		bool							_stop;
 		// bool							_kill;
-		int								_sockfd[MAXSOCKETS];
-		int								_epfd[MAXSOCKETS];
 
-		sockaddr_in						_sa[MAXSOCKETS];
+		int								_epfd;
 
-		epoll_event						_events[MAXSOCKETS][MAXEVENTS];
+		std::vector<int>				_sockfd;
+		std::vector<sockaddr_in>		_addr;
 
-		std::map<int, Client*>			_clients[MAXSOCKETS];
+		epoll_event						_events[MAXEVENTS];
+
+		std::map<int, Client*>			_clients;
 
 };
 
@@ -147,9 +143,11 @@ class Server {
 
 // static const in_addr_t			SERVERADDRESS = INADDR_LOOPBACK;
 // static const in_port_t			PORT = 4242;
+// static const int				MAXSOCKETS = 10;
 // int								_status;
-// epoll_event						_ev;
+// sockaddr_in						_sa;
 // sockaddr_storage				_ca;
 // socklen_t						_addrSize;
+// epoll_event						_ev;
 // int								_clientfd;
 // static const char*				_message;
