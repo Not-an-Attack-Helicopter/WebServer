@@ -44,6 +44,7 @@ class Server {
 		void	cleanUpAllRessources();
 		void	cleanUpClient(std::map<int, Client*>::iterator it);
 
+
 		class AFNotSupportedException : public std::exception {
 		public:
 			virtual const char*		what(void) const throw ();
