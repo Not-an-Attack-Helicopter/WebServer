@@ -171,46 +171,37 @@ void Server::handleIncomingEvents(void) {
 		if (nfds == -1) {
 			throw EventPollingException();
 		}
-		unsigned long s;
-		bool found = false;
-		int n;
-		for (n = 0; n < nfds; ++n) {
-			epoll_event e = _events[n];
-			for (s = 0; s < _sockfd.size(); ++s) {
-				if (e.data.fd == _sockfd[s] && e.events & EPOLLIN) {
-					found = true;
-					acceptConnectRequest(s);
+		for (int n = 0; n < nfds; ++n) {
+			int fd = _events[n].data.fd;
+			epoll_event ev = _events[n];
+			uint32_t events = ev.events;
+			bool isSocket = false;
+			for (size_t s = 0; s < _sockfd.size(); ++s) {
+				if (fd == _sockfd[s] && events & EPOLLIN) {
+					isSocket = true;
+					break;
 				}
 			}
-			if (found) {
-				break;
-			}
-			if (e.events & EPOLLIN) {
-				handleReadEvent(e.data.fd);
-			} else if (e.events & EPOLLOUT) {
-				handleWriteEvent(e.data.fd);
+			if (isSocket) {
+				acceptConnectRequest(fd);
+			} else {
+				if (events & EPOLLIN) {
+					handleReadEvent(fd);
+				}
+				if (events & EPOLLOUT) {
+					handleWriteEvent(fd);
+				}
 			}
 		}
 		if (_clients.empty()) {
 			std::cout	<< INFO << "All clients disconnected"
 						<< RESET << std::endl;
 			// break;
-			// run = false;
 		}
 		if (_stop == true) {
-			// if (!_clients.empty()) {
-			// 	std::map<int, Client*>::iterator immediate;
-			// 	std::map<int, Client*>::iterator it = _clients.begin();
-			// 	while (it != _clients.end()) {
-			// 		immediate = it;
-			// 		++it;
-			// 	cleanUpClient(immediate);
-			// 	}
-			// }
 			break;
 		}
 	}
-	// cleanUpAllRessources();
 	return;
 }
 
@@ -221,20 +212,20 @@ void Server::handleIncomingEvents(void) {
 // 	handleWriteEvent(e.data.fd);
 // }
 
-void Server::acceptConnectRequest(int index) {
-	std::cout	<< INFO << "New connection on socket fd: " << _sockfd[index]
+void Server::acceptConnectRequest(int socket_fd) {
+	std::cout	<< INFO << "New connection on socket fd: " << socket_fd
 				<< RESET << std::endl;
 	Client* c = new Client();
 	// std::cout << &c << "\v" << c << std::endl;
-	int fd = accept(_sockfd[index], c->getAddrPointer(), c->getAddrlenPointer());
-	if (fd == -1) {
+	int client_fd = accept(socket_fd, c->getAddrPointer(), c->getAddrlenPointer());
+	if (client_fd == -1) {
 		delete c;
 		throw AcceptException();
 	}
-	_clients[fd] = c;
-	setNonblockFlag(fd);
-	setReadInterest(fd);
-	std::cout	<< INFO << "Client #" << fd - _sockfd.back()
+	_clients[client_fd] = c;
+	setNonblockFlag(client_fd);
+	setReadInterest(client_fd);
+	std::cout	<< INFO << "Client #" << client_fd - _sockfd.back()
 				<< ", endpoint " << c->getHostAddress() << ":" << c->getHostPort()
 				<< RESET << std::endl;
 	// pid_t pid = fork();
