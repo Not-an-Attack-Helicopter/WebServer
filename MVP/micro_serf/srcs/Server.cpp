@@ -195,7 +195,7 @@ void Server::handleIncomingEvents(void) {
 		if (_clients.empty()) {
 			std::cout	<< INFO << "All clients disconnected"
 						<< RESET << std::endl;
-			break;
+			// break;
 			// run = false;
 		}
 		if (_stop == true) {
