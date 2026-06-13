@@ -24,6 +24,7 @@
 
 # define EINADDR "Did not provide a character string representing \
 a valid network address in the specified address family."
+# define ENOCLNT "Missing Client."
 
 class Server {
 
@@ -95,6 +96,11 @@ class Server {
 		};
 
 		class AcceptException : public std::exception {
+		public:
+			virtual const char*		what(void) const throw ();
+		};
+
+		class MissingClientException : public std::exception {
 		public:
 			virtual const char*		what(void) const throw ();
 		};

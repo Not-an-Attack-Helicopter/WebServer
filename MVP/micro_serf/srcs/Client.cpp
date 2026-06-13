@@ -124,7 +124,6 @@ ssize_t Client::flushPendingData(int fd) {
 Client::Client(const Client& other)
 	:	_addr(other._addr),
 		_addrlen(other._addrlen),
-		_buffer(""),
 		_incomingData(other._incomingData),
 		_outgoingData(other._outgoingData) {
 	std::cerr	<< DEBUG << "Client Copy Constructor called" << RESET

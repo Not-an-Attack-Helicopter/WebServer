@@ -22,7 +22,7 @@
 #include <iostream>
 #include <cstring>
 #include <cstdlib>
-// #include <cerrno>
+#include <cerrno>
 
   //~~~~~~~~~~//
  /*  Public  */
@@ -32,6 +32,7 @@
 Server::Server(void) {
 	std::cerr	<< DEBUG << "Server Constructor called" << RESET
 				<< std::endl;
+	_epfd = -1;
 	_stop = false;
 	return;
 }
@@ -104,6 +105,7 @@ void Server::prepareEPollInstance(void) {
 void Server::prepareListeningPort(const std::string& address, unsigned short port) {
 	int result = 0;
 	sockaddr_in sa;
+	std::memset(&sa, 0, sizeof(sa));
 	sa.sin_port = htons(port);
 	sa.sin_family = AF_INET;
 	result = inet_pton(sa.sin_family, address.c_str(), &sa.sin_addr);
@@ -198,6 +200,7 @@ void Server::acceptConnectRequest(int socket_fd) {
 	std::cout	<< INFO << "Client #" << client_fd - _sockfd.back()
 				<< ", endpoint " << c->getHostAddress() << ":" << c->getHostPort()
 				<< RESET << std::endl;
+	// DEBUG
 	pid_t pid = fork();
 	const char* argv[] = {"echo", "I am throwing a childish insult at you, stinky fingers!", NULL};
 	switch(pid) {
@@ -239,19 +242,26 @@ void Server::acceptConnectRequest(int socket_fd) {
 	default:
 		std::cout << "I am parenting here! ...trying to." << std::endl;
 	}
-	wait(NULL);
+	while (waitpid(-1, NULL, WNOHANG) > 0) {}
+	// DEBUG
 	return ;
 }
 
 void Server::handleReadEvent(int fd) {
-	ssize_t n = _clients[fd]->fillPendingData(fd);
+	// ssize_t n = _clients[fd]->fillPendingData(fd);
+	std::map<int, Client*>::iterator it = _clients.find(fd);
+	if (it == _clients.end() || it->second == NULL) {
+		throw MissingClientException();
+		// return;
+	}
+	ssize_t n = it->second->fillPendingData(fd);
 	if (n < 0) {
 		throw ReadDataException();
 	} else if (n == 0) {
 		std::cerr	<< INFO << "Connection closed by client #"
 					<< fd - _sockfd.back()
 					<< RESET << std::endl;
-		std::map<int, Client*>::iterator it = _clients.find(fd);
+		// std::map<int, Client*>::iterator it = _clients.find(fd);
 		cleanUpClient(it);
 		return;
 	} else if (n == STOP) {
@@ -260,35 +270,41 @@ void Server::handleReadEvent(int fd) {
 		_stop = true;
 		return;
 	} else {
-		_clients[fd]->queueIncomingData((size_t)n);
+		it->second->queueIncomingData((size_t)n); // We already established that the client exists
 // DEBUG
-		std::string buff = _clients[fd]->getBuffer();
+		std::string buff = it->second->getBuffer();
 		buff.erase(n);
 		std::cout	<< DEBUG << "Read " << n << " bytes from client #"
 					<< fd - _sockfd.back() << ":\n"
 					<< RESET << buff
 					<< std::endl;
 		std::cout	<< DEBUG << "Current data in buffer:\n"
-					<< RESET << _clients[fd]->getIncomingData()
+					<< RESET << it->second->getIncomingData()
 					<< std::endl;
 // DEBUG
 	}
-	if (!_clients[fd]->hasPendingData()) {
+	if (!it->second->hasPendingData()) { // We already established that the client exists
 		std::string response = "Data Received. Ctrl+D to close the connection.\n";
-		_clients[fd]->queueOutgoingData(response);
+		it->second->queueOutgoingData(response);
 		addWriteInterest(fd);
 	}
 	return;
 }
 
 void Server::handleWriteEvent(int fd) {
-	if (_clients[fd]->hasPendingData()) {
-		int status = _clients[fd]->flushPendingData(fd);
+	// if (_clients[fd]->hasPendingData()) {
+	std::map<int, Client*>::iterator it = _clients.find(fd);
+	if (it == _clients.end() || it->second == NULL) {
+		throw MissingClientException();
+		// return;
+	}
+	if (it->second->hasPendingData()) {
+		int status = it->second->flushPendingData(fd);
 		if (status == -1) {
 			throw FlushDataException();
 		}
 	}
-	if (!_clients[fd]->hasPendingData()) {
+	if (!it->second->hasPendingData()) {
 		removeWriteInterest(fd);
 	}
 	return;
@@ -334,6 +350,7 @@ void Server::cleanUpAllRessources(void) {
 						<< strerror(errno)
 						<< RESET << std::endl;
 		}
+		_epfd = -1;
 	}
 	for (int i = 0; i < MAXEVENTS; ++i) {
 	_events[i].events = 0;
@@ -443,6 +460,12 @@ const char* Server::AcceptException::what(void) const throw () {
 	// return "AcceptException\n";
 	std::cerr << ERROR << "Error: accept: ";
 	return strerror(errno);
+}
+
+const char* Server::MissingClientException::what(void) const throw () {
+	// return "MissingClientException\n";
+	std::cerr << ERROR << "Error: client lookup: ";
+	return ENOCLNT;
 }
 
 const char* Server::ReadDataException::what(void) const throw () {

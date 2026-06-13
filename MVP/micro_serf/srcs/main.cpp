@@ -48,7 +48,7 @@ int main(int ac, char** av) {
 			try {
 				parser = new ConfigParser(av[1]);
 			} catch (std::runtime_error& e) {
-				std::cerr << ERROR << e.what() << ERROR << std::endl;
+				std::cerr << ERROR << e.what() << RESET << std::endl;
 				delete parser;
 				return 1;
 			}
