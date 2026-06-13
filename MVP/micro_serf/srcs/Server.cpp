@@ -15,11 +15,13 @@
 #include <sys/socket.h>
 #include <sys/epoll.h>
 #include <arpa/inet.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <iostream>
 #include <cstring>
 #include <cerrno>
+#include <cstdlib>
 
   //~~~~~~~~~~//
  /*  Public  */
@@ -215,6 +217,30 @@ void Server::handleIncomingEvents(void) {
 void Server::acceptConnectRequest(int socket_fd) {
 	std::cout	<< INFO << "New connection on socket fd: " << socket_fd
 				<< RESET << std::endl;
+	// pid_t pid = fork();
+	// switch(pid) {
+	// case -1:
+	// 	// std::cout << ERROR << "Error: fork: " << strerror(errno) << RESET << std::endl;
+	// 	break;
+	// case 0:
+	// 	cleanUpAllRessources();
+	// 	for (int i = 0; i < MAXEVENTS; ++i) {
+	// 		_events[i].events = 0;
+	// 		_events[i].data.fd = 0;
+	// 		_events[i].data.u32 = 0;
+	// 		_events[i].data.u64 = 0;
+	// 		_events[i].data.ptr = NULL;
+	// 	}
+	// 	_addr.clear();
+	// 	_sockfd.clear();
+	// 	_clients.clear();
+	// 	close(socket_fd);
+	// 	close(_epfd);
+	// 	exit(0);
+	// // default:
+	// 	// std::cout << "I am parenting here" << std::endl;
+	// }
+	// wait(NULL);
 	Client* c = new Client();
 	// std::cout << &c << "\v" << c << std::endl;
 	int client_fd = accept(socket_fd, c->getAddrPointer(), c->getAddrlenPointer());
@@ -228,14 +254,6 @@ void Server::acceptConnectRequest(int socket_fd) {
 	std::cout	<< INFO << "Client #" << client_fd - _sockfd.back()
 				<< ", endpoint " << c->getHostAddress() << ":" << c->getHostPort()
 				<< RESET << std::endl;
-	// pid_t pid = fork();
-	// switch(pid) {
-	// case -1:
-	// 	std::cout << ERROR << "Error: fork: " << strerror(errno) << RESET << std::endl;
-	// case 0:
-	// 	close(_epfd);
-	// 	close(_sockfd[index]);
-	// }
 	return ;
 }
 
