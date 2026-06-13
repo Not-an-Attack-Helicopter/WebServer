@@ -22,7 +22,8 @@
 # include <exception>
 # include "Client.hpp"
 
-# define EINADDR	"Did not provide a character string representing a valid network address in the specified address family."
+# define EINADDR "Did not provide a character string representing \
+a valid network address in the specified address family."
 
 class Server {
 
@@ -114,15 +115,13 @@ class Server {
 		Server& operator = (const Server& other);
 
 		static const int				MAXEVENTS = 10;
-		// static const int				BACKLOG = 10;
 
 		bool							_stop;
-		// bool							_kill;
 
 		int								_epfd;
 
-		std::vector<int>				_sockfd;
 		std::vector<sockaddr_in>		_addr;
+		std::vector<int>				_sockfd;
 
 		epoll_event						_events[MAXEVENTS];
 
@@ -144,6 +143,8 @@ class Server {
 // static const in_addr_t			SERVERADDRESS = INADDR_LOOPBACK;
 // static const in_port_t			PORT = 4242;
 // static const int				MAXSOCKETS = 10;
+// static const int				BACKLOG = 10;
+// bool							_kill;
 // int								_status;
 // sockaddr_in						_sa;
 // sockaddr_storage				_ca;

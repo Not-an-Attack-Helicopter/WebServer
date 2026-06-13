@@ -14,20 +14,7 @@
 #include "../incs/Server.hpp"
 #include "../incs/colors.hpp"
 #include "../incs/utils.hpp"
-// #include "../incs/Client.hpp"
-#include <cstdlib>
-#include <fcntl.h>
 #include <iostream>
-// #include <stdexcept>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/wait.h>
-#include <unistd.h>
-// #include <cstdlib>
-
-// void cleanupServerIndex(int index, Server* server) {
-// 	server->cleanUpAllRessources();
-// }
 
 void deleteServer(ConfigParser* parser, Server* server) {
 	delete parser;
@@ -36,7 +23,6 @@ void deleteServer(ConfigParser* parser, Server* server) {
 	server = NULL;
 }
 
-// int main(void) {
 int main(int ac, char** av) {
 
 	std::cout	<< DEBUG << "Parsing Configuration file..."
@@ -68,7 +54,7 @@ int main(int ac, char** av) {
 			}
 		} else {
 			std::cerr << "Usage: " << av[0] << " [-v] <config_file>" << std::endl;
-			return 1;
+			return 0;
 		}
 		break;
 	case 2:
@@ -93,104 +79,98 @@ int main(int ac, char** av) {
 		break;
 	default:
 		std::cerr << "Usage: " << av[0] << " [-v] <config_file>" << std::endl;
-		return 1;
+		return 0;
 	}
 
-	size_t n = parser->getServerConfigCount();
-	if (n == 0) {
+	size_t numSockets = parser->getServerConfigCount();
+	if (numSockets == 0) {
 		std::cerr	<< ERROR << "Error: No configuration provided"
 					<< RESET << std::endl;
+		delete parser;
 		return 1;
 	}
 
-	// Server* parser = NULL;
-	// size_t n = 2;
-
 	Server* server = new Server();
-	// std::cout << &server << "\v" << server << std::endl;
 
-	// Setup phase: create all listening sockets and epoll instances
+	// Setup phase: create the epoll instance and all listening sockets
 	try {
 		server->prepareEPollInstance();
 	} catch (const std::exception& e) {
 		std::cerr << ERROR << e.what() << RESET << std::endl;
 		deleteServer(parser, server);
-		// delete server;
 		return 1;
 	}
-	for (size_t i = 0; i < n; ++i) {
+	for (size_t i = 0; i < numSockets; ++i) {
 		try {
 			std::string address = parser->getSingleConfig(i).host;
 			unsigned short port = parser->getSingleConfig(i).port;
-			// std::string address = "127.0.0.1";
-			// unsigned short port = 0;
-			// if (i == 0) {
-			// 	port  = 8087;
-			// } else {
-			// 	port  = 8088;
-			// }
 			server->prepareListeningPort(address, port);
 		} catch (const std::exception& e) {
 			std::cerr << ERROR << e.what() << RESET << std::endl;
 			deleteServer(parser, server);
-			// delete server;
 			return 1;
 		}
 	}
+	// Run phase: listen on all sockets for events
 	try {
 		server->handleIncomingEvents();
 	} catch (const std::exception& e) {
 		std::cerr << ERROR << e.what() << RESET << std::endl;
 		deleteServer(parser, server);
-		// delete server;
-		return 2;
+		return 1;
 	}
 	deleteServer(parser, server);
 	return 0;
 }
 
-	// // Fork phase: spawn child processes
-	// for (size_t i = 0; i < n; ++i) {
-	// 	pid_t pid = fork();
-	// 	switch(pid) {
-	// 	case -1:
-	// 		std::cerr	<< ERROR << "Error: fork: " << strerror(errno)
-	// 					<< RESET << std::endl;
-	// 		deleteServer(parser, server);
-	// 		return 1;
-	// 	case 0:
-	// 		// Child: handle events for this server index
-	// 		try {
-	// 			server->handleIncomingEvents();
-	// 		} catch (const std::exception& e) {
-	// 			std::cerr << ERROR << e.what() << RESET << std::endl;
-	// 			exit(1);
-	// 		}
-	// 		exit(EXIT_SUCCESS);
-	// 	default:
-	// 		// Parent: do nothing, loop continues to fork next child
-	// 		break;
-	// 	}
-	// }
-
-	// // Wait phase: parent waits for all children
-	// int status;
-	// int failed = 0;
-	// for (size_t i = 0; i < n; ++i) {
-	// 	if (wait(&status) == -1) {
-	// 		std::cerr	<< ERROR << "Error: wait: " << strerror(errno)
-	// 					<< RESET << std::endl;
-	// 		failed = 1;
-	// 	} else if (WIFEXITED(status) && WEXITSTATUS(status) != 0) {
-	// 		failed = 1;
-	// 	}
-	// }
-
-	// Cleanup phase: parent cleans up ONCE
-	// deleteServer(parser, server);
-	// return failed;
+// std::string address = "127.0.0.1";
+// unsigned short port = 0;
+// if (i == 0) {
+// 	port  = 8087;
+// } else {
+// 	port  = 8088;
 // }
 
+// // Fork phase: spawn child processes
+// for (size_t i = 0; i < n; ++i) {
+// 	pid_t pid = fork();
+// 	switch(pid) {
+// 	case -1:
+// 		std::cerr	<< ERROR << "Error: fork: " << strerror(errno)
+// 					<< RESET << std::endl;
+// 		deleteServer(parser, server);
+// 		return 1;
+// 	case 0:
+// 		// Child: handle events for this server index
+// 		try {
+// 			server->handleIncomingEvents();
+// 		} catch (const std::exception& e) {
+// 			std::cerr << ERROR << e.what() << RESET << std::endl;
+// 			exit(1);
+// 		}
+// 		exit(EXIT_SUCCESS);
+// 	default:
+// 		// Parent: do nothing, loop continues to fork next child
+// 		break;
+// 	}
+// }
+
+// // Wait phase: parent waits for all children
+// int status;
+// int failed = 0;
+// for (size_t i = 0; i < n; ++i) {
+// 	if (wait(&status) == -1) {
+// 		std::cerr	<< ERROR << "Error: wait: " << strerror(errno)
+// 					<< RESET << std::endl;
+// 		failed = 1;
+// 	} else if (WIFEXITED(status) && WEXITSTATUS(status) != 0) {
+// 		failed = 1;
+// 	}
+// }
+
+// Cleanup phase: parent cleans up ONCE
+// deleteServer(parser, server);
+// return failed;
 
 // 	int count = -1;
 // 	int i = -1;

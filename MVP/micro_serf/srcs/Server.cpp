@@ -12,6 +12,7 @@
 
 #include "../incs/Server.hpp"
 #include "../incs/colors.hpp"
+#include "../incs/types.hpp"
 #include <sys/socket.h>
 #include <sys/epoll.h>
 #include <arpa/inet.h>
@@ -20,8 +21,8 @@
 #include <fcntl.h>
 #include <iostream>
 #include <cstring>
-#include <cerrno>
 #include <cstdlib>
+// #include <cerrno>
 
   //~~~~~~~~~~//
  /*  Public  */
@@ -31,16 +32,7 @@
 Server::Server(void) {
 	std::cerr	<< DEBUG << "Server Constructor called" << RESET
 				<< std::endl;
-	// _sockfd = -1;
-	// _epfd = -1;
-	// _sa.sin_family = 0;
-	// _sa.sin_port = 0;
-	// _sa.sin_addr.s_addr = 0;
-	// for (size_t z = 0; z < sizeof(_sa.sin_zero); ++z) {
-	// 	_sa.sin_zero[z] = 0;
-	// }
 	_stop = false;
-	// _kill = false;
 	return;
 }
 
@@ -53,22 +45,6 @@ Server::~Server(void) {
 	}
 	return;
 }
-
-// /*	@brief Copy Constructor	*/
-// Server::Server(const Server& other) {
-// 	std::cerr	<< DEBUG << "Server Copy Constructor called" << RESET
-// 				<< std::endl;
-// 	*this = other;
-// 	return;
-// }
-//
-// /*	@brief Copy Assignment Operator	*/
-// Server& Server::operator = (const Server& other) {
-// 	std::cerr	<< DEBUG << "Server Copy Assignment Operator called" << RESET
-// 				<< std::endl;
-// 	if (this != &other) {}
-// 	return *this;
-// }
 
 void Server::setNonblockFlag(int fd) {
 	int flags = fcntl(fd, F_GETFL);
@@ -184,15 +160,15 @@ void Server::handleIncomingEvents(void) {
 					break;
 				}
 			}
-			if (isSocket) {
-				acceptConnectRequest(fd);
-			} else {
+			if (!isSocket) {
 				if (events & EPOLLIN) {
 					handleReadEvent(fd);
 				}
 				if (events & EPOLLOUT) {
 					handleWriteEvent(fd);
 				}
+			} else {
+				acceptConnectRequest(fd);
 			}
 		}
 		if (_clients.empty()) {
@@ -207,42 +183,10 @@ void Server::handleIncomingEvents(void) {
 	return;
 }
 
-// } else if (e.data.fd != _sockfd[s] && e.events & EPOLLIN) {
-// 	std::cout << e.data.fd << std::endl;
-// 	handleReadEvent(e.data.fd);
-// } else if (e.data.fd != _sockfd[s] && e.events & EPOLLOUT) {
-// 	handleWriteEvent(e.data.fd);
-// }
-
 void Server::acceptConnectRequest(int socket_fd) {
 	std::cout	<< INFO << "New connection on socket fd: " << socket_fd
 				<< RESET << std::endl;
-	// pid_t pid = fork();
-	// switch(pid) {
-	// case -1:
-	// 	// std::cout << ERROR << "Error: fork: " << strerror(errno) << RESET << std::endl;
-	// 	break;
-	// case 0:
-	// 	cleanUpAllRessources();
-	// 	for (int i = 0; i < MAXEVENTS; ++i) {
-	// 		_events[i].events = 0;
-	// 		_events[i].data.fd = 0;
-	// 		_events[i].data.u32 = 0;
-	// 		_events[i].data.u64 = 0;
-	// 		_events[i].data.ptr = NULL;
-	// 	}
-	// 	_addr.clear();
-	// 	_sockfd.clear();
-	// 	_clients.clear();
-	// 	close(socket_fd);
-	// 	close(_epfd);
-	// 	exit(0);
-	// // default:
-	// 	// std::cout << "I am parenting here" << std::endl;
-	// }
-	// wait(NULL);
 	Client* c = new Client();
-	// std::cout << &c << "\v" << c << std::endl;
 	int client_fd = accept(socket_fd, c->getAddrPointer(), c->getAddrlenPointer());
 	if (client_fd == -1) {
 		delete c;
@@ -254,6 +198,48 @@ void Server::acceptConnectRequest(int socket_fd) {
 	std::cout	<< INFO << "Client #" << client_fd - _sockfd.back()
 				<< ", endpoint " << c->getHostAddress() << ":" << c->getHostPort()
 				<< RESET << std::endl;
+	pid_t pid = fork();
+	const char* argv[] = {"echo", "I am throwing a childish insult at you, stinky fingers!", NULL};
+	switch(pid) {
+	case -1:
+		std::cout << ERROR << "Error: fork: " << strerror(errno) << RESET << std::endl;
+		break;
+	case 0:
+		// cleanUpAllRessources();							// This is bad! Because all clients will be deleted
+															// and all interests will be wiped from all sockets!
+		// if (!_clients.empty()) {							// This is bad! The client object will be destructed.
+		// 	std::map<int, Client*>::iterator immediate;
+		// 	std::map<int, Client*>::iterator it = _clients.begin();
+		// 	while (it != _clients.end()) {
+		// 		immediate = it;
+		// 		++it;
+		// 		cleanUpClient(immediate);
+		// 	}
+		// }
+		_clients.clear();
+		for (int i = 0; i < MAXEVENTS; ++i) {
+			_events[i].events = 0;
+			_events[i].data.fd = 0;
+			_events[i].data.u32 = 0;
+			_events[i].data.u64 = 0;
+			_events[i].data.ptr = NULL;
+		}
+		_sockfd.clear();
+		_addr.clear();
+		// epoll_ctl(_epfd, EPOLL_CTL_DEL, socket_fd, NULL);	// This is potentially bad, because in the case
+															// // of disconnecting before sending 'STOP' it will
+															// // not be possible to reconnect!
+		close(socket_fd);
+		close(_epfd);
+		if (execvp(argv[0], (char* const*)argv) == -1) {
+			std::cout << ERROR << "Oh no! " << strerror(errno) << RESET << std::endl;
+		}
+		exit(0);
+		break; // Because above "statement may fall through". - The Compiler. Who has no clue, this is bog wash.
+	default:
+		std::cout << "I am parenting here! ...trying to." << std::endl;
+	}
+	wait(NULL);
 	return ;
 }
 
@@ -268,7 +254,7 @@ void Server::handleReadEvent(int fd) {
 		std::map<int, Client*>::iterator it = _clients.find(fd);
 		cleanUpClient(it);
 		return;
-	} else if (n == 3000) {
+	} else if (n == STOP) {
 		std::cerr	<< INFO << "Connection closed by the server"
 					<< RESET << std::endl;
 		_stop = true;
@@ -318,6 +304,7 @@ void Server::cleanUpAllRessources(void) {
 			cleanUpClient(immediate);
 		}
 	}
+	_clients.clear();
 	if (_epfd != -1) {
 		for (unsigned long s = _sockfd.size(); s > 0 ; --s) {
 			if (_sockfd[s-1] != -1) {
@@ -348,6 +335,15 @@ void Server::cleanUpAllRessources(void) {
 						<< RESET << std::endl;
 		}
 	}
+	for (int i = 0; i < MAXEVENTS; ++i) {
+	_events[i].events = 0;
+	_events[i].data.fd = 0;
+	_events[i].data.u32 = 0;
+	_events[i].data.u64 = 0;
+	_events[i].data.ptr = NULL;
+	}
+	_sockfd.clear();
+	_addr.clear();
 	return;
 }
 
@@ -460,6 +456,33 @@ const char* Server::FlushDataException::what(void) const throw () {
 	std::cerr << ERROR << "Error: send: ";
 	return strerror(errno);
 }
+
+  //~~~~~~~~~~~//
+ /*  Private  */
+//~~~~~~~~~~~//
+
+/*	@brief Copy Constructor	*/
+Server::Server(const Server& other) {
+	std::cerr	<< DEBUG << "Server Copy Constructor called" << RESET
+				<< std::endl;
+	*this = other;
+	return;
+}
+
+/*	@brief Copy Assignment Operator	*/
+Server& Server::operator = (const Server& other) {
+	std::cerr	<< DEBUG << "Server Copy Assignment Operator called" << RESET
+				<< std::endl;
+	if (this != &other) {}
+	return *this;
+}
+
+// _sa.sin_family = 0;
+// _sa.sin_port = 0;
+// _sa.sin_addr.s_addr = 0;
+// for (size_t z = 0; z < sizeof(_sa.sin_zero); ++z) {
+// 	_sa.sin_zero[z] = 0;
+// }
 
 // throw AcceptException();
 // if (_clients.find(6) != _clients.end()) {
@@ -589,6 +612,13 @@ const char* Server::FlushDataException::what(void) const throw () {
 // const char* Server::FcntlException::what(void) const throw () {
 // 	// return "SetFlagsException\n";
 // 	return strerror(errno));
+// }
+
+// } else if (e.data.fd != _sockfd[s] && e.events & EPOLLIN) {
+// 	std::cout << e.data.fd << std::endl;
+// 	handleReadEvent(e.data.fd);
+// } else if (e.data.fd != _sockfd[s] && e.events & EPOLLOUT) {
+// 	handleWriteEvent(e.data.fd);
 // }
 
 // if (e.data.fd == _sockfd) {

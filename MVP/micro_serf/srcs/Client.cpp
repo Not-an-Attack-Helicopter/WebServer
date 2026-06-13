@@ -12,10 +12,10 @@
 
 #include "../incs/Client.hpp"
 #include "../incs/colors.hpp"
-#include <arpa/inet.h>
+#include "../incs/types.hpp"
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <iostream>
-#include <cstddef>
 
   //~~~~~~~~~~//
  /*  Public  */
@@ -25,9 +25,6 @@
 Client::Client(void) : _addrlen(sizeof(_addr)) {
 	std::cerr	<< DEBUG << "Client Constructor called" << RESET
 				<< std::endl;
-	// for (size_t i = 0; i < sizeof(_buffer); ++i) {
-	// 	_buffer[i] = 0;
-	// }
 	return;
 }
 
@@ -35,43 +32,8 @@ Client::Client(void) : _addrlen(sizeof(_addr)) {
 Client::~Client(void) {
 	std::cerr	<< DEBUG << "Client Destructor called" << RESET
 				<< std::endl;
-	// for (size_t i = 0; i < sizeof(_buffer); ++i) {
-	// 	_buffer[i] = 0;
-	// }
 	return;
 }
-
-// /*	@brief Copy Constructor	*/
-// Client::Client(const Client& other)
-// 	:	_addr(other._addr),
-// 		_addrlen(other._addrlen),
-// 		_buffer(""),
-// 		_incomingData(other._incomingData),
-// 		_outgoingData(other._outgoingData) {
-// 	std::cerr	<< DEBUG << "Client Copy Constructor called" << RESET
-// 				<< std::endl;
-// 	for (size_t i = 0; i < sizeof(_buffer); ++i) {
-// 		_buffer[i] = other._buffer[i];
-// 	}
-// 	// *this = other;
-// 	return;
-// }
-//
-// /*	@brief Copy Assignment Operator	*/
-// Client& Client::operator = (const Client& other) {
-// 	std::cerr	<< DEBUG << "Client Copy Assignment Operator called" << RESET
-// 				<< std::endl;
-// 	if (this != &other) {
-// 		_addr = other._addr;
-// 		_addrlen = other._addrlen;
-// 		for (size_t i = 0; i < sizeof(_buffer); ++i) {
-// 			_buffer[i] = other._buffer[i];
-// 		}
-// 		_incomingData = other._incomingData;
-// 		_outgoingData = other._outgoingData;
-// 	}
-// 	return *this;
-// }
 
 // DEBUG
 	unsigned short Client::getHostPort(void) const {
@@ -109,7 +71,6 @@ socklen_t* Client::getAddrlenPointer(void) const {
 }
 
 void Client::queueIncomingData(size_t len){
-	// std::cout << "Buffer:\n" << _buffer << "\nEnd" << std::endl;
 	_incomingData.append(_buffer, len);
 	return;
 }
@@ -131,17 +92,15 @@ ssize_t Client::fillPendingData(int fd) {
 	_buffer[n] = '\0';
 	// DEBUG
 	// Interpret the first 4 bytes as an admin command.
+	// Fine, but I hate having a ternary inside of a string declaration.
 	// std::string cmd(_buffer, (n < 4 ? (size_t)n : (size_t)4));
 	std::string cmd = _buffer;
 	if (cmd.size() > 4) {
 		cmd.erase(4);
 	}
 	if (cmd == "STOP") {
-		return 3000;
+		return STOP;
 	}
-	// if (cmd == "KILL") {
-	// 	return 4000;
-	// }
 	// DEBUG
 	return n;
 }
@@ -152,7 +111,43 @@ ssize_t Client::flushPendingData(int fd) {
 		return n;
 	}
 	_outgoingData.erase(0, static_cast<size_t>(n));
-	std::cerr	<< DEBUG << (_outgoingData.empty() ? "Full flush" : "Partial flush")
-				<< RESET << std::endl;
+	// std::cerr	<< DEBUG << (_outgoingData.empty() ? "Full flush" : "Partial flush")
+	// 			<< RESET << std::endl;
 	return n;
+}
+
+  //~~~~~~~~~~~//
+ /*  Private  */
+//~~~~~~~~~~~//
+
+/*	@brief Copy Constructor	*/
+Client::Client(const Client& other)
+	:	_addr(other._addr),
+		_addrlen(other._addrlen),
+		_buffer(""),
+		_incomingData(other._incomingData),
+		_outgoingData(other._outgoingData) {
+	std::cerr	<< DEBUG << "Client Copy Constructor called" << RESET
+				<< std::endl;
+	for (size_t i = 0; i < sizeof(_buffer); ++i) {
+		_buffer[i] = other._buffer[i];
+	}
+	// *this = other;
+	return;
+}
+
+/*	@brief Copy Assignment Operator	*/
+Client& Client::operator = (const Client& other) {
+	std::cerr	<< DEBUG << "Client Copy Assignment Operator called" << RESET
+				<< std::endl;
+	if (this != &other) {
+		_addr = other._addr;
+		_addrlen = other._addrlen;
+		for (size_t i = 0; i < sizeof(_buffer); ++i) {
+			_buffer[i] = other._buffer[i];
+		}
+		_incomingData = other._incomingData;
+		_outgoingData = other._outgoingData;
+	}
+	return *this;
 }
