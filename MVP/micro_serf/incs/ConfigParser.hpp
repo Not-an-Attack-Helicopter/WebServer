@@ -12,7 +12,7 @@ class ConfigParser {
 		ConfigParser& operator=(const ConfigParser& other);
 		~ConfigParser();
 
-		std::vector<ServerConfig>&			getAllConfigs(void);
+		const std::vector<ServerConfig>&			getAllConfigs(void) const;
 		const ServerConfig& 				getSingleConfig(size_t index) const;
 
 		size_t								getServerConfigCount(void) const;

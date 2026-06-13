@@ -42,7 +42,7 @@ ConfigParser::~ConfigParser()
 
 
 //-------------------------------getters-------------------------------//
-std::vector<ServerConfig>& ConfigParser::getAllConfigs()
+const std::vector<ServerConfig>& ConfigParser::getAllConfigs() const
 {
 	return _serverConfigs;
 }

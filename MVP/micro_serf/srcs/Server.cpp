@@ -116,7 +116,7 @@ void Server::prepareListeningPort(const std::string& address, unsigned short por
 		throw InvalidAddressException();
 	}
 	_addr.push_back(sa);
-	result = socket(_addr.back().sin_family, SOCK_STREAM | O_NONBLOCK, 0);
+	result = socket(_addr.back().sin_family, SOCK_STREAM | O_NONBLOCK | SO_REUSEADDR, 0);
 	if (result == -1) {
 		throw SocketException();
 	}
@@ -200,9 +200,9 @@ void Server::acceptConnectRequest(int socket_fd) {
 	std::cout	<< INFO << "Client #" << client_fd - _sockfd.back()
 				<< ", endpoint " << c->getHostAddress() << ":" << c->getHostPort()
 				<< RESET << std::endl;
-	// DEBUG
+	// DEBUG We don't care about potential DoS attack vectors here
 	pid_t pid = fork();
-	const char* argv[] = {"echo", "I am throwing a childish insult at you, stinky fingers!", NULL};
+	const char* argv[] = {"echo", "Hello from the child process!", NULL};
 	switch(pid) {
 	case -1:
 		std::cout << ERROR << "Error: fork: " << strerror(errno) << RESET << std::endl;
@@ -240,7 +240,7 @@ void Server::acceptConnectRequest(int socket_fd) {
 		exit(0);
 		break; // Because above "statement may fall through". - The Compiler. Who has no clue, this is bog wash.
 	default:
-		std::cout << "I am parenting here! ...trying to." << std::endl;
+		std::cout << "Hello from the parent process!" << std::endl;
 	}
 	while (waitpid(-1, NULL, WNOHANG) > 0) {}
 	// DEBUG
