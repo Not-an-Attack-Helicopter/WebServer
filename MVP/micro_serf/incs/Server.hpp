@@ -60,6 +60,11 @@ class Server {
 			virtual const char*		what(void) const throw ();
 		};
 
+		class SetOptionException : public std::exception {
+		public:
+			virtual const char*		what(void) const throw ();
+		};
+
 		class BindException : public std::exception {
 		public:
 			virtual const char*		what(void) const throw ();

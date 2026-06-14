@@ -103,6 +103,7 @@ void Server::prepareEPollInstance(void) {
 }
 
 void Server::prepareListeningPort(const std::string& address, unsigned short port) {
+	int opt = 1;
 	int result = 0;
 	sockaddr_in sa;
 	std::memset(&sa, 0, sizeof(sa));
@@ -116,13 +117,15 @@ void Server::prepareListeningPort(const std::string& address, unsigned short por
 		throw InvalidAddressException();
 	}
 	_addr.push_back(sa);
-	result = socket(_addr.back().sin_family, SOCK_STREAM | O_NONBLOCK | SO_REUSEADDR, 0);
+	result = socket(_addr.back().sin_family, SOCK_STREAM | O_NONBLOCK, 0);
 	if (result == -1) {
 		throw SocketException();
 	}
-	// setNonblockFlag(result);
 	_sockfd.push_back(result);
-	// setNonblockFlag(_sockfd.back());
+	result = setsockopt(_sockfd.back(), SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+	if (result == -1) {
+		throw SetOptionException();
+	}
 	std::cout	<< DEBUG << "Created server socket fd: " << _sockfd.back()
 				<< RESET << std::endl;
 	result = bind(_sockfd.back(), (sockaddr*)&_addr.back(), sizeof(_addr.back()));
@@ -410,6 +413,12 @@ const char* Server::InvalidAddressException::what(void) const throw () {
 
 const char* Server::SocketException::what(void) const throw () {
 	// return "SocketException\n";
+	std::cerr << ERROR << "Error: socket: ";
+	return strerror(errno);
+}
+
+const char* Server::SetOptionException::what(void) const throw () {
+	// return "SetOptionException\n";
 	std::cerr << ERROR << "Error: socket: ";
 	return strerror(errno);
 }
