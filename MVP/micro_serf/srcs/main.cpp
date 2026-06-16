@@ -15,16 +15,9 @@
 #include "../incs/Server.hpp"
 #include "../incs/utils.hpp"
 #include <exception>
-// #include <iostream>
 #include <cstring>
+// #include <iostream>
 // #include "../incs/colors.hpp"
-
-// void deleteServer(Parser* parser, Server* server) {
-// 	delete parser;
-// 	parser = NULL;
-// 	delete server;
-// 	server = NULL;
-// }
 
 int main(int argc, char** argv) {
 
@@ -85,22 +78,19 @@ int main(int argc, char** argv) {
 
 	// Parse phase: parse through config file and extract server setup
 	size_t numSockets = 0;
-	Parser* parser = NULL;
 	try {
-		parser = new Parser(config);
+		parser.readFile(config);
 		log.debug("Parsing configuration file: " + config);
-		numSockets = parser->countConfigs();
+		numSockets = parser.countConfigs();
 		if (numSockets == 0) {
 			log.error("Error: No configuration provided");
-			delete parser;
 			return 1;
 		}
 		if (log.getLevel() <= LOG_LEVEL_INFO) {
-			print_conf(parser->getAllConfigs());
+			print_conf(parser.getAllConfigs());
 		}
 	} catch (std::exception& e) {
 		log.error(e.what());
-		delete parser;
 		return 1;
 	}
 
@@ -120,18 +110,16 @@ int main(int argc, char** argv) {
 	} catch (const std::exception& e) {
 		// std::cerr << ERROR << e.what() << RESET << std::endl;
 		log.error(e.what());
-		delete parser;
 		return 1;
 	}
 	for (size_t i = 0; i < numSockets; ++i) {
 		try {
-			std::string address = parser->getConfig(i).host;
-			unsigned short port = parser->getConfig(i).port;
+			std::string address = parser.getConfig(i).host;
+			unsigned short port = parser.getConfig(i).port;
 			server.prepareListeningPort(address, port);
 		} catch (const std::exception& e) {
 			// std::cerr << ERROR << e.what() << RESET << std::endl;
 			log.error(e.what());
-			delete parser;
 			return 1;
 		}
 	}
@@ -142,9 +130,7 @@ int main(int argc, char** argv) {
 	} catch (const std::exception& e) {
 		// std::cerr << ERROR << e.what() << RESET << std::endl;
 		log.error(e.what());
-		delete parser;
 		return 1;
 	}
-	delete parser;
 	return 0;
 }
