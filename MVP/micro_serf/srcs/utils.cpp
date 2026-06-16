@@ -1,5 +1,4 @@
 #include "../incs/utils.hpp"
-#include "../incs/colors.hpp"
 #include <algorithm>
 #include <iostream>
 #include <sstream>
@@ -94,10 +93,8 @@ bool valid_config_line(const std::string& line)
 }
 
 
-
 void print_conf(const std::vector<ServerConfig>& config) {
 	for (std::vector<ServerConfig>::const_iterator server = config.begin(); server != config.end(); ++server) {
-		std::cout << INFO;
 		std::cout << "server {\n";
 		std::cout << "    host: " << server->host << ";\n";
 		std::cout << "    port: " << server->port << ";\n";
@@ -139,7 +136,6 @@ void print_conf(const std::vector<ServerConfig>& config) {
 		}
 		std::cout << "    }\n";
 		std::cout << "}\n";
-		std::cout << RESET;
 	}
 }
 

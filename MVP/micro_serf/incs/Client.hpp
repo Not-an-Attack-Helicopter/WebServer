@@ -58,18 +58,3 @@ class Client {
 };
 
 #endif
-
-// static int					count;
-// const int					_id;
-// int							_sockfd;
-
-// sockaddr*					getSockAddr(void) const;
-// int							getFildes(void) const;
-// void						setSockAddr(void);
-// void						setFildes(void);
-
-// const std::string&			getReadBuffer(void) const;
-// const std::string&			getWriteBuffer(void) const;
-
-// void						setReadBuffer(void);
-// void						setWriteBuffer(const std::string& data);

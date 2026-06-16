@@ -11,11 +11,10 @@
 /* ************************************************************************** */
 
 #include "../incs/Client.hpp"
-#include "../incs/colors.hpp"
+#include "../incs/Logger.hpp"
 #include "../incs/types.hpp"
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <iostream>
 
   //~~~~~~~~~~//
  /*  Public  */
@@ -23,15 +22,13 @@
 
 /*	@brief Constructor	*/
 Client::Client(void) : _addrlen(sizeof(_addr)) {
-	std::cerr	<< DEBUG << "Client Constructor called" << RESET
-				<< std::endl;
+	log.debug("Client Constructor called");
 	return;
 }
 
 /*	@brief Destructor	*/
 Client::~Client(void) {
-	std::cerr	<< DEBUG << "Client Destructor called" << RESET
-				<< std::endl;
+	log.debug("Client Destructor called");
 	return;
 }
 
@@ -111,8 +108,7 @@ ssize_t Client::flushPendingData(int fd) {
 		return n;
 	}
 	_outgoingData.erase(0, static_cast<size_t>(n));
-	// std::cerr	<< DEBUG << (_outgoingData.empty() ? "Full flush" : "Partial flush")
-	// 			<< RESET << std::endl;
+	log.debug(_outgoingData.empty() ? "Full flush" : "Partial flush");
 	return n;
 }
 
@@ -126,8 +122,7 @@ Client::Client(const Client& other)
 		_addrlen(other._addrlen),
 		_incomingData(other._incomingData),
 		_outgoingData(other._outgoingData) {
-	std::cerr	<< DEBUG << "Client Copy Constructor called" << RESET
-				<< std::endl;
+	log.debug("Client Copy Constructor called");
 	for (size_t i = 0; i < sizeof(_buffer); ++i) {
 		_buffer[i] = other._buffer[i];
 	}
@@ -137,8 +132,7 @@ Client::Client(const Client& other)
 
 /*	@brief Copy Assignment Operator	*/
 Client& Client::operator = (const Client& other) {
-	std::cerr	<< DEBUG << "Client Copy Assignment Operator called" << RESET
-				<< std::endl;
+	log.debug("Client Copy Assignment Operator called");
 	if (this != &other) {
 		_addr = other._addr;
 		_addrlen = other._addrlen;

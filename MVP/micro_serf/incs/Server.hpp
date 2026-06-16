@@ -17,113 +17,37 @@
 
 # include <netinet/in.h>
 # include <sys/epoll.h>
-// # include <netdb.h>
-# include <map>
+# include <netdb.h>
 # include <string>
 # include <vector>
-# include <exception>
+# include <map>
 # include "Client.hpp"
 
-# define EINADDR "Did not provide a character string representing \
-a valid network address in the specified address family."
-# define ENOCLNT "Missing Client."
+# define INVALID_ADDR "No valid address string was provided for the specified \
+address family."
+# define NFIND_CLIENT "Client not found."
 
 class Server {
 
 	public:
 		static Server&		instance(void);
-		Server(void);
-		~Server(void);
 
-		void				setNonblockFlag(int fd);
-		void				setReadInterest(int fd);
-		void				addWriteInterest(int fd);
-		void				removeWriteInterest(int fd);
-		void				prepareEPollInstance(void);
-		void				prepareListeningPort(const std::string& address, unsigned short port);
-		void				handleIncomingEvents(void);
-		void				acceptConnectRequest(int fd);
-		void				handleReadEvent(int fd);
-		void				handleWriteEvent(int fd);
-		void				cleanUpAllRessources();
-		void				cleanUpClient(std::map<int, Client*>::iterator it);
-
-		class AFNotSupportedException : public std::exception {
-		public:
-			virtual const char*		what(void) const throw ();
-		};
-
-		class InvalidAddressException : public std::exception {
-		public:
-			virtual const char*		what(void) const throw ();
-		};
-
-		class SocketException : public std::exception {
-		public:
-			virtual const char*		what(void) const throw ();
-		};
-
-		class SetOptionException : public std::exception {
-		public:
-			virtual const char*		what(void) const throw ();
-		};
-
-		class BindException : public std::exception {
-		public:
-			virtual const char*		what(void) const throw ();
-		};
-
-		class ListenException : public std::exception {
-		public:
-			virtual const char*		what(void) const throw ();
-		};
-
-		class CreateEPollException : public std::exception {
-		public:
-			virtual const char*		what(void) const throw ();
-		};
-
-		class ModifyEPollException : public std::exception {
-		public:
-			virtual const char*		what(void) const throw ();
-		};
-
-		class EventPollingException : public std::exception {
-		public:
-			virtual const char*		what(void) const throw ();
-		};
-
-		class GetFlagsException : public std::exception {
-		public:
-			virtual const char*		what(void) const throw ();
-		};
-
-		class SetFlagsException : public std::exception {
-		public:
-			virtual const char*		what(void) const throw ();
-		};
-
-		class AcceptException : public std::exception {
-		public:
-			virtual const char*		what(void) const throw ();
-		};
-
-		class MissingClientException : public std::exception {
-		public:
-			virtual const char*		what(void) const throw ();
-		};
-
-		class ReadDataException : public std::exception {
-		public:
-			virtual const char*		what(void) const throw ();
-		};
-
-		class FlushDataException : public std::exception {
-		public:
-			virtual const char*		what(void) const throw ();
-		};
+		void	setNonblockFlag(int fd);
+		void	setReadInterest(int fd);
+		void	addWriteInterest(int fd);
+		void	removeWriteInterest(int fd);
+		void	prepareEPollInstance(void);
+		void	prepareListeningPort(const std::string& address, unsigned short port);
+		void	handleIncomingEvents(void);
+		void	acceptConnectRequest(int fd);
+		void	handleReadEvent(int fd);
+		void	handleWriteEvent(int fd);
+		void	cleanUpAllRessources();
+		void	cleanUpClient(std::map<int, Client*>::iterator it);
 
 	private:
+		Server(void);
+		~Server(void);
 		Server(const Server& other);
 		Server& operator = (const Server& other);
 
@@ -143,6 +67,81 @@ class Server {
 };
 
 #endif
+
+// class CreateEPollException : public std::exception {
+// public:
+// 	virtual const char*		what(void) const throw ();
+// };
+
+// class ModifyEPollException : public std::exception {
+// public:
+// 	virtual const char*		what(void) const throw ();
+// };
+
+// class AFNotSupportedException : public std::exception {
+// public:
+// 	virtual const char*		what(void) const throw ();
+// };
+
+// class InvalidAddressException : public std::exception {
+// public:
+// 	virtual const char*		what(void) const throw ();
+// };
+
+// class SocketException : public std::exception {
+// public:
+// 	virtual const char*		what(void) const throw ();
+// };
+
+// class SetSockOptionException : public std::exception {
+// public:
+// 	virtual const char*		what(void) const throw ();
+// };
+
+// class BindException : public std::exception {
+// public:
+// 	virtual const char*		what(void) const throw ();
+// };
+
+// class ListenException : public std::exception {
+// public:
+// 	virtual const char*		what(void) const throw ();
+// };
+
+// class EventPollingException : public std::exception {
+// public:
+// 	virtual const char*		what(void) const throw ();
+// };
+
+// class GetFileStatusException : public std::exception {
+// public:
+// 	virtual const char*		what(void) const throw ();
+// };
+
+// class SetFileStatusException : public std::exception {
+// public:
+// 	virtual const char*		what(void) const throw ();
+// };
+
+// class AcceptException : public std::exception {
+// public:
+// 	virtual const char*		what(void) const throw ();
+// };
+
+// class MissingClientException : public std::exception {
+// public:
+// 	virtual const char*		what(void) const throw ();
+// };
+
+// class ReadDataException : public std::exception {
+// public:
+// 	virtual const char*		what(void) const throw ();
+// };
+
+// class FlushDataException : public std::exception {
+// public:
+// 	virtual const char*		what(void) const throw ();
+// };
 
 // void							createSocket(void);
 // void							bindSocket(void);
