@@ -16,12 +16,12 @@
 #include "../incs/utils.hpp"
 #include <iostream>
 
-void deleteServer(ConfigParser* parser, Server* server) {
-	delete parser;
-	parser = NULL;
-	delete server;
-	server = NULL;
-}
+// void deleteServer(ConfigParser* parser, Server* server) {
+// 	delete parser;
+// 	parser = NULL;
+// 	delete server;
+// 	server = NULL;
+// }
 
 int main(int ac, char** av) {
 
@@ -90,36 +90,36 @@ int main(int ac, char** av) {
 		return 1;
 	}
 
-	Server* server = new Server();
+	// Server* server = new Server();
 
 	// Setup phase: create the epoll instance and all listening sockets
 	try {
-		server->prepareEPollInstance();
+		server.prepareEPollInstance();
 	} catch (const std::exception& e) {
 		std::cerr << ERROR << e.what() << RESET << std::endl;
-		deleteServer(parser, server);
+		delete parser;
 		return 1;
 	}
 	for (size_t i = 0; i < numSockets; ++i) {
 		try {
 			std::string address = parser->getSingleConfig(i).host;
 			unsigned short port = parser->getSingleConfig(i).port;
-			server->prepareListeningPort(address, port);
+			server.prepareListeningPort(address, port);
 		} catch (const std::exception& e) {
 			std::cerr << ERROR << e.what() << RESET << std::endl;
-			deleteServer(parser, server);
+			delete parser;
 			return 1;
 		}
 	}
 	// Run phase: listen on all sockets for events
 	try {
-		server->handleIncomingEvents();
+		server.handleIncomingEvents();
 	} catch (const std::exception& e) {
 		std::cerr << ERROR << e.what() << RESET << std::endl;
-		deleteServer(parser, server);
+		delete parser;
 		return 1;
 	}
-	deleteServer(parser, server);
+	delete parser;
 	return 0;
 }
 

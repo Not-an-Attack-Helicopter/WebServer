@@ -13,6 +13,8 @@
 #ifndef SERVER_H
 # define SERVER_H
 
+# define server Server::instance()
+
 # include <netinet/in.h>
 # include <sys/epoll.h>
 // # include <netdb.h>
@@ -29,21 +31,22 @@ a valid network address in the specified address family."
 class Server {
 
 	public:
+		static Server&		instance(void);
 		Server(void);
 		~Server(void);
 
-		void	setNonblockFlag(int fd);
-		void	setReadInterest(int fd);
-		void	addWriteInterest(int fd);
-		void	removeWriteInterest(int fd);
-		void	prepareEPollInstance(void);
-		void	prepareListeningPort(const std::string& address, unsigned short port);
-		void	handleIncomingEvents(void);
-		void	acceptConnectRequest(int fd);
-		void	handleReadEvent(int fd);
-		void	handleWriteEvent(int fd);
-		void	cleanUpAllRessources();
-		void	cleanUpClient(std::map<int, Client*>::iterator it);
+		void				setNonblockFlag(int fd);
+		void				setReadInterest(int fd);
+		void				addWriteInterest(int fd);
+		void				removeWriteInterest(int fd);
+		void				prepareEPollInstance(void);
+		void				prepareListeningPort(const std::string& address, unsigned short port);
+		void				handleIncomingEvents(void);
+		void				acceptConnectRequest(int fd);
+		void				handleReadEvent(int fd);
+		void				handleWriteEvent(int fd);
+		void				cleanUpAllRessources();
+		void				cleanUpClient(std::map<int, Client*>::iterator it);
 
 		class AFNotSupportedException : public std::exception {
 		public:

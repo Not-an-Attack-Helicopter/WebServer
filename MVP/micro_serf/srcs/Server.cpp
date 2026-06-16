@@ -28,23 +28,10 @@
  /*  Public  */
 //~~~~~~~~~~//
 
-/*	@brief Constructor	*/
-Server::Server(void) {
-	std::cerr	<< DEBUG << "Server Constructor called" << RESET
-				<< std::endl;
-	_epfd = -1;
-	_stop = false;
-	return;
-}
-
-/*	@brief Destructor	*/
-Server::~Server(void) {
-	std::cerr	<< DEBUG << "Server Destructor called" << RESET
-				<< std::endl;
-	if (_epfd != -1 || !_sockfd.empty() || !_clients.empty()) {
-		cleanUpAllRessources();
-	}
-	return;
+/*	@brief Instance	*/
+Server& Server::instance(void) {
+	static Server instance;
+	return instance;
 }
 
 void Server::setNonblockFlag(int fd) {
@@ -492,6 +479,25 @@ const char* Server::FlushDataException::what(void) const throw () {
   //~~~~~~~~~~~//
  /*  Private  */
 //~~~~~~~~~~~//
+
+/*	@brief Constructor	*/
+Server::Server(void) {
+	std::cerr	<< DEBUG << "Server Constructor called" << RESET
+				<< std::endl;
+	_epfd = -1;
+	_stop = false;
+	return;
+}
+
+/*	@brief Destructor	*/
+Server::~Server(void) {
+	std::cerr	<< DEBUG << "Server Destructor called" << RESET
+				<< std::endl;
+	if (_epfd != -1 || !_sockfd.empty() || !_clients.empty()) {
+		cleanUpAllRessources();
+	}
+	return;
+}
 
 /*	@brief Copy Constructor	*/
 Server::Server(const Server& other) {
