@@ -94,21 +94,10 @@ int main(int argc, char** argv) {
 		return 1;
 	}
 
-
 	// Setup phase: create server, epoll instance, and all listening sockets
-	// Server* server = NULL;
-	// try {
-	// 	server = new Server();
-	// } catch (std::exception& e) {
-	// 	// std::cerr << ERROR << e.what() << RESET << std::endl;
-	// 	log.error(e.what());
-	// 	delete server;
-	// 	return 1;
-	// }
 	try {
 		server.prepareEPollInstance();
 	} catch (const std::exception& e) {
-		// std::cerr << ERROR << e.what() << RESET << std::endl;
 		log.error(e.what());
 		return 1;
 	}
@@ -118,7 +107,6 @@ int main(int argc, char** argv) {
 			unsigned short port = parser.getConfig(i).port;
 			server.prepareListeningPort(address, port);
 		} catch (const std::exception& e) {
-			// std::cerr << ERROR << e.what() << RESET << std::endl;
 			log.error(e.what());
 			return 1;
 		}
@@ -128,9 +116,18 @@ int main(int argc, char** argv) {
 	try {
 		server.handleIncomingEvents();
 	} catch (const std::exception& e) {
-		// std::cerr << ERROR << e.what() << RESET << std::endl;
 		log.error(e.what());
 		return 1;
 	}
 	return 0;
 }
+
+	// Server* server = NULL;
+	// try {
+	// 	server = new Server();
+	// } catch (std::exception& e) {
+	// 	// std::cerr << ERROR << e.what() << RESET << std::endl;
+	// 	log.error(e.what());
+	// 	delete server;
+	// 	return 1;
+	// }

@@ -10,7 +10,7 @@
 #                                                                              #
 # **************************************************************************** #
 
-NAME		=	server
+NAME		=	webserv
 
 CXX			=	c++
 CXXFLAGS	=	-Werror -Wextra -Wall -std=c++98
