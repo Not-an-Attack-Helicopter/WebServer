@@ -12,7 +12,7 @@
 
 #include "../incs/Server.hpp"
 #include "../incs/Logger.hpp"
-#include "../incs/helpers.hpp"
+#include "../incs/utils.hpp"
 #include "../incs/types.hpp"
 #include <sys/socket.h>
 #include <sys/epoll.h>

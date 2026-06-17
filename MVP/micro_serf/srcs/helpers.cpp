@@ -8,12 +8,6 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
-std::string i2a(int input) {
-	std::stringstream convert;
-	convert << input;
-	return (convert.str());
-}
-
 static std::string directive_key(const std::string& line)
 {
 	size_t space = line.find(' ');

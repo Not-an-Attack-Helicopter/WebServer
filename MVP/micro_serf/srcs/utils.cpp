@@ -5,15 +5,6 @@
 #include <cstdlib>
 #include <cctype>
 
-std::string trim(const std::string& str)
-{
-	size_t first = str.find_first_not_of(" \t\r\n");
-	size_t last = str.find_last_not_of(" \t\r\n");
-	if (first == std::string::npos || last == std::string::npos)
-		return "";
-	return str.substr(first, last - first + 1);
-}
-
 bool valid_ip(const std::string& ip)
 {
 	std::istringstream iss(ip);
@@ -92,6 +83,61 @@ bool valid_config_line(const std::string& line)
     return true;
 }
 
+bool is_valid_method(const std::string& method)
+{
+	const std::string valid_methods[] = {"GET", "POST", "PUT", "HEAD", "DELETE"};
+	const size_t s = sizeof(valid_methods) / sizeof(valid_methods[0]);
+	return (std::find(valid_methods, valid_methods + s, method) != valid_methods + s);
+}
+
+bool is_valid_body_size(const int size)
+{
+	return size >= 0;
+}
+
+bool is_valid_error_code(const int code)
+{
+	return code >= 400 && code < 600;
+}
+
+std::string i2a(int input) {
+	std::stringstream convert;
+	convert << input;
+	return (convert.str());
+}
+
+std::string trim(const std::string& str)
+{
+	size_t first = str.find_first_not_of(" \t\r\n");
+	size_t last = str.find_last_not_of(" \t\r\n");
+	if (first == std::string::npos || last == std::string::npos)
+		return "";
+	return str.substr(first, last - first + 1);
+}
+
+std::string get_content_type(const std::string& path)
+{
+	size_t dot = path.rfind('.');
+	if (dot == std::string::npos || dot == path.size() - 1)
+		return "application/octet-stream";
+	std::string ext = path.substr(dot);
+	if (ext == ".html" || ext == ".htm")
+		return "text/html";
+	else if (ext == ".css")
+		return "text/css";
+	else if (ext == ".js")
+		return "application/javascript";
+	else if (ext == ".jpg" || ext == ".jpeg")
+		return "image/jpeg";
+	else if (ext == ".png")
+		return "image/png";
+	else if (ext == ".gif")
+		return "image/gif";
+	else if (ext == ".py" || ext == ".sh")
+		return "text/x-script";
+	else
+		return "application/octet-stream";
+}
 
 void print_conf(const std::vector<ServerConfig>& config) {
 	for (std::vector<ServerConfig>::const_iterator server = config.begin(); server != config.end(); ++server) {
@@ -137,45 +183,4 @@ void print_conf(const std::vector<ServerConfig>& config) {
 		std::cout << "    }\n";
 		std::cout << "}\n";
 	}
-}
-
-bool is_valid_method(const std::string& method)
-{
-	const std::string valid_methods[] = {"GET", "POST", "PUT", "HEAD", "DELETE"};
-	const size_t s = sizeof(valid_methods) / sizeof(valid_methods[0]);
-	return (std::find(valid_methods, valid_methods + s, method) != valid_methods + s);
-}
-
-bool is_valid_body_size(const int size)
-{
-	return size >= 0;
-}
-
-bool is_valid_error_code(const int code)
-{
-	return code >= 400 && code < 600;
-}
-
-std::string get_content_type(const std::string& path)
-{
-	size_t dot = path.rfind('.');
-	if (dot == std::string::npos || dot == path.size() - 1)
-		return "application/octet-stream";
-	std::string ext = path.substr(dot);
-	if (ext == ".html" || ext == ".htm")
-		return "text/html";
-	else if (ext == ".css")
-		return "text/css";
-	else if (ext == ".js")
-		return "application/javascript";
-	else if (ext == ".jpg" || ext == ".jpeg")
-		return "image/jpeg";
-	else if (ext == ".png")
-		return "image/png";
-	else if (ext == ".gif")
-		return "image/gif";
-	else if (ext == ".py" || ext == ".sh")
-		return "text/x-script";
-	else
-		return "application/octet-stream";
 }
