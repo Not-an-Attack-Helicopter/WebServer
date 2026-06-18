@@ -186,29 +186,29 @@ void Server::handleIncomingEvents(void) {
 				acceptConnectRequest(fd);
 			}
 		}
-// DEBUG
+// DEBUG >>
 		if (_stop == true) {
 			break;
 		}
-// DEBUG
+// DEBUG <<
 		std::map<int, Client*>::iterator immediate;
 		std::map<int, Client*>::iterator it = _clients.begin();
 		while (it != _clients.end()) {
 			immediate = it;
 			++it;
 			if (immediate->second->isTimedOut()) {
-// DEBUG
+// DEBUG >>
 				const int index = immediate->first - _sockets.rbegin()->first;
 				log.debug("Client #" + i2a(index) + " idle time: " + i2a(immediate->second->getIdleTime()) + "s");
-// DEBUG
-				log.info("Client #" + i2a(immediate->first - _sockets.rbegin()->first) + " timed out");
+// DEBUG <<
+				log.warning("Client #" + i2a(immediate->first - _sockets.rbegin()->first) + " timed out");
 				cleanUpClient(immediate);
-// DEBUG
+// DEBUG >>
 				if (_clients.empty()) {
 					log.info("All clients disconnected");
 					// break;
 				}
-// DEBUG
+// DEBUG <<
 			}
 		}
 	}
@@ -230,7 +230,7 @@ void Server::acceptConnectRequest(int socket_fd) {
 	// log.info("Client #" + i2a(client_fd - _sockfd.back()) + ", endpoint "
 	log.info("Client #" + i2a(client_fd - _sockets.rbegin()->first) + ", endpoint "
 				+ c->getHostAddress() + ":" + i2a(c->getHostPort()));
-	// DEBUG We don't care about potential DoS attack vectors here
+// DEBUG We don't care about potential DoS attack vectors here
 	// pid_t pid = fork();
 	// const char* argv[] = {"echo", "Hello from the child process!", NULL};
 	// switch(pid) {
@@ -273,7 +273,7 @@ void Server::acceptConnectRequest(int socket_fd) {
 	// 	std::cout << "Hello from the parent process!" << std::endl;
 	// }
 	// while (waitpid(-1, NULL, WNOHANG) > 0) {}
-	// DEBUG
+// DEBUG
 	return ;
 }
 
@@ -292,15 +292,15 @@ void Server::handleReadEvent(int fd) {
 		// log.info("Connection closed by client #" + i2a(fd - _sockfd.back()));
 		log.info("Connection closed by client #" + i2a(fd - _sockets.rbegin()->first));
 		cleanUpClient(it);
-		// DEBUG
+// DEBUG >>
 		if (_clients.empty()) {
 			log.info("All clients disconnected");
 			// break;
 		}
-		// DEBUG
+// DEBUG <<
 		return;
 	}
-// DEBUG
+// DEBUG >>
 	if (n == STOP) {
 		log.info("Connection closed by the server");
 		_stop = true;
@@ -313,8 +313,8 @@ void Server::handleReadEvent(int fd) {
 		log.notice(buff);
 		log.debug("Current data in buffer:");
 		log.notice(it->second->getIncomingData());
-		it->second->parseIncomingData();
-// DEBUG
+		it->second->parseIncomingData(); // TEST
+// DEBUG <<
 	}
 	if (!it->second->hasPendingData()) { // We already established that the client exists
 		std::string response = "Data Received. Ctrl+D to close the connection.\n";

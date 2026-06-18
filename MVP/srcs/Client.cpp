@@ -112,7 +112,7 @@ void Client::parseIncomingData(void) {
 		log.debug("Header:\t\t" + request.getHeader("content-type"));
 		log.debug("Body:\t\t" + request.getBody());
 		log.debug("Content-Length:\t" + i2a(request.getContentLength()) + "\n");
-		_incomingData.clear();
+		reset();
 		break;
 	}
 }
