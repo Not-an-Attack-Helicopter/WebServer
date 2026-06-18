@@ -55,14 +55,13 @@ class Server {
 		Server& operator = (const Server& other);
 
 		static const int				MAX_EPOLL_EVENTS = 1; // 64 - 512
-		static const int				EPOLL_WAIT_TIMEOUT_MS = 5000; // 100 – 5000 (< CONNECTION_IDLE_TIMEOUT_SECONDS * 10)
+		static const int				EPOLL_WAIT_TIMEOUT_MS = 5000; // 100 – 5000
 
 		bool							_stop;
 
 		int								_epfd;
 
 		std::vector<sockaddr_in>		_addr;
-		// std::vector<int>				_sockfd;
 
 		epoll_event						_events[MAX_EPOLL_EVENTS];
 
@@ -169,5 +168,6 @@ class Server {
 // sockaddr_storage				_ca;
 // socklen_t						_addrSize;
 // epoll_event						_ev;
+// std::vector<int>				_sockfd;
 // int								_clientfd;
 // static const char*				_message;

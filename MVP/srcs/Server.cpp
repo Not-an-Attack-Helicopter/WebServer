@@ -20,7 +20,7 @@
 #include <sys/wait.h>
 #include <stdexcept>
 #include <unistd.h>
-#include <iostream>
+// #include <iostream>
 #include <fcntl.h>
 #include <cstring>
 #include <cstdlib>
@@ -39,12 +39,10 @@ Server& Server::instance(void) {
 void Server::setNonblockFlag(int fd) {
 	int flags = fcntl(fd, F_GETFL);
 	if (flags == -1) {
-		// throw GetFileStatusException();
 		throw std::runtime_error("fcntl(F_GETFL): " + std::string(strerror(errno)));
 	}
 	int status = fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 	if (status == -1) {
-		// throw SetFileStatusException();
 		throw std::runtime_error("fcntl(F_SETFL): " + std::string(strerror(errno)));
 	}
 	return;
@@ -56,7 +54,6 @@ void Server::setReadInterest(int fd) {
 	e.data.fd = fd;
 	int status = epoll_ctl(_epfd, EPOLL_CTL_ADD, fd, &e);
 	if (status == -1) {
-		// throw ModifyEPollException();
 		throw std::runtime_error("epoll_ctl: " + std::string(strerror(errno)));
 	}
 	return;
@@ -68,7 +65,6 @@ void Server::addWriteInterest(int fd) {
 	e.data.fd = fd;
 	int status = epoll_ctl(_epfd, EPOLL_CTL_MOD, fd, &e);
 	if (status == -1) {
-		// throw ModifyEPollException();
 		throw std::runtime_error("epoll_ctl: " + std::string(strerror(errno)));
 	}
 	return;
@@ -80,7 +76,6 @@ void Server::removeWriteInterest(int fd) {
 	e.data.fd = fd;
 	int status = epoll_ctl(_epfd, EPOLL_CTL_MOD, fd, &e);
 	if (status == -1) {
-		// throw ModifyEPollException();
 		throw std::runtime_error("epoll_ctl: " + std::string(strerror(errno)));
 	}
 	return;
@@ -89,49 +84,37 @@ void Server::removeWriteInterest(int fd) {
 void Server::prepareEPollInstance(void) {
 	_epfd = epoll_create(1);
 	if (_epfd == -1) {
-		// throw CreateEPollException();
 		throw std::runtime_error("epoll_create: " + std::string(strerror(errno)));
 	}
 	log.debug("Prepared epoll instance epfd fd_" + i2a(_epfd));
 	return;
 }
 
-// void Server::prepareListeningPort(const std::string& address, unsigned short port) {
 void Server::prepareListeningPort(const Config& config) {
 	int opt = 1;
 	int result = 0;
 	sockaddr_in sa;
 	std::memset(&sa, 0, sizeof(sa));
-	// sa.sin_port = htons(port);
 	sa.sin_port = htons(config.port);
 	sa.sin_family = AF_INET;
-	// result = inet_pton(sa.sin_family, address.c_str(), &sa.sin_addr);
 	result = inet_pton(sa.sin_family, config.host.c_str(), &sa.sin_addr);
 	if (result == -1) {
-		// throw AFNotSupportedException();
 		throw std::runtime_error("inet_pton: " + std::string(strerror(errno)));
 	}
 	if (result == 0) {
-		// throw InvalidAddressException();
 		throw std::runtime_error("inet_pton: " + std::string(INVALID_ADDR));
 	}
 	_addr.push_back(sa);
 	result = socket(_addr.back().sin_family, SOCK_STREAM | O_NONBLOCK, 0);
 	if (result == -1) {
-		// throw SocketException();
 		throw std::runtime_error("socket: " + std::string(strerror(errno)));
 	}
-	// _sockfd.push_back(result);
 	_sockets[result] = &config;
-	// result = setsockopt(_sockfd.back(), SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 	result = setsockopt(_sockets.rbegin()->first, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 	if (result == -1) {
-		// throw SetSockOptionException();
 		throw std::runtime_error("setsockopt: " + std::string(strerror(errno)));
 	}
-	// log.debug("Created server socket fd: " + i2a(_sockfd.back()));
 	log.debug("Created server socket fd_" + i2a(_sockets.rbegin()->first));
-	// result = bind(_sockfd.back(), (sockaddr*)&_addr.back(), sizeof(_addr.back()));
 	result = bind(_sockets.rbegin()->first, (sockaddr*)&_addr.back(), sizeof(_addr.back()));
 	if (result == -1) {
 		throw std::runtime_error("bind: " + std::string(strerror(errno)));
@@ -140,43 +123,37 @@ void Server::prepareListeningPort(const Config& config) {
 	if (inet_ntop(sa.sin_family, &sa.sin_addr, ipstr, INET_ADDRSTRLEN)) {
 		log.debug("Bound the socket to " + std::string(ipstr) + ":" + i2a(ntohs(sa.sin_port)));
 	}
-	// result = listen(_sockfd.back(), SOMAXCONN);
 	result = listen(_sockets.rbegin()->first, SOMAXCONN);
 	if (result == -1) {
-		// throw ListenException();
 		throw std::runtime_error("listen: " + std::string(strerror(errno)));
 	}
-	// setReadInterest(_sockfd.back());
 	setReadInterest(_sockets.rbegin()->first);
 	log.debug("Now listening on the socket");
 	return;
 }
 
 void Server::handleIncomingEvents(void) {
-	time_t last_check = std::time(NULL);
 	log.info("Awaiting new connection");
 	while (true) {
 		int nfds = epoll_wait(_epfd, _events, MAX_EPOLL_EVENTS, EPOLL_WAIT_TIMEOUT_MS);
-		if (nfds == -1) {
-			// throw EventPollingException();
+		switch (nfds) {
+		case -1:
 			throw std::runtime_error("epoll_wait: " + std::string(strerror(errno)));
-		}
-// DEBUG
-		if (nfds == 0) {
+// DEBUG >>
+		case 0:
 			log.debug("Timeout: no events");
-		} else {
-			warnHighEventLoad(nfds, MAX_EPOLL_EVENTS);
+			break;
+		default:
 			dumpEvents(nfds, _events);
+			warnHighEventLoad(nfds, MAX_EPOLL_EVENTS);
+// DEBUG <<
 		}
-// DEBUG
 		for (int n = 0; n < nfds; ++n) {
 			int fd = _events[n].data.fd;
 			epoll_event ev = _events[n];
 			uint32_t events = ev.events;
 			bool isSocket = false;
 			bool isClosed = false;
-			// for (size_t s = 0; s < _sockfd.size(); ++s) {
-				// if (fd == _sockfd[s] && events & EPOLLIN) {
 			std::map<int, const Config*>::iterator it = _sockets.begin();
 			while (it != _sockets.end()) {
 				if (fd == it->first && events & EPOLLIN) {
@@ -186,12 +163,10 @@ void Server::handleIncomingEvents(void) {
 				++it;
 			}
 			if (!isSocket) {
-				if (events & EPOLLIN) {
+				if (events & EPOLLIN)
 					isClosed = handleReadEvent(fd);
-				}
-				if (!isClosed && events & EPOLLOUT) {
+				if (!isClosed && events & EPOLLOUT)
 					handleWriteEvent(fd);
-				}
 			} else {
 				acceptConnectRequest(fd);
 			}
@@ -200,12 +175,6 @@ void Server::handleIncomingEvents(void) {
 		if (_stop == true) {
 			break;
 		}
-		time_t now = std::time(NULL);
-		if (now - last_check >= 60) {  // Every 10 seconds
-			check_tcp_drops();
-			last_check = now;
-		}
-
 // DEBUG <<
 		std::map<int, Client*>::iterator immediate;
 		std::map<int, Client*>::iterator it = _clients.begin();
@@ -222,7 +191,6 @@ void Server::handleIncomingEvents(void) {
 // DEBUG >>
 				if (_clients.empty()) {
 					log.info("All clients disconnected");
-					// break;
 				}
 // DEBUG <<
 			}
@@ -243,14 +211,13 @@ void Server::acceptConnectRequest(int socket_fd) {
 			throw std::runtime_error("accept: " + std::string(strerror(errno)));
 		}
 	}
-	_clients[client_fd] = c;
 	setNonblockFlag(client_fd);
 	setReadInterest(client_fd);
-	// log.info("Client #" + i2a(client_fd - _sockfd.back()) + ", endpoint "
+	_clients[client_fd] = c;
 	log.info("Client fd_" + i2a(client_fd) + ", endpoint "
 				+ c->getHostAddress() + ":" + i2a(c->getHostPort()));
 // TEST We don't care about potential DoS attack vectors here
-	// forking_around(socket_fd, client_fd);
+	forking_around(socket_fd, client_fd);
 // TEST
 	return;
 }
@@ -258,35 +225,29 @@ void Server::acceptConnectRequest(int socket_fd) {
 bool Server::handleReadEvent(int fd) {
 	std::map<int, Client*>::iterator it = _clients.find(fd);
 	if (it == _clients.end() || it->second == NULL) {
-		// throw MissingClientException();
 		throw std::runtime_error("client lookup:: " + std::string(NFIND_CLIENT));
 	}
 	ssize_t n = it->second->queueIncomingData(fd);
-	if (n < 0) {
-		// throw ReadDataException();
+	switch (n) {
+	case -1:
 		throw std::runtime_error("recv: " + std::string(strerror(errno)));
-	}
-	if (n == 0) {
-		// log.info("Connection closed by client #" + i2a(fd - _sockfd.back()));
+	case 0:
 		log.info("Connection closed by client fd_" + i2a(fd));
 		cleanUpClient(it);
 // DEBUG >>
 		if (_clients.empty()) {
 			log.info("All clients disconnected");
-			// break;
 		}
 // DEBUG <<
 		return true;
-	}
 // DEBUG >>
-	if (n == STOP) {
+	case STOP:
 		log.info("Connection closed by the server");
 		_stop = true;
 		return true;
-	} else {
+	default:
 		std::string buff = it->second->getBuffer();
 		buff.erase(n);
-		// log.debug("Read " + i2a(n) + " bytes from client #" + i2a(fd - _sockfd.back()) + ":\n");
 		log.debug("Read " + i2a(n) + " bytes from client fd_" + i2a(fd) + ":");
 		log.notice(buff);
 		log.debug("Current data in buffer:");
@@ -305,13 +266,11 @@ bool Server::handleReadEvent(int fd) {
 void Server::handleWriteEvent(int fd) {
 	std::map<int, Client*>::iterator it = _clients.find(fd);
 	if (it == _clients.end() || it->second == NULL) {
-		// throw MissingClientException();
 		throw std::runtime_error("client lookup:: " + std::string(NFIND_CLIENT));
 	}
 	if (it->second->hasPendingData()) {
 		int status = it->second->flushPendingData(fd);
 		if (status == -1) {
-			// throw FlushDataException();
 			throw std::runtime_error("send: " + std::string(strerror(errno)));
 		}
 	}
@@ -374,7 +333,6 @@ void Server::cleanUpClient(std::map<int, Client*>::iterator it) {
 		}
 	}
 	if (it->second != NULL) {
-		// log.debug("Deleting client #" + i2a(it->first - _sockfd.back()));
 		// log.debug("Deleting client #" + i2a(it->first - _sockets.rbegin()->first));
 		delete it->second;
 		it->second = NULL;
@@ -439,7 +397,8 @@ Server& Server::operator = (const Server& other) {
 // TEST
 void Server::forking_around(int socket_fd, int client_fd) {
 	pid_t pid = fork();
-	const char* argv[] = {"echo", "Hello from the child process!", NULL};
+	// const char* argv[] = {"echo", "Hello from the child process!", NULL};
+	const char* argv[] = {"/home/ben/NotAnAttackHelicopter/MVP/observ", NULL};
 	switch(pid) {
 		case -1:
 			log.error("fork: " + std::string(strerror(errno)));
@@ -472,6 +431,10 @@ void Server::forking_around(int socket_fd, int client_fd) {
 			close(socket_fd);
 			close(client_fd);
 			close(_epfd);
+			// if (execvp(argv[0], (char* const*)argv) == -1) {
+			// 	log.error("Oh no! " + std::string(strerror(errno)));
+			// 	_exit(EXIT_FAILURE);
+			// }
 			if (execvp(argv[0], (char* const*)argv) == -1) {
 				log.error("Oh no! " + std::string(strerror(errno)));
 				_exit(EXIT_FAILURE);
@@ -479,9 +442,11 @@ void Server::forking_around(int socket_fd, int client_fd) {
 			_exit(EXIT_SUCCESS);
 			break; // Because above "statement may fall through". - The Compiler. Who has no clue, this is bog wash.
 		default:
-			std::cout << "Hello from the parent process!" << std::endl;
+			// std::cout << "Hello from the parent process!" << std::endl;
+			while (waitpid(-1, NULL, WNOHANG) > 0) {}
 	}
-	while (waitpid(-1, NULL, WNOHANG) > 0) {}
+	// while (waitpid(-1, NULL, WNOHANG) > 0) {}
+	return;
 }
 // TEST
 
