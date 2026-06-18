@@ -11,8 +11,10 @@
 /* ************************************************************************** */
 
 #include "../incs/Client.hpp"
-#include <arpa/inet.h>
+#include "../incs/colors.hpp"
+#include "../incs/types.hpp"
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <iostream>
 
   //~~~~~~~~~~//
@@ -21,51 +23,16 @@
 
 /*	@brief Constructor	*/
 Client::Client(void) : _addrlen(sizeof(_addr)) {
-	std::cerr	<< "\e[3;93mClient Constructor called\e[0m"
+	std::cerr	<< DEBUG << "Client Constructor called" << RESET
 				<< std::endl;
-	for (size_t i = 0; i < sizeof(_buffer); ++i) {
-		_buffer[i] = 0;
-	}
 	return;
 }
 
 /*	@brief Destructor	*/
 Client::~Client(void) {
-	std::cerr	<< "\e[3;93mClient Destructor called\e[0m"
+	std::cerr	<< DEBUG << "Client Destructor called" << RESET
 				<< std::endl;
 	return;
-}
-
-/*	@brief Copy Constructor	*/
-Client::Client(const Client& other)
-	:	_addr(other._addr),
-		_addrlen(other._addrlen),
-		_buffer(""),
-		_incomingData(other._incomingData),
-		_outgoingData(other._outgoingData) {
-	std::cerr	<< "\e[3;93mClient Copy Constructor called\e[0m"
-				<< std::endl;
-	for (size_t i = 0; i < sizeof(_buffer); ++i) {
-		_buffer[i] = other._buffer[i];
-	}
-	// *this = other;
-	return;
-}
-
-/*	@brief Copy Assignment Operator	*/
-Client& Client::operator = (const Client& other) {
-	std::cerr	<< "\e[3;93mClient Copy Assignment Operator called\e[0m"
-				<< std::endl;
-	if (this != &other) {
-		_addr = other._addr;
-		_addrlen = other._addrlen;
-		for (size_t i = 0; i < sizeof(_buffer); ++i) {
-			_buffer[i] = other._buffer[i];
-		}
-		_incomingData = other._incomingData;
-		_outgoingData = other._outgoingData;
-	}
-	return *this;
 }
 
 // DEBUG
@@ -104,7 +71,6 @@ socklen_t* Client::getAddrlenPointer(void) const {
 }
 
 void Client::queueIncomingData(size_t len){
-	// std::cout << "Buffer:\n" << _buffer << "\nEnd" << std::endl;
 	_incomingData.append(_buffer, len);
 	return;
 }
@@ -119,32 +85,68 @@ bool Client::hasPendingData(void) const {
 }
 
 ssize_t Client::fillPendingData(int fd) {
-	ssize_t n = recv(fd, _buffer, sizeof(_buffer), 0);
+	ssize_t n = recv(fd, _buffer, sizeof(_buffer) - 1, 0);
+	if (n <= 0) {
+		return n;
+	}
+	_buffer[n] = '\0';
+	// DEBUG
+	// Interpret the first 4 bytes as an admin command.
+	// Fine, but I hate having a ternary inside of a string declaration.
+	// std::string cmd(_buffer, (n < 4 ? (size_t)n : (size_t)4));
 	std::string cmd = _buffer;
 	if (cmd.size() > 4) {
 		cmd.erase(4);
 	}
-	if (cmd == "SHUT") {
-		_buffer[0] = 0;
-		return 2000;
-	}
 	if (cmd == "STOP") {
-		return 3000;
+		return STOP;
 	}
-	if (cmd == "KILL") {
-		return 4000;
-	}
+	// DEBUG
 	return n;
 }
 
 ssize_t Client::flushPendingData(int fd) {
-	size_t len = 0;
-	std::string s = _outgoingData;
-	for (std::string::iterator i = s.begin(); i != s.end(); ++i) {
-		++len;
+	ssize_t n = send(fd, _outgoingData.c_str(), _outgoingData.size(), 0);
+	if (n <= 0) {
+		return n;
 	}
-	ssize_t n = send(fd, _outgoingData.c_str(), len, 0);
-	_outgoingData.erase(0, n);
-	// std::cout << (_outgoingData.empty() ? "Buffer empty" : "Buffer not empty") << std::endl;
+	_outgoingData.erase(0, static_cast<size_t>(n));
+	// std::cerr	<< DEBUG << (_outgoingData.empty() ? "Full flush" : "Partial flush")
+	// 			<< RESET << std::endl;
 	return n;
+}
+
+  //~~~~~~~~~~~//
+ /*  Private  */
+//~~~~~~~~~~~//
+
+/*	@brief Copy Constructor	*/
+Client::Client(const Client& other)
+	:	_addr(other._addr),
+		_addrlen(other._addrlen),
+		_incomingData(other._incomingData),
+		_outgoingData(other._outgoingData) {
+	std::cerr	<< DEBUG << "Client Copy Constructor called" << RESET
+				<< std::endl;
+	for (size_t i = 0; i < sizeof(_buffer); ++i) {
+		_buffer[i] = other._buffer[i];
+	}
+	// *this = other;
+	return;
+}
+
+/*	@brief Copy Assignment Operator	*/
+Client& Client::operator = (const Client& other) {
+	std::cerr	<< DEBUG << "Client Copy Assignment Operator called" << RESET
+				<< std::endl;
+	if (this != &other) {
+		_addr = other._addr;
+		_addrlen = other._addrlen;
+		for (size_t i = 0; i < sizeof(_buffer); ++i) {
+			_buffer[i] = other._buffer[i];
+		}
+		_incomingData = other._incomingData;
+		_outgoingData = other._outgoingData;
+	}
+	return *this;
 }

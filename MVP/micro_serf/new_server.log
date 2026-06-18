@@ -1,0 +1,155 @@
+[XXXXXXXXX micro_serf]$ valgrind -s --leak-check=full --track-origins=yes ./server Config_Files/benstor-s_super_special.conf
+[==35676== Memcheck, a memory error detector
+==35676== Copyright (C) 2002-2024, and GNU GPL'd, by Julian Seward et al.
+==35676== Using Valgrind-3.25.1 and LibVEX; rerun with -h for copyright info
+==35676== Command: ./server Config_Files/benstor-s_super_special.conf
+==35676==
+Parsing Configuration file...
+Using: Config_Files/benstor-s_super_special.conf
+Server Constructor called
+Prepared epoll instance epfd: 3
+Created server socket fd: 4
+Bound the socket to 192.168.178.30:44444
+Now listening on the socket
+Created server socket fd: 5
+Bound the socket to 192.168.178.30:55555
+Now listening on the socket
+Created server socket fd: 6
+Bound the socket to 127.0.0.1:8087
+Now listening on the socket
+Created server socket fd: 7
+Bound the socket to 127.0.0.1:8088
+Now listening on the socket
+New connection on socket fd: 6
+Client Constructor called
+Client #1, endpoint 127.0.0.1:35924
+I am parenting here! ...trying to.
+I am throwing a childish insult at you, stinky fingers!
+Read 10 bytes from client #1:
+sdfsjflks
+
+Current data in buffer:
+sdfsjflks
+
+New connection on socket fd: 6
+Client Constructor called
+Client #2, endpoint 127.0.0.1:60396
+I am parenting here! ...trying to.
+I am throwing a childish insult at you, stinky fingers!
+Read 8 bytes from client #2:
+sdlkfks
+
+Current data in buffer:
+sdlkfks
+
+Connection closed by client #2
+Removing fd 9 (client) from epoll instance
+Closing fd 9 (client)
+Deleting client #2
+Client Destructor called
+Erasing container entry for above client
+New connection on socket fd: 6
+Client Constructor called
+Client #2, endpoint 127.0.0.1:60408
+I am parenting here! ...trying to.
+I am throwing a childish insult at you, stinky fingers!
+Read 10 bytes from client #2:
+skljflksf
+
+Current data in buffer:
+skljflksf
+
+New connection on socket fd: 7
+Client Constructor called
+Client #3, endpoint 127.0.0.1:35432
+I am parenting here! ...trying to.
+I am throwing a childish insult at you, stinky fingers!
+Read 6 bytes from client #3:
+skjrf
+
+Current data in buffer:
+skjrf
+
+Read 5 bytes from client #3:
+sdjf
+
+Current data in buffer:
+skjrf
+sdjf
+
+New connection on socket fd: 7
+Client Constructor called
+Client #4, endpoint 127.0.0.1:35448
+I am parenting here! ...trying to.
+I am throwing a childish insult at you, stinky fingers!
+New connection on socket fd: 5
+Client Constructor called
+Client #5, endpoint 192.168.178.50:41918
+I am parenting here! ...trying to.
+I am throwing a childish insult at you, stinky fingers!
+Read 5 bytes from client #5:
+sdfg
+
+Current data in buffer:
+sdfg
+
+New connection on socket fd: 4
+Client Constructor called
+Client #6, endpoint 192.168.178.50:51218
+I am parenting here! ...trying to.
+I am throwing a childish insult at you, stinky fingers!
+Read 12 bytes from client #6:
+safrgsrgsgs
+
+Current data in buffer:
+safrgsrgsgs
+
+Connection closed by the server
+Server Destructor called
+Removing fd 8 (client) from epoll instance
+Closing fd 8 (client)
+Deleting client #1
+Client Destructor called
+Erasing container entry for above client
+Removing fd 9 (client) from epoll instance
+Closing fd 9 (client)
+Deleting client #2
+Client Destructor called
+Erasing container entry for above client
+Removing fd 10 (client) from epoll instance
+Closing fd 10 (client)
+Deleting client #3
+Client Destructor called
+Erasing container entry for above client
+Removing fd 11 (client) from epoll instance
+Closing fd 11 (client)
+Deleting client #4
+Client Destructor called
+Erasing container entry for above client
+Removing fd 12 (client) from epoll instance
+Closing fd 12 (client)
+Deleting client #5
+Client Destructor called
+Erasing container entry for above client
+Removing fd 13 (client) from epoll instance
+Closing fd 13 (client)
+Deleting client #6
+Client Destructor called
+Erasing container entry for above client
+Removing fd 7 (socket) from epoll instance
+Closing fd 7 (socket)
+Removing fd 6 (socket) from epoll instance
+Closing fd 6 (socket)
+Removing fd 5 (socket) from epoll instance
+Closing fd 5 (socket)
+Removing fd 4 (socket) from epoll instance
+Closing fd 4 (socket)
+Closing fd 3 (epoll instance epfd)
+==35676==
+==35676== HEAP SUMMARY:
+==35676==     in use at exit: 0 bytes in 0 blocks
+==35676==   total heap usage: 531 allocs, 531 frees, 138,084 bytes allocated
+==35676==
+==35676== All heap blocks were freed -- no leaks are possible
+==35676==
+==35676== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)

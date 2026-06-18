@@ -1,10 +1,9 @@
 #pragma once
 
+#include <cstddef>
 #include <string>
 #include <vector>
 #include <map>
-#include <cstddef>
-
 
 // Configuration
 struct LocationConfig {
@@ -40,3 +39,9 @@ enum ParseState {
 	PS_COMPLETE,
 	PS_ERROR
 };
+
+// DEBUG
+enum AdminCommand {
+	STOP = 2000
+};
+// DEBUG

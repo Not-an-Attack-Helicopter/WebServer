@@ -21,8 +21,6 @@ class Client {
 	public:
 		Client(void);
 		~Client(void);
-		Client(const Client& other);
-		Client& operator = (const Client& other);
 
 // DEBUG
 		unsigned short				getHostPort(void) const;
@@ -45,6 +43,9 @@ class Client {
 		ssize_t						flushPendingData(int fd);
 
 	private:
+		Client(const Client& other);
+		Client& operator = (const Client& other);
+
 		sockaddr_storage			_addr;
 
 		socklen_t					_addrlen;

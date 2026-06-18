@@ -11,14 +11,18 @@
 /* ************************************************************************** */
 
 #include "../incs/Server.hpp"
+#include "../incs/colors.hpp"
+#include "../incs/types.hpp"
+#include <sys/socket.h>
+#include <sys/epoll.h>
 #include <arpa/inet.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <fcntl.h>
 #include <iostream>
 #include <cstring>
+#include <cstdlib>
 #include <cerrno>
-#include <fcntl.h>
-#include <unistd.h>
-#include <sys/epoll.h>
-#include <sys/socket.h>
 
   //~~~~~~~~~~//
  /*  Public  */
@@ -26,45 +30,21 @@
 
 /*	@brief Constructor	*/
 Server::Server(void) {
-	std::cerr	<< "\e[3;93mServer Constructor called\e[0m"
+	std::cerr	<< DEBUG << "Server Constructor called" << RESET
 				<< std::endl;
-	for (size_t i = 0; i < MAXSOCKETS; ++i) {
-		_sockfd[i] = 0;
-		_epfd[i] = 0;
-		_sa[i].sin_family = 0;
-		_sa[i].sin_port = 0;
-		_sa[i].sin_addr.s_addr = 0;
-		for (size_t z = 0; z < sizeof(_sa[0].sin_zero); ++z) {
-			_sa[i].sin_zero[z] = 0;
-		}
-		_shut[i] = false;
-		_stop[i] = false;
-	}
-	_kill = false;
+	_epfd = -1;
+	_stop = false;
 	return;
 }
 
 /*	@brief Destructor	*/
 Server::~Server(void) {
-	std::cerr	<< "\e[3;93mServer Destructor called\e[0m"
+	std::cerr	<< DEBUG << "Server Destructor called" << RESET
 				<< std::endl;
+	if (_epfd != -1 || !_sockfd.empty() || !_clients.empty()) {
+		cleanUpAllRessources();
+	}
 	return;
-}
-
-/*	@brief Copy Constructor	*/
-Server::Server(const Server& other) {
-	std::cerr	<< "\e[3;93mServer Copy Constructor called\e[0m"
-				<< std::endl;
-	*this = other;
-	return;
-}
-
-/*	@brief Copy Assignment Operator	*/
-Server& Server::operator = (const Server& other) {
-	std::cerr	<< "\e[3;93mServer Copy Assignment Operator called\e[0m"
-				<< std::endl;
-	if (this != &other) {}
-	return *this;
 }
 
 void Server::setNonblockFlag(int fd) {
@@ -79,300 +59,462 @@ void Server::setNonblockFlag(int fd) {
 	return;
 }
 
-void Server::setReadInterest(int index, int fd) {
+void Server::setReadInterest(int fd) {
 	epoll_event e;
 	e.events = EPOLLIN;
 	e.data.fd = fd;
-	int status = epoll_ctl(_epfd[index], EPOLL_CTL_ADD, fd, &e);
+	int status = epoll_ctl(_epfd, EPOLL_CTL_ADD, fd, &e);
 	if (status == -1) {
 		throw ModifyEPollException();
 	}
 	return;
 }
 
-void Server::addWriteInterest(int index, int fd) {
+void Server::addWriteInterest(int fd) {
 	epoll_event e;
 	e.events = EPOLLIN | EPOLLOUT;
 	e.data.fd = fd;
-	int status = epoll_ctl(_epfd[index], EPOLL_CTL_MOD, fd, &e);
+	int status = epoll_ctl(_epfd, EPOLL_CTL_MOD, fd, &e);
 	if (status == -1) {
 		throw ModifyEPollException();
 	}
 	return;
 }
 
-void Server::removeWriteInterest(int index, int fd) {
+void Server::removeWriteInterest(int fd) {
 	epoll_event e;
 	e.events = EPOLLIN;
 	e.data.fd = fd;
-	int status = epoll_ctl(_epfd[index], EPOLL_CTL_MOD, fd, &e);
+	int status = epoll_ctl(_epfd, EPOLL_CTL_MOD, fd, &e);
 	if (status == -1) {
 		throw ModifyEPollException();
 	}
 	return;
 }
 
-// void Server::prepareListeningPort(void) {
-void Server::prepareListeningPort(int index, const std::string& address, unsigned short port) {
-	int status = 0;
-	inet_pton(AF_INET, address.c_str(), &_sa[index].sin_addr);
-	_sa[index].sin_port = htons(port);
-	_sa[index].sin_family = AF_INET;
-	_sockfd[index] = socket(_sa[index].sin_family, SOCK_STREAM | O_NONBLOCK, 0);
-	if (_sockfd[index] == -1) {
+void Server::prepareEPollInstance(void) {
+	_epfd = epoll_create(1);
+	if (_epfd == -1) {
+		throw CreateEPollException();
+	}
+	std::cout	<< DEBUG << "Prepared epoll instance epfd: " << _epfd
+				<< RESET << std::endl;
+	return;
+}
+
+void Server::prepareListeningPort(const std::string& address, unsigned short port) {
+	int opt = 1;
+	int result = 0;
+	sockaddr_in sa;
+	std::memset(&sa, 0, sizeof(sa));
+	sa.sin_port = htons(port);
+	sa.sin_family = AF_INET;
+	result = inet_pton(sa.sin_family, address.c_str(), &sa.sin_addr);
+	if (result == -1) {
+		throw AFNotSupportedException();
+	}
+	if (result == 0) {
+		throw InvalidAddressException();
+	}
+	_addr.push_back(sa);
+	result = socket(_addr.back().sin_family, SOCK_STREAM | O_NONBLOCK, 0);
+	if (result == -1) {
 		throw SocketException();
 	}
-	// setNonblockFlag(_sockfd);
-	std::cout	<< "\e[3;93mCreated server socket fd: " << _sockfd[index]
-				<< "\e[0m" << std::endl;
-	status = bind(_sockfd[index], (sockaddr*)&_sa[index], sizeof(_sa[index]));
-	if (status == -1) {
+	_sockfd.push_back(result);
+	result = setsockopt(_sockfd.back(), SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+	if (result == -1) {
+		throw SetOptionException();
+	}
+	std::cout	<< DEBUG << "Created server socket fd: " << _sockfd.back()
+				<< RESET << std::endl;
+	result = bind(_sockfd.back(), (sockaddr*)&_addr.back(), sizeof(_addr.back()));
+	if (result == -1) {
 		throw BindException();
 	}
 	char ipstr[INET_ADDRSTRLEN] = {0};
-	inet_ntop(_sa[index].sin_family, &_sa[index].sin_addr, ipstr, INET_ADDRSTRLEN);
-	std::cout	<< "\e[3;93mBound the socket to "
-				<< ipstr << ":" << ntohs(_sa[index].sin_port)
-				<< "\e[0m" << std::endl;
-	status = listen(_sockfd[index], BACKLOG);
-	if (status == -1) {
+	if (inet_ntop(sa.sin_family, &sa.sin_addr, ipstr, INET_ADDRSTRLEN)) {
+		std::cout	<< DEBUG << "Bound the socket to "
+					<< ipstr << ":" << ntohs(sa.sin_port)
+					<< RESET << std::endl;
+	}
+	result = listen(_sockfd.back(), SOMAXCONN);
+	if (result == -1) {
 		throw ListenException();
 	}
-	std::cout	<< "\e[3;93mNow listening on the socket"
-				<< "\e[0m" << std::endl;
+	setReadInterest(_sockfd.back());
+	std::cout	<< DEBUG << "Now listening on the socket"
+				<< RESET << std::endl;
 	return;
 }
 
-void Server::prepareEPollInstance(int index) {
-	_epfd[index] = epoll_create(1);
-	if (_epfd[index] == -1) {
-		throw CreateEPollException();
-	}
-	setReadInterest(index, _sockfd[index]);
-	std::cout	<< "\e[3;93mPrepared epoll instance epfd: " << _epfd[index]
-				<< "\e[0m" << std::endl;
-	++index;
-	return;
-}
-
-void Server::handleIncomingEvents(int index) {
+void Server::handleIncomingEvents(void) {
 	while (true) {
-		int nfds = epoll_wait(_epfd[index], _events[index], MAXEVENTS, -1);
+		int nfds = epoll_wait(_epfd, _events, MAXEVENTS, -1);
 		if (nfds == -1) {
 			throw EventPollingException();
 		}
-		for (int i = 0; i < nfds; ++i) {
-			epoll_event e = _events[index][i];
-			if (e.data.fd == _sockfd[index] && e.events & EPOLLIN) {
-				acceptConnectRequest(index);
-			} else if (e.data.fd != _sockfd[index] && e.events & EPOLLIN) {
-				handleReadEvent(index, e.data.fd);
-			} else if (e.data.fd != _sockfd[index] && e.events & EPOLLOUT) {
-				handleWriteEvent(index, e.data.fd);
+		for (int n = 0; n < nfds; ++n) {
+			int fd = _events[n].data.fd;
+			epoll_event ev = _events[n];
+			uint32_t events = ev.events;
+			bool isSocket = false;
+			for (size_t s = 0; s < _sockfd.size(); ++s) {
+				if (fd == _sockfd[s] && events & EPOLLIN) {
+					isSocket = true;
+					break;
+				}
+			}
+			if (!isSocket) {
+				if (events & EPOLLIN) {
+					handleReadEvent(fd);
+				}
+				if (events & EPOLLOUT) {
+					handleWriteEvent(fd);
+				}
+			} else {
+				acceptConnectRequest(fd);
 			}
 		}
-		if (_clients[index].empty()) {
-			std::cout << "\e[31mAll clients on socket " << _sockfd[index] << " disconnected\e[0m" << std::endl;
-			if (_shut[index] == true) {
-				std::cout	<< "\e[31mClosing socket " << _sockfd[index] << "\e[0m" << std::endl;
-				break;
-			}
+		if (_clients.empty()) {
+			std::cout	<< INFO << "All clients disconnected"
+						<< RESET << std::endl;
+			// break;
 		}
-		if (_stop[index] == true) {
+		if (_stop == true) {
 			break;
 		}
 	}
-	cleanUpAllRessources(index);
 	return;
 }
 
-void Server::acceptConnectRequest(int index) {
-	std::cout	<< "\e[3;93mNew connection on socket fd: " << _sockfd[index]
-				<< "\e[0m" << std::endl;
+void Server::acceptConnectRequest(int socket_fd) {
+	std::cout	<< INFO << "New connection on socket fd: " << socket_fd
+				<< RESET << std::endl;
 	Client* c = new Client();
-	int fd = accept(_sockfd[index], c->getAddrPointer(), c->getAddrlenPointer());
-	if (fd == -1) {
+	int client_fd = accept(socket_fd, c->getAddrPointer(), c->getAddrlenPointer());
+	if (client_fd == -1) {
 		delete c;
 		throw AcceptException();
 	}
-	_clients[index][fd] = c;
-	setNonblockFlag(fd);
-	setReadInterest(index, fd);
-	std::cout	<< "\e[3;93mClient #" << _sockfd[index] << "-" << fd
+	_clients[client_fd] = c;
+	setNonblockFlag(client_fd);
+	setReadInterest(client_fd);
+	std::cout	<< INFO << "Client #" << client_fd - _sockfd.back()
 				<< ", endpoint " << c->getHostAddress() << ":" << c->getHostPort()
-				<< "\e[0m" << std::endl;
+				<< RESET << std::endl;
+	// DEBUG We don't care about potential DoS attack vectors here
+	pid_t pid = fork();
+	const char* argv[] = {"echo", "Hello from the child process!", NULL};
+	switch(pid) {
+	case -1:
+		std::cout << ERROR << "Error: fork: " << strerror(errno) << RESET << std::endl;
+		break;
+	case 0:
+		// cleanUpAllRessources();							// This is bad! Because all clients will be deleted
+															// and all interests will be wiped from all sockets!
+		// if (!_clients.empty()) {							// This is bad! The client object will be destructed.
+		// 	std::map<int, Client*>::iterator immediate;
+		// 	std::map<int, Client*>::iterator it = _clients.begin();
+		// 	while (it != _clients.end()) {
+		// 		immediate = it;
+		// 		++it;
+		// 		cleanUpClient(immediate);
+		// 	}
+		// }
+		_clients.clear();
+		for (int i = 0; i < MAXEVENTS; ++i) {
+			_events[i].events = 0;
+			_events[i].data.fd = 0;
+			_events[i].data.u32 = 0;
+			_events[i].data.u64 = 0;
+			_events[i].data.ptr = NULL;
+		}
+		_sockfd.clear();
+		_addr.clear();
+		// epoll_ctl(_epfd, EPOLL_CTL_DEL, socket_fd, NULL);	// This is potentially bad, because in the case
+															// // of disconnecting before sending 'STOP' it will
+															// // not be possible to reconnect!
+		close(socket_fd);
+		close(_epfd);
+		if (execvp(argv[0], (char* const*)argv) == -1) {
+			std::cout << ERROR << "Oh no! " << strerror(errno) << RESET << std::endl;
+		}
+		exit(0);
+		break; // Because above "statement may fall through". - The Compiler. Who has no clue, this is bog wash.
+	default:
+		std::cout << "Hello from the parent process!" << std::endl;
+	}
+	while (waitpid(-1, NULL, WNOHANG) > 0) {}
+	// DEBUG
 	return ;
 }
 
-void Server::handleReadEvent(int index, int fd) {
-	ssize_t n = _clients[index][fd]->fillPendingData(fd);
+void Server::handleReadEvent(int fd) {
+	// ssize_t n = _clients[fd]->fillPendingData(fd);
+	std::map<int, Client*>::iterator it = _clients.find(fd);
+	if (it == _clients.end() || it->second == NULL) {
+		throw MissingClientException();
+		// return;
+	}
+	ssize_t n = it->second->fillPendingData(fd);
 	if (n < 0) {
 		throw ReadDataException();
 	} else if (n == 0) {
-		std::cerr	<< "\e[31mConnection closed by client #"
-					<< _sockfd[index] << "-" << fd
-					<< "\e[0m" << std::endl;
-		std::map<int, Client*>::iterator it = _clients[index].find(fd);
-		cleanUpClient(index, it);
+		std::cerr	<< INFO << "Connection closed by client #"
+					<< fd - _sockfd.back()
+					<< RESET << std::endl;
+		// std::map<int, Client*>::iterator it = _clients.find(fd);
+		cleanUpClient(it);
 		return;
-	} else if (n == 2000) {
-		_shut[index] = true;
-		std::cout	<< "\e[31mSocket " << _sockfd[index] << " marked to be closed" << "\e[0m" << std::endl;
-		return;
-	} else if (n == 3000) {
-		std::cerr	<< "\e[31mConnection closed by the server"
-					<< "\e[0m" << std::endl;
-		_stop[index] = true;
+	} else if (n == STOP) {
+		std::cerr	<< INFO << "Connection closed by the server"
+					<< RESET << std::endl;
+		_stop = true;
 		return;
 	} else {
-		_clients[index][fd]->queueIncomingData((size_t)n);
+		it->second->queueIncomingData((size_t)n); // We already established that the client exists
 // DEBUG
-		std::string buff = _clients[index][fd]->getBuffer();
+		std::string buff = it->second->getBuffer();
 		buff.erase(n);
-		std::cout	<< "Read " << n << " bytes from client #"
-					<< _sockfd[index] << "-" << fd << ": "
-					<< buff << std::endl;
-		std::cout	<< "Current data in buffer:\n"
-					<< _clients[index][fd]->getIncomingData()
+		std::cout	<< DEBUG << "Read " << n << " bytes from client #"
+					<< fd - _sockfd.back() << ":\n"
+					<< RESET << buff
+					<< std::endl;
+		std::cout	<< DEBUG << "Current data in buffer:\n"
+					<< RESET << it->second->getIncomingData()
 					<< std::endl;
 // DEBUG
 	}
-	if (!_clients[index][fd]->hasPendingData()) {
+	if (!it->second->hasPendingData()) { // We already established that the client exists
 		std::string response = "Data Received. Ctrl+D to close the connection.\n";
-		_clients[index][fd]->queueOutgoingData(response);
-		addWriteInterest(index, fd);
+		it->second->queueOutgoingData(response);
+		addWriteInterest(fd);
 	}
 	return;
 }
 
-void Server::handleWriteEvent(int index, int fd) {
-	if (_clients[index][fd]->hasPendingData()) {
-		int status = _clients[index][fd]->flushPendingData(fd);
+void Server::handleWriteEvent(int fd) {
+	// if (_clients[fd]->hasPendingData()) {
+	std::map<int, Client*>::iterator it = _clients.find(fd);
+	if (it == _clients.end() || it->second == NULL) {
+		throw MissingClientException();
+		// return;
+	}
+	if (it->second->hasPendingData()) {
+		int status = it->second->flushPendingData(fd);
 		if (status == -1) {
 			throw FlushDataException();
 		}
 	}
-	if (!_clients[index][fd]->hasPendingData()) {
-		removeWriteInterest(index, fd);
+	if (!it->second->hasPendingData()) {
+		removeWriteInterest(fd);
 	}
 	return;
 }
 
-void Server::cleanUpAllRessources(int index) {
-	// while (index >= 0) {
-	if (!_clients[index].empty()) {
+void Server::cleanUpAllRessources(void) {
+	if (!_clients.empty()) {
 		std::map<int, Client*>::iterator immediate;
-		std::map<int, Client*>::iterator it = _clients[index].begin();
-		while (it != _clients[index].end()) {
+		std::map<int, Client*>::iterator it = _clients.begin();
+		while (it != _clients.end()) {
 			immediate = it;
 			++it;
-			cleanUpClient(index, immediate);
+			cleanUpClient(immediate);
 		}
 	}
-	std::cerr	<< "\e[31mRemoving fd " << _sockfd[index]
-				<< " (socket) from epoll instance" << "\e[0m"
-				<< std::endl;
-	if (epoll_ctl(_epfd[index], EPOLL_CTL_DEL, _sockfd[index], NULL) == -1) {
-		std::cerr	<< "\e[31mError during cleanup: epoll_ctl: "
-					<< strerror(errno)
-					<< "\e[0m" << std::endl;
+	_clients.clear();
+	if (_epfd != -1) {
+		for (unsigned long s = _sockfd.size(); s > 0 ; --s) {
+			if (_sockfd[s-1] != -1) {
+				std::cerr	<< DEBUG << "Removing fd " << _sockfd[s-1]
+							<< " (socket) from epoll instance"
+							<< RESET << std::endl;
+				if (epoll_ctl(_epfd, EPOLL_CTL_DEL, _sockfd[s-1], NULL) == -1) {
+					std::cerr	<< WARNING << "Error during cleanup: epoll_ctl: "
+								<< strerror(errno)
+								<< RESET << std::endl;
+				}
+				std::cerr	<< DEBUG << "Closing fd " << _sockfd[s-1]
+							<< " (socket)"
+							<< RESET << std::endl;
+				if (close(_sockfd[s-1]) == -1) {
+					std::cerr	<< ERROR << "Error during cleanup: close: "
+								<< strerror(errno)
+								<< RESET << std::endl;
+				}
+			}
+		}
+		std::cerr	<< DEBUG << "Closing fd " << _epfd
+					<< " (epoll instance epfd)"
+					<< RESET << std::endl;
+		if (close(_epfd) == -1) {
+			std::cerr	<< WARNING << "Error during cleanup: close: "
+						<< strerror(errno)
+						<< RESET << std::endl;
+		}
+		_epfd = -1;
 	}
-	std::cerr	<< "\e[31mAnd closing fd " << _sockfd[index]
-				<< " (socket)\e[0m" << std::endl;
-	if (close(_sockfd[index]) == -1) {
-		std::cerr	<< "\e[31mError during cleanup: close: "
-					<< strerror(errno)
-					<< "\e[0m" << std::endl;
+	for (int i = 0; i < MAXEVENTS; ++i) {
+	_events[i].events = 0;
+	_events[i].data.fd = 0;
+	_events[i].data.u32 = 0;
+	_events[i].data.u64 = 0;
+	_events[i].data.ptr = NULL;
 	}
-	std::cerr	<< "\e[31mAs well as closing fd " << _epfd[index]
-				<< " (epoll instance epfd)\e[0m" << std::endl;
-	if (close(_epfd[index]) == -1) {
-		std::cerr	<< "\e[31mError during cleanup: close: "
-					<< strerror(errno)
-					<< "\e[0m" << std::endl;
-	}
-	// 	--index;
-	// }
+	_sockfd.clear();
+	_addr.clear();
 	return;
 }
 
-void Server::cleanUpClient(int index, std::map<int, Client*>::iterator it) {
-	std::cerr	<< "\e[31mRemoving fd " << it->first << " from epoll instance"
-				<< "\e[0m" << std::endl;
-	if (epoll_ctl(_epfd[index], EPOLL_CTL_DEL, it->first, NULL) == -1) {
-		std::cerr	<< "\e[31mError during cleanup: epoll_ctl: "
-					<< strerror(errno)
-					<< "\e[0m" << std::endl;
+void Server::cleanUpClient(std::map<int, Client*>::iterator it) {
+	if (_epfd != -1) {
+		std::cerr	<< DEBUG << "Removing fd " << it->first
+					<< " (client) from epoll instance"
+					<< RESET << std::endl;
+		if (epoll_ctl(_epfd, EPOLL_CTL_DEL, it->first, NULL) == -1) {
+			std::cerr	<< WARNING << "Error during cleanup: epoll_ctl: "
+						<< strerror(errno)
+						<< RESET << std::endl;
+		}
 	}
-	std::cerr	<< "\e[31mAnd closing fd " << it->first
-				<< "\e[0m" << std::endl;
-	if (close(it->first) == -1) {
-		std::cerr	<< "\e[31mError during cleanup: close: "
-					<< strerror(errno)
-					<< "\e[0m" << std::endl;
+	if (it->first != -1) {
+		std::cerr	<< DEBUG << "Closing fd " << it->first
+					<< " (client)"
+					<< RESET << std::endl;
+		if (close(it->first) == -1) {
+			std::cerr	<< WARNING << "Error during cleanup: close: "
+						<< strerror(errno)
+						<< RESET << std::endl;
+		}
 	}
-	std::cerr	<< "\e[31mDeleting client #" << _sockfd[index] << "-" << it->first
-				<< "\e[0m" << std::endl;
-	delete it->second;
-	std::cerr	<< "\e[31mErasing container entry for above client"
-				<< "\e[0m" << std::endl;
-	_clients[index].erase(it);
+	if (it->second != NULL) {
+		std::cerr	<< DEBUG << "Deleting client #"
+					<< it->first - _sockfd.back()
+					<< RESET << std::endl;
+		delete it->second;
+		it->second = NULL;
+	}
+	std::cerr	<< DEBUG << "Erasing container entry for above client"
+				<< RESET << std::endl;
+	_clients.erase(it);
+}
+
+const char* Server::AFNotSupportedException::what(void) const throw () {
+	// return "AFNotSupportedException\n";
+	std::cerr << ERROR << "Error: inet_pton: ";
+	return strerror(errno);
+}
+
+const char* Server::InvalidAddressException::what(void) const throw () {
+	std::cerr << ERROR << "Error: inet_pton: ";
+	return EINADDR;
 }
 
 const char* Server::SocketException::what(void) const throw () {
 	// return "SocketException\n";
+	std::cerr << ERROR << "Error: socket: ";
+	return strerror(errno);
+}
+
+const char* Server::SetOptionException::what(void) const throw () {
+	// return "SetOptionException\n";
+	std::cerr << ERROR << "Error: socket: ";
 	return strerror(errno);
 }
 
 const char* Server::BindException::what(void) const throw () {
 	// return "BindException\n";
+	std::cerr << ERROR << "Error: bind: ";
 	return strerror(errno);
 }
 
 const char* Server::ListenException::what(void) const throw () {
 	// return "ListenException\n";
+	std::cerr << ERROR << "Error: listen: ";
 	return strerror(errno);
 }
 
 const char* Server::CreateEPollException::what(void) const throw () {
 	// return "CreateEPollException\n";
+	std::cerr << ERROR << "Error: epoll_create: ";
 	return strerror(errno);
 }
 
 const char* Server::ModifyEPollException::what(void) const throw () {
 	// return "ModifyEPollException\n";
+	std::cerr << ERROR << "Error: epoll_ctl: ";
 	return strerror(errno);
 }
 
 const char* Server::EventPollingException::what(void) const throw () {
 	// return "AwaitEventException\n";
+	std::cerr << ERROR << "Error: epoll_wait: ";
 	return strerror(errno);
 }
 
 const char* Server::GetFlagsException::what(void) const throw () {
 	// return "GetFlagsException\n";
+	std::cerr << ERROR << "Error: fcntl(F_GETFL): ";
 	return strerror(errno);
 }
 
 const char* Server::SetFlagsException::what(void) const throw () {
 	// return "SetFlagsException\n";
+	std::cerr << ERROR << "Error: fcntl(F_SETFL): ";
 	return strerror(errno);
 }
 
 const char* Server::AcceptException::what(void) const throw () {
 	// return "AcceptException\n";
+	std::cerr << ERROR << "Error: accept: ";
 	return strerror(errno);
+}
+
+const char* Server::MissingClientException::what(void) const throw () {
+	// return "MissingClientException\n";
+	std::cerr << ERROR << "Error: client lookup: ";
+	return ENOCLNT;
 }
 
 const char* Server::ReadDataException::what(void) const throw () {
 	// return "ReadDataException\n";
+	std::cerr << ERROR << "Error: recv: ";
 	return strerror(errno);
 }
 
 const char* Server::FlushDataException::what(void) const throw () {
 	// return "FlushDataException\n";
+	std::cerr << ERROR << "Error: send: ";
 	return strerror(errno);
 }
+
+  //~~~~~~~~~~~//
+ /*  Private  */
+//~~~~~~~~~~~//
+
+/*	@brief Copy Constructor	*/
+Server::Server(const Server& other) {
+	std::cerr	<< DEBUG << "Server Copy Constructor called" << RESET
+				<< std::endl;
+	*this = other;
+	return;
+}
+
+/*	@brief Copy Assignment Operator	*/
+Server& Server::operator = (const Server& other) {
+	std::cerr	<< DEBUG << "Server Copy Assignment Operator called" << RESET
+				<< std::endl;
+	if (this != &other) {}
+	return *this;
+}
+
+// _sa.sin_family = 0;
+// _sa.sin_port = 0;
+// _sa.sin_addr.s_addr = 0;
+// for (size_t z = 0; z < sizeof(_sa.sin_zero); ++z) {
+// 	_sa.sin_zero[z] = 0;
+// }
 
 // throw AcceptException();
 // if (_clients.find(6) != _clients.end()) {
@@ -405,7 +547,7 @@ const char* Server::FlushDataException::what(void) const throw () {
 // 		throw Server::SocketException();
 // 	}
 // 	// setNonblockFlag(_sockfd);
-// 	std::cout << "\e[3;93mCreated server socket fd: " << _sockfd << "\e[0m" << std::endl;
+// 	std::cout << ERROR << "Created server socket fd: " << _sockfd << "" << RESET << std::endl;
 // }
 
 // void Server::bindSocket(void) {
@@ -413,15 +555,15 @@ const char* Server::FlushDataException::what(void) const throw () {
 // 	if (status == -1) {
 // 		throw Server::BindException();
 // 	}
-// 	std::cout << "\e[3;93mBound socket to localhost port " << PORT << "\e[0m" << std::endl;
+// 	std::cout << ERROR << "Bound socket to localhost port " << PORT << "" << RESET << std::endl;
 // }
 
 // void Server::listenToSocket(void) {
-// 	int status = listen(_sockfd, BACKLOG);
+// 	int status = listen(_sockfd, SOMAXCONN);
 // 	if (status == -1) {
 // 		throw Server::ListenException();
 // 	}
-// 	std::cout << "\e[3;93mListening on port " << PORT << "\e[0m" << std::endl;
+// 	std::cout << ERROR << "Listening on port " << PORT << "" << RESET << std::endl;
 // }
 
 // void Server::acceptConnectRequest(void) {
@@ -439,9 +581,9 @@ const char* Server::FlushDataException::what(void) const throw () {
 // 	// _clients.insert({fd, client});
 // 	// std::cout << "client successfully inserted into container" << std::endl;
 // 	setReadInterest(fd);
-// 	std::cout	<< "\e[3;93mNew connection! Socket fd: "
+// 	std::cout	<< ERROR << "New connection! Socket fd: "
 // 				<< _sockfd << ", client fd: " << fd
-// 				<< "\e[0m" << std::endl;
+// 				<< "" << RESET << std::endl;
 // 	// close(fd);
 // 	// _clients.erase(fd);
 // 	return ;
@@ -452,7 +594,7 @@ const char* Server::FlushDataException::what(void) const throw () {
 // 	ssize_t n = recv(e.data.fd, buffer, sizeof(buffer), 0);
 // 	if (n <= 0) {
 // 		throw ReadDataException();
-// 		// std::cout << "\e[31mError: reading data failed.\e[0m" << std::endl;
+// 		// std::cout << ERROR << "Error: reading data failed." << RESET << std::endl;
 // 		// epoll_ctl(_epfd, EPOLL_CTL_DEL, e.data.fd, NULL);
 // 		// close(e.data.fd);
 // 		// _clients.erase(e.data.fd);
@@ -479,7 +621,7 @@ const char* Server::FlushDataException::what(void) const throw () {
 // 		if (status == -1) {
 // 			throw FlushDataException();
 //
-// 			// std::cout << "\e[31mError: flushing data failed.\e[0m" << std::endl;
+// 			// std::cout << ERROR << "Error: flushing data failed." << RESET << std::endl;
 // 			// epoll_ctl(_epfd, EPOLL_CTL_DEL, e.data.fd, NULL);
 // 			// close(e.data.fd);
 // 			// _clients.erase(e.data.fd);
@@ -502,6 +644,13 @@ const char* Server::FlushDataException::what(void) const throw () {
 // const char* Server::FcntlException::what(void) const throw () {
 // 	// return "SetFlagsException\n";
 // 	return strerror(errno));
+// }
+
+// } else if (e.data.fd != _sockfd[s] && e.events & EPOLLIN) {
+// 	std::cout << e.data.fd << std::endl;
+// 	handleReadEvent(e.data.fd);
+// } else if (e.data.fd != _sockfd[s] && e.events & EPOLLOUT) {
+// 	handleWriteEvent(e.data.fd);
 // }
 
 // if (e.data.fd == _sockfd) {
@@ -618,27 +767,27 @@ const char* Server::FlushDataException::what(void) const throw () {
 // 			break;
 // 		} else {
 // 			// disconnect client
-// 			std::cout	<< "\e[31mRemoving fd " << i
-// 						<< " from epoll instance" << "\e[0m"
+// 			std::cout	<< ERROR << "Removing fd " << i
+// 						<< " from epoll instance" << "" << RESET
 // 						<< std::endl;
 // 			if (epoll_ctl(_epfd, EPOLL_CTL_DEL, i, NULL) == -1) {
-// 				std::cerr	<< "\e[31mError during cleanup: epoll_ctl: "
-// 							<< strerror(errno) << "\e[0m"
+// 				std::cerr	<< ERROR << "Error during cleanup: epoll_ctl: "
+// 							<< strerror(errno) << "" << RESET
 // 							<< std::endl;
 // 			}
-// 			std::cout	<< "\e[31mAnd closing fd " << i
-// 						<< "\e[0m" << std::endl;
+// 			std::cout	<< ERROR << "And closing fd " << i
+// 						<< "" << RESET << std::endl;
 // 			if (close(i) == -1) {
-// 				std::cerr	<< "\e[31mError during cleanup: close: "
-// 							<< strerror(errno) << "\e[0m"
+// 				std::cerr	<< ERROR << "Error during cleanup: close: "
+// 							<< strerror(errno) << "" << RESET
 // 							<< std::endl;
 // 			}
-// 			std::cout	<< "\e[31mDeleting client #"
-// 						<< i - _epfd << " (fd " << i << ")" << "\e[0m"
+// 			std::cout	<< ERROR << "Deleting client #"
+// 						<< i - _epfd << " (fd " << i << ")" << "" << RESET
 // 						<< std::endl;
 // 			delete it->second;
-// 			std::cout	<< "\e[31mErasing container entry for client #"
-// 						<< i - _epfd << "\e[0m"
+// 			std::cout	<< ERROR << "Erasing container entry for client #"
+// 						<< i - _epfd << "" << RESET
 // 						<< std::endl;
 // 			_clients.erase(it);
 // 			// disconnect client
@@ -660,50 +809,50 @@ const char* Server::FlushDataException::what(void) const throw () {
 // }
 
 // disconnect client
-// std::cerr	<< "\e[31mRemoving fd " << fd
-// 			<< " from epoll instance" << "\e[0m"
+// std::cerr	<< ERROR << "Removing fd " << fd
+// 			<< " from epoll instance" << "" << RESET
 // 			<< std::endl;
 // if (epoll_ctl(_epfd, EPOLL_CTL_DEL, fd, NULL) == -1) {
-// 	std::cerr	<< "\e[31mError during cleanup: epoll_ctl: "
-// 				<< strerror(errno) << "\e[0m"
+// 	std::cerr	<< ERROR << "Error during cleanup: epoll_ctl: "
+// 				<< strerror(errno) << "" << RESET
 // 				<< std::endl;
 // }
-// std::cerr	<< "\e[31mAnd closing fd " << fd
-// 			<< "\e[0m" << std::endl;
+// std::cerr	<< ERROR << "And closing fd " << fd
+// 			<< "" << RESET << std::endl;
 // if (close(fd) == -1) {
-// 	std::cerr	<< "\e[31mError during cleanup: close: "
-// 				<< strerror(errno) << "\e[0m"
+// 	std::cerr	<< ERROR << "Error during cleanup: close: "
+// 				<< strerror(errno) << "" << RESET
 // 				<< std::endl;
 // }
-// std::cerr	<< "\e[31mDeleting client #"
-// 			<< fd - _epfd << " (fd " << fd << ")" << "\e[0m"
+// std::cerr	<< ERROR << "Deleting client #"
+// 			<< fd - _epfd << " (fd " << fd << ")" << "" << RESET
 // 			<< std::endl;
 // delete it->second;
-// std::cerr	<< "\e[31mErasing container entry for client #"
-// 			<< fd - _epfd << "\e[0m"
+// std::cerr	<< ERROR << "Erasing container entry for client #"
+// 			<< fd - _epfd << "" << RESET
 // 			<< std::endl;
 // _clients.erase(it);
 
-// std::cerr	<< "\e[31mRemoving fd " << immediate->first
-// 			<< " from epoll instance" << "\e[0m"
+// std::cerr	<< ERROR << "Removing fd " << immediate->first
+// 			<< " from epoll instance" << "" << RESET
 // 			<< std::endl;
 // if (epoll_ctl(_epfd, EPOLL_CTL_DEL, immediate->first, NULL) == -1) {
-// 	std::cerr	<< "\e[31mError during cleanup: epoll_ctl: "
-// 				<< strerror(errno) << "\e[0m"
+// 	std::cerr	<< ERROR << "Error during cleanup: epoll_ctl: "
+// 				<< strerror(errno) << "" << RESET
 // 				<< std::endl;
 // }
-// std::cerr	<< "\e[31mAnd closing fd " << immediate->first << "\e[0m"
+// std::cerr	<< ERROR << "And closing fd " << immediate->first << "" << RESET
 // 			<< std::endl;
 // if (close(immediate->first) == -1) {
-// 	std::cerr	<< "\e[31mError during cleanup: close: "
-// 				<< strerror(errno) << "\e[0m"
+// 	std::cerr	<< ERROR << "Error during cleanup: close: "
+// 				<< strerror(errno) << "" << RESET
 // 				<< std::endl;
 // }
-// std::cerr	<< "\e[31mDeleting client #" << immediate->first - _epfd
-// 			<< " (fd " << immediate->first << ")" << "\e[0m"
+// std::cerr	<< ERROR << "Deleting client #" << immediate->first - _epfd
+// 			<< " (fd " << immediate->first << ")" << "" << RESET
 // 			<< std::endl;
 // delete immediate->second;
-// std::cerr	<< "\e[31mErasing container entry for client #"
-// 			<< immediate->first - _epfd << "\e[0m"
+// std::cerr	<< ERROR << "Erasing container entry for client #"
+// 			<< immediate->first - _epfd << "" << RESET
 // 			<< std::endl;
 // _clients.erase(immediate);
