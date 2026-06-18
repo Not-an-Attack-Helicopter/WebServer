@@ -20,7 +20,7 @@
 #include <sys/wait.h>
 #include <stdexcept>
 #include <unistd.h>
-// #include <iostream>
+#include <iostream>
 #include <fcntl.h>
 #include <cstring>
 #include <cstdlib>
@@ -92,7 +92,7 @@ void Server::prepareEPollInstance(void) {
 		// throw CreateEPollException();
 		throw std::runtime_error("epoll_create: " + std::string(strerror(errno)));
 	}
-	log.debug("Prepared epoll instance epfd: " + i2a(_epfd));
+	log.debug("Prepared epoll instance epfd fd_" + i2a(_epfd));
 	return;
 }
 
@@ -130,7 +130,7 @@ void Server::prepareListeningPort(const Config& config) {
 		throw std::runtime_error("setsockopt: " + std::string(strerror(errno)));
 	}
 	// log.debug("Created server socket fd: " + i2a(_sockfd.back()));
-	log.debug("Created server socket fd: " + i2a(_sockets.rbegin()->first));
+	log.debug("Created server socket fd_" + i2a(_sockets.rbegin()->first));
 	// result = bind(_sockfd.back(), (sockaddr*)&_addr.back(), sizeof(_addr.back()));
 	result = bind(_sockets.rbegin()->first, (sockaddr*)&_addr.back(), sizeof(_addr.back()));
 	if (result == -1) {
@@ -153,6 +153,7 @@ void Server::prepareListeningPort(const Config& config) {
 }
 
 void Server::handleIncomingEvents(void) {
+	time_t last_check = std::time(NULL);
 	log.info("Awaiting new connection");
 	while (true) {
 		int nfds = epoll_wait(_epfd, _events, MAX_EPOLL_EVENTS, EPOLL_WAIT_TIMEOUT_MS);
@@ -160,11 +161,20 @@ void Server::handleIncomingEvents(void) {
 			// throw EventPollingException();
 			throw std::runtime_error("epoll_wait: " + std::string(strerror(errno)));
 		}
+// DEBUG
+		if (nfds == 0) {
+			log.debug("Timeout: no events");
+		} else {
+			warnHighEventLoad(nfds, MAX_EPOLL_EVENTS);
+			dumpEvents(nfds, _events);
+		}
+// DEBUG
 		for (int n = 0; n < nfds; ++n) {
 			int fd = _events[n].data.fd;
 			epoll_event ev = _events[n];
 			uint32_t events = ev.events;
 			bool isSocket = false;
+			bool isClosed = false;
 			// for (size_t s = 0; s < _sockfd.size(); ++s) {
 				// if (fd == _sockfd[s] && events & EPOLLIN) {
 			std::map<int, const Config*>::iterator it = _sockets.begin();
@@ -177,9 +187,9 @@ void Server::handleIncomingEvents(void) {
 			}
 			if (!isSocket) {
 				if (events & EPOLLIN) {
-					handleReadEvent(fd);
+					isClosed = handleReadEvent(fd);
 				}
-				if (events & EPOLLOUT) {
+				if (!isClosed && events & EPOLLOUT) {
 					handleWriteEvent(fd);
 				}
 			} else {
@@ -190,6 +200,12 @@ void Server::handleIncomingEvents(void) {
 		if (_stop == true) {
 			break;
 		}
+		time_t now = std::time(NULL);
+		if (now - last_check >= 60) {  // Every 10 seconds
+			check_tcp_drops();
+			last_check = now;
+		}
+
 // DEBUG <<
 		std::map<int, Client*>::iterator immediate;
 		std::map<int, Client*>::iterator it = _clients.begin();
@@ -198,10 +214,10 @@ void Server::handleIncomingEvents(void) {
 			++it;
 			if (immediate->second->isTimedOut()) {
 // DEBUG >>
-				const int index = immediate->first - _sockets.rbegin()->first;
-				log.debug("Client #" + i2a(index) + " idle time: " + i2a(immediate->second->getIdleTime()) + "s");
+				log.debug("Client fd_" + i2a(immediate->first)
+				+ " idle time: " + i2a(immediate->second->getIdleTime()) + "s");
 // DEBUG <<
-				log.warning("Client #" + i2a(immediate->first - _sockets.rbegin()->first) + " timed out");
+				log.warning("Client fd_" + i2a(immediate->first) + " timed out");
 				cleanUpClient(immediate);
 // DEBUG >>
 				if (_clients.empty()) {
@@ -216,68 +232,30 @@ void Server::handleIncomingEvents(void) {
 }
 
 void Server::acceptConnectRequest(int socket_fd) {
-	log.info("New connection on socket fd: " + i2a(socket_fd));
+	log.info("New connection on socket fd_" + i2a(socket_fd));
 	Client* c = new Client();
 	int client_fd = accept(socket_fd, c->getAddrPointer(), c->getAddrlenPointer());
 	if (client_fd == -1) {
 		delete c;
-		// throw AcceptException();
-		throw std::runtime_error("accept: " + std::string(strerror(errno)));
+		if (errno == EAGAIN || errno == EWOULDBLOCK) {
+			return;
+		} else {
+			throw std::runtime_error("accept: " + std::string(strerror(errno)));
+		}
 	}
 	_clients[client_fd] = c;
 	setNonblockFlag(client_fd);
 	setReadInterest(client_fd);
 	// log.info("Client #" + i2a(client_fd - _sockfd.back()) + ", endpoint "
-	log.info("Client #" + i2a(client_fd - _sockets.rbegin()->first) + ", endpoint "
+	log.info("Client fd_" + i2a(client_fd) + ", endpoint "
 				+ c->getHostAddress() + ":" + i2a(c->getHostPort()));
-// DEBUG We don't care about potential DoS attack vectors here
-	// pid_t pid = fork();
-	// const char* argv[] = {"echo", "Hello from the child process!", NULL};
-	// switch(pid) {
-	// case -1:
-	// 	log.error("fork: " + std::string(strerror(errno)));
-	// 	break;
-	// case 0:
-	// 	// cleanUpAllRessources();							// This is bad! Because all clients will be deleted
-	// 														// and all interests will be wiped from all sockets!
-	// 	// if (!_clients.empty()) {							// This is bad! The client object will be destructed.
-	// 	// 	std::map<int, Client*>::iterator immediate;
-	// 	// 	std::map<int, Client*>::iterator it = _clients.begin();
-	// 	// 	while (it != _clients.end()) {
-	// 	// 		immediate = it;
-	// 	// 		++it;
-	// 	// 		cleanUpClient(immediate);
-	// 	// 	}
-	// 	// }
-	// 	_clients.clear();
-	// 	for (int i = 0; i < MAXEVENTS; ++i) {
-	// 		_events[i].events = 0;
-	// 		_events[i].data.fd = 0;
-	// 		_events[i].data.u32 = 0;
-	// 		_events[i].data.u64 = 0;
-	// 		_events[i].data.ptr = NULL;
-	// 	}
-	// 	// _sockfd.clear();
-	// 	_addr.clear();
-	// 	// epoll_ctl(_epfd, EPOLL_CTL_DEL, socket_fd, NULL);	// This is potentially bad, because in the case
-	// 														// // of disconnecting before sending 'STOP' it will
-	// 														// // not be possible to reconnect!
-	// 	close(socket_fd);
-	// 	close(_epfd);
-	// 	if (execvp(argv[0], (char* const*)argv) == -1) {
-	// 		log.error("Oh no! " + std::string(strerror(errno)));
-	// 	}
-	// 	exit(0);
-	// 	break; // Because above "statement may fall through". - The Compiler. Who has no clue, this is bog wash.
-	// default:
-	// 	std::cout << "Hello from the parent process!" << std::endl;
-	// }
-	// while (waitpid(-1, NULL, WNOHANG) > 0) {}
-// DEBUG
-	return ;
+// TEST We don't care about potential DoS attack vectors here
+	// forking_around(socket_fd, client_fd);
+// TEST
+	return;
 }
 
-void Server::handleReadEvent(int fd) {
+bool Server::handleReadEvent(int fd) {
 	std::map<int, Client*>::iterator it = _clients.find(fd);
 	if (it == _clients.end() || it->second == NULL) {
 		// throw MissingClientException();
@@ -290,7 +268,7 @@ void Server::handleReadEvent(int fd) {
 	}
 	if (n == 0) {
 		// log.info("Connection closed by client #" + i2a(fd - _sockfd.back()));
-		log.info("Connection closed by client #" + i2a(fd - _sockets.rbegin()->first));
+		log.info("Connection closed by client fd_" + i2a(fd));
 		cleanUpClient(it);
 // DEBUG >>
 		if (_clients.empty()) {
@@ -298,18 +276,18 @@ void Server::handleReadEvent(int fd) {
 			// break;
 		}
 // DEBUG <<
-		return;
+		return true;
 	}
 // DEBUG >>
 	if (n == STOP) {
 		log.info("Connection closed by the server");
 		_stop = true;
-		return;
+		return true;
 	} else {
 		std::string buff = it->second->getBuffer();
 		buff.erase(n);
-		// // log.debug("Read " + i2a(n) + " bytes from client #" + i2a(fd - _sockfd.back()) + ":\n");
-		log.debug("Read " + i2a(n) + " bytes from client #" + i2a(fd - _sockets.rbegin()->first) + ":");
+		// log.debug("Read " + i2a(n) + " bytes from client #" + i2a(fd - _sockfd.back()) + ":\n");
+		log.debug("Read " + i2a(n) + " bytes from client fd_" + i2a(fd) + ":");
 		log.notice(buff);
 		log.debug("Current data in buffer:");
 		log.notice(it->second->getIncomingData());
@@ -321,7 +299,7 @@ void Server::handleReadEvent(int fd) {
 		it->second->queueOutgoingData(response);
 		addWriteInterest(fd);
 	}
-	return;
+	return false;
 }
 
 void Server::handleWriteEvent(int fd) {
@@ -457,6 +435,55 @@ Server& Server::operator = (const Server& other) {
 	if (this != &other) {}
 	return *this;
 }
+
+// TEST
+void Server::forking_around(int socket_fd, int client_fd) {
+	pid_t pid = fork();
+	const char* argv[] = {"echo", "Hello from the child process!", NULL};
+	switch(pid) {
+		case -1:
+			log.error("fork: " + std::string(strerror(errno)));
+			break;
+		case 0:
+			// cleanUpAllRessources();							// This is bad! Because all clients will be deleted
+			// and all interests will be wiped from all sockets!
+			// if (!_clients.empty()) {							// This is bad! The client object will be destructed.
+			// 	std::map<int, Client*>::iterator immediate;
+			// 	std::map<int, Client*>::iterator it = _clients.begin();
+			// 	while (it != _clients.end()) {
+			// 		immediate = it;
+			// 		++it;
+			// 		cleanUpClient(immediate);
+			// 	}
+			// }
+			_clients.clear();
+			for (int i = 0; i < MAX_EPOLL_EVENTS; ++i) {
+				_events[i].events = 0;
+				_events[i].data.fd = 0;
+				_events[i].data.u32 = 0;
+				_events[i].data.u64 = 0;
+				_events[i].data.ptr = NULL;
+			}
+			// _sockfd.clear();
+			_addr.clear();
+			// epoll_ctl(_epfd, EPOLL_CTL_DEL, socket_fd, NULL);	// This is potentially bad, because in the case
+			// // of disconnecting before sending 'STOP' it will
+			// // not be possible to reconnect!
+			close(socket_fd);
+			close(client_fd);
+			close(_epfd);
+			if (execvp(argv[0], (char* const*)argv) == -1) {
+				log.error("Oh no! " + std::string(strerror(errno)));
+				_exit(EXIT_FAILURE);
+			}
+			_exit(EXIT_SUCCESS);
+			break; // Because above "statement may fall through". - The Compiler. Who has no clue, this is bog wash.
+		default:
+			std::cout << "Hello from the parent process!" << std::endl;
+	}
+	while (waitpid(-1, NULL, WNOHANG) > 0) {}
+}
+// TEST
 
 // const char* Server::AFNotSupportedException::what(void) const throw () {
 // 	// return "AFNotSupportedException\n";

@@ -2,9 +2,15 @@
 
 // #include "webserver.hpp"
 #include "types.hpp"
+#include <sys/epoll.h>
 #include <string>
 #include <vector>
 
+// DEBUG
+void			warnHighEventLoad(int nfds, int max_capacity);
+void			dumpEvents(int nfds, epoll_event* events);
+void			check_tcp_drops(void);
+// DEBUG
 bool			valid_ip(const std::string& ip);
 bool			valid_port(const std::string& port_str);
 bool			is_address_already_used(const std::vector<Config>& config, const std::string& host, int port);

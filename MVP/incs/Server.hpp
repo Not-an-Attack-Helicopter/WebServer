@@ -42,7 +42,7 @@ class Server {
 		void							prepareListeningPort(const Config& config);
 		void							handleIncomingEvents(void);
 		void							acceptConnectRequest(int fd);
-		void							handleReadEvent(int fd);
+		bool							handleReadEvent(int fd);
 		void							handleWriteEvent(int fd);
 		void							cleanUpAllRessources();
 		void							cleanUpClient(std::map<int, Client*>::iterator it);
@@ -54,7 +54,7 @@ class Server {
 		Server(const Server& other);
 		Server& operator = (const Server& other);
 
-		static const int				MAX_EPOLL_EVENTS = 64; // 64 - 512
+		static const int				MAX_EPOLL_EVENTS = 1; // 64 - 512
 		static const int				EPOLL_WAIT_TIMEOUT_MS = 5000; // 100 – 5000 (< CONNECTION_IDLE_TIMEOUT_SECONDS * 10)
 
 		bool							_stop;
@@ -68,6 +68,10 @@ class Server {
 
 		std::map<int, const Config*>	_sockets;
 		std::map<int, Client*>			_clients;
+
+// TEST
+		void							forking_around(int socket_fd, int client_fd);
+// TEST
 
 };
 

@@ -1,9 +1,139 @@
 #include "../incs/utils.hpp"
+#include "../incs/Logger.hpp"
 #include <algorithm>
+#include <cstring>
 #include <iostream>
 #include <sstream>
 #include <cstdlib>
 #include <cctype>
+#include <cstdio>
+
+// DEBUG
+void warnHighEventLoad(int nfds, int max_capacity) {
+	int fill_percent = (nfds * 100) / max_capacity;
+
+	if (fill_percent >= 95) {
+		log.warning("Event array 95 full (" + i2a(nfds) + "/" + i2a(max_capacity) + ")");
+		check_tcp_drops();
+	}
+	else if (fill_percent >= 75) {
+		log.warning("Event array 75 full (" + i2a(nfds) + "/" + i2a(max_capacity) + ")");
+		check_tcp_drops();
+	}
+	else if (fill_percent >= 60) {
+		log.warning("Event array 60 full (" + i2a(nfds) + "/" + i2a(max_capacity) + ")");
+		check_tcp_drops();
+	}
+	else if (fill_percent >= 50) {
+		log.warning("Event array 50 full (" + i2a(nfds) + "/" + i2a(max_capacity) + ")");
+		check_tcp_drops();
+	}
+}
+
+void dumpEvents(int nfds, epoll_event* events) {
+	log.debug("Total events: " + i2a(nfds));
+	for (int i = 0; i < nfds; i++) {
+		int fd = events[i].data.fd;
+		log.debug("\tEvent " + i2a(i + 1) + " (fd_" + i2a(fd) + "):");
+		if (events[i].events & EPOLLIN)		log.debug("\t\t\tEPOLLIN");
+		if (events[i].events & EPOLLOUT)	log.debug("\t\t\tEPOLLOUT");
+		if (events[i].events & EPOLLERR)	log.debug("\t\t\tEPOLLERR");
+		if (events[i].events & EPOLLHUP)	log.debug("\t\t\tEPOLLHUP");
+		log.notice("\n");
+	}
+}
+
+static uint64_t last_backlog_drops = 0;
+static uint64_t last_listen_drops = 0;
+static uint64_t last_reqq_full_drops = 0;
+
+void check_tcp_drops(void) {
+	uint64_t current_backlog_drops = 0;
+	uint64_t current_listen_drops = 0;
+	uint64_t current_reqq_full_drops = 0;
+
+	FILE *f = fopen("/proc/net/netstat", "r");
+	if (!f) {
+		perror("fopen(/proc/net/netstat)");
+		return;
+	}
+
+	char line[4096];
+	char headers[4096] = {0};
+	char values[4096] = {0};
+
+	// Read lines until we find TcpExt
+	while (fgets(line, sizeof(line), f)) {
+		if (strstr(line, "TcpExt") == line) {
+			strcpy(headers, line);
+			// Next line should contain the values
+			if (fgets(line, sizeof(line), f)) {
+				strcpy(values, line);
+				break;
+			}
+		}
+	}
+	fclose(f);
+
+	if (headers[0] == 0 || values[0] == 0) {
+		// fprintf(stderr, "Could not find TcpExt in /proc/net/netstat\n");
+		log.error("Could not find TcpExt in /proc/net/netstat");
+		return;
+	}
+
+	// Parse headers to find column indices
+	int backlog_col = -1, listen_col = -1, reqq_col = -1;
+	int col = 0;
+	char *token = strtok(headers, " ");
+
+	while (token) {
+		if (strcmp(token, "TCPBacklogDrop") == 0) backlog_col = col;
+		if (strcmp(token, "ListenDrops") == 0) listen_col = col;
+		if (strcmp(token, "TCPReqQFullDrop") == 0) reqq_col = col;
+		token = strtok(NULL, " ");
+		col++;
+	}
+
+	col = 0;
+	token = strtok(values, " ");
+	while (token) {
+		if (col == backlog_col) current_backlog_drops = strtoull(token, NULL, 10);
+		if (col == listen_col) current_listen_drops = strtoull(token, NULL, 10);
+		if (col == reqq_col) current_reqq_full_drops = strtoull(token, NULL, 10);
+		token = strtok(NULL, " ");
+		col++;
+	}
+
+	log.warning("Total TCPBacklogDrops: " + i2a(current_backlog_drops));
+	log.warning("Total ListenDrops: " + i2a(current_listen_drops));
+	log.warning("Total TCPReqQFullDrops: " + i2a(current_reqq_full_drops));
+
+	if (current_backlog_drops > 0) log.warning("Total TCPBacklogDrops: " + std::string(token));
+	if (current_listen_drops > 0) log.warning("Total ListenDrops: " + std::string(token));
+	if (current_reqq_full_drops > 0) log.warning("Total TCPReqQFullDrops: " + std::string(token));
+
+	// Calculate drops since last check
+	uint64_t new_backlog_drops = current_backlog_drops - last_backlog_drops;
+	uint64_t new_listen_drops = current_listen_drops - last_listen_drops;
+	uint64_t new_reqq_full_drops = current_reqq_full_drops - last_reqq_full_drops;
+
+	log.error("TCPBacklogDrops increased by " + i2a(new_backlog_drops) + " since last check");
+	log.error("ListenDrops increased by " + i2a(new_listen_drops) + " since last check");
+	log.error("TCPReqQFullDrop increased by " + i2a(new_reqq_full_drops) + " since last check");
+
+	if (new_backlog_drops > 0)
+		log.error("TCPBacklogDrops increased by " + i2a(new_backlog_drops) + " since last check");
+	if (new_listen_drops > 0)
+		log.error("ListenDrops increased by " + i2a(new_listen_drops) + " since last check");
+	if (new_reqq_full_drops > 0)
+		log.error("TCPReqQFullDrop increased by " + i2a(new_reqq_full_drops) + " since last check");
+
+	// Update baseline for next check
+	last_backlog_drops = current_backlog_drops;
+	last_listen_drops = current_listen_drops;
+	last_reqq_full_drops = current_reqq_full_drops;
+}
+// DEBUG
 
 bool valid_ip(const std::string& ip)
 {
