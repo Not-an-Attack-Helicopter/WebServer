@@ -10,11 +10,19 @@
 /*                                                                            */
 /* ************************************************************************** */
 
-#ifndef CLIENT_H
-# define CLIENT_H
+#pragma once
 
-# include <string>
-# include <sys/socket.h>
+#include <sys/socket.h>
+#include <string>
+#include <ctime>
+// #include <cstddef>
+#include "HTTPRequest.hpp"
+
+// DEBUG
+enum AdminCommand {
+	STOP = 2000
+};
+// DEBUG
 
 class Client {
 
@@ -34,17 +42,28 @@ class Client {
 
 		socklen_t*					getAddrlenPointer(void) const;
 
-		void						queueIncomingData(size_t len);
+		ssize_t						queueIncomingData(int fd);
+		void						parseIncomingData(void);
+
 		void						queueOutgoingData(const std::string& message);
-
 		bool						hasPendingData(void) const;
-
-		ssize_t						fillPendingData(int fd);
 		ssize_t						flushPendingData(int fd);
+
+		bool						isTimedOut(void) const;
+// DEBUG
+		double						getIdleTime(void) const;
+// DEBUG
+		void						reset(void);
+
+		HTTPRequest					request;
+		// HTTPReponse*				reponse;
+
 
 	private:
 		Client(const Client& other);
 		Client& operator = (const Client& other);
+
+		static const time_t			CONNECTION_IDLE_TIMEOUT_SECONDS = 42;
 
 		sockaddr_storage			_addr;
 
@@ -55,6 +74,5 @@ class Client {
 		std::string					_incomingData;
 		std::string					_outgoingData;
 
+		time_t						_lastEvent;
 };
-
-#endif

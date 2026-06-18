@@ -1,6 +1,7 @@
-#include "../incs/helpers.hpp"
+#include "../incs/parsing.hpp"
 #include "../incs/utils.hpp"
 #include <algorithm>
+#include <climits>
 #include <stdexcept>
 #include <sstream>
 #include <fstream>
@@ -205,98 +206,82 @@ LocationConfig parse_location_block(const std::vector<std::string>& tokens, size
 }
 
 
-ServerConfig parse_server_block(const std::vector<std::string>& tokens, size_t& i, const std::vector<ServerConfig>& config)
-{
-	ServerConfig server;
+Config parse_server_block(const std::vector<std::string>& tokens, size_t& i, const std::vector<Config>& config) {
+	Config server;
 	server.port = 80;
 	server.client_max_body_size = 1048576;
 
 	++i;
 
-	while (i < tokens.size() && tokens[i] != "}")
-	{
+	while (i < tokens.size() && tokens[i] != "}") {
 		std::string key = directive_key(tokens[i]);
 		std::string val = directive_value(tokens[i]);
 
-		if (key == "listen")
-		{
-			if (!valid_port(val))
-			{
+		if (key == "listen") {
+			if (!valid_port(val)) {
 				throw std::runtime_error("invalid port value: " + val);
 			}
-			server.port = std::atoi(val.c_str());
-		}
-		else if (key == "host")
-		{
-			if (!valid_ip(val))
-			{
+			// server.port = std::atoi(val.c_str());
+			char* endptr;
+			unsigned long tmp = std::strtoul(val.c_str(), &endptr, 10);
+			if (endptr == val.c_str()) {
+				throw std::runtime_error("conversion failed: " + val);
+			} else if (tmp > USHRT_MAX) {
+				throw std::out_of_range("Value too large for unsigned short");
+			} else {
+				server.port = static_cast<unsigned short>(tmp);
+			}
+		} else if (key == "host") {
+			if (!valid_ip(val)) {
 				throw std::runtime_error("invalid host IP: " + val);
 			}
 			server.host = val;
-		}
-		else if (key == "server_name")
-		{
+		} else if (key == "server_name") {
 			std::istringstream iss(val);
 			std::string name;
 			while (iss >> name)
 				server.server_names.push_back(name);
-		}
-		else if (key == "client_max_body_size")
-		{
-			if (!is_valid_body_size(std::atoi(val.c_str())))
-			{
+		} else if (key == "client_max_body_size") {
+			if (!is_valid_body_size(std::atoi(val.c_str()))) {
 				throw std::runtime_error("invalid client_max_body_size: " + val);
 			}
 			server.client_max_body_size = (size_t)std::atol(val.c_str());
-		}
-		else if (key == "error_page")
-		{
+		} else if (key == "error_page") {
 			std::istringstream iss(val);
 			std::string code_str;
 			std::string path;
-			if (iss >> code_str >> path)
-			{
-				if (!is_valid_error_code(std::atoi(code_str.c_str())))
-				{
+			if (iss >> code_str >> path) {
+				if (!is_valid_error_code(std::atoi(code_str.c_str()))) {
 					throw std::runtime_error("invalid error code: " + code_str);
 				}
 				server.error_pages[std::atoi(code_str.c_str())] = path;
 			}
-		}
-		else if (key == "location")
-		{
+		} else if (key == "location") {
 			LocationConfig loc = parse_location_block(tokens, i);
-			for (std::vector<LocationConfig>::const_iterator it = server.locations.begin(); it != server.locations.end(); ++it)
-			{
+			for (std::vector<LocationConfig>::const_iterator it = server.locations.begin(); it != server.locations.end(); ++it) {
 				const LocationConfig& existing = *it;
-				if (existing.path == loc.path)
-				{
+				if (existing.path == loc.path) {
 					throw std::runtime_error("duplicate location path: " + loc.path);
 				}
 			}
 			server.locations.push_back(loc);
 			continue;
-		}
-		else if (key == "root")
+		} else if (key == "root")
 			server.root = val;
 		else if (key == "index")
 			server.index = val;
-		else
-		{
+		else {
 			throw std::runtime_error("unknown directive in server block: " + key);
 		}
-
 		++i;
 	}
-	if (i >= tokens.size())
-	{
+	if (i >= tokens.size()) {
 		throw std::runtime_error("unclosed server block (missing '}')");
 	}
 	++i;
 	if (server.host.empty())
 		server.host = "0.0.0.0";
-	if (is_address_already_used(config, server.host, server.port))
-	{
+	if (is_address_already_used(config, server.host, server.port)) {
 		std::ostringstream oss;
 		oss << "host " << server.host << " port " << server.port << " is already used by another server block";
 		throw std::runtime_error(oss.str());
@@ -304,14 +289,14 @@ ServerConfig parse_server_block(const std::vector<std::string>& tokens, size_t& 
 	return server;
 }
 
-std::vector<ServerConfig> parse_config_file(const std::string& config_file)
+std::vector<Config> parse_config_file(const std::string& config_file)
 {
 	if(!valid_conf_ext(config_file))
 	{
 		throw std::runtime_error("invalid config file extension: " + config_file);
 	}
 	std::vector<std::string> tokens = Tokenizer(config_file);
-	std::vector<ServerConfig> config;
+	std::vector<Config> config;
 
 	for (size_t i = 0; i < tokens.size(); )
 	{

@@ -40,7 +40,7 @@ bool valid_port(const std::string& port_str)
 	return port > 0 && port <= 65535;
 }
 
-bool is_address_already_used(const std::vector<ServerConfig>& config, const std::string& host, int port)
+bool is_address_already_used(const std::vector<Config>& config, const std::string& host, int port)
 {
 	for (size_t i = 0; i < config.size(); ++i)
 	{
@@ -100,7 +100,49 @@ bool is_valid_error_code(const int code)
 	return code >= 400 && code < 600;
 }
 
+// std::string i2a(short input) {
+// 	std::stringstream convert;
+// 	convert << input;
+// 	return (convert.str());
+// }
+
+std::string i2a(unsigned short input) {
+	std::stringstream convert;
+	convert << input;
+	return (convert.str());
+}
+
 std::string i2a(int input) {
+	std::stringstream convert;
+	convert << input;
+	return (convert.str());
+}
+
+// std::string i2a(const int input) {
+// 	std::stringstream convert;
+// 	convert << input;
+// 	return (convert.str());
+// }
+
+// std::string i2a(unsigned int input) {
+// 	std::stringstream convert;
+// 	convert << input;
+// 	return (convert.str());
+// }
+
+std::string i2a(long input) {
+	std::stringstream convert;
+	convert << input;
+	return (convert.str());
+}
+
+std::string i2a(unsigned long input) {
+	std::stringstream convert;
+	convert << input;
+	return (convert.str());
+}
+
+std::string i2a(double input) {
 	std::stringstream convert;
 	convert << input;
 	return (convert.str());
@@ -139,8 +181,8 @@ std::string get_content_type(const std::string& path)
 		return "application/octet-stream";
 }
 
-void print_conf(const std::vector<ServerConfig>& config) {
-	for (std::vector<ServerConfig>::const_iterator server = config.begin(); server != config.end(); ++server) {
+void print_conf(const std::vector<Config>& config) {
+	for (std::vector<Config>::const_iterator server = config.begin(); server != config.end(); ++server) {
 		std::cout << "server {\n";
 		std::cout << "    host: " << server->host << ";\n";
 		std::cout << "    port: " << server->port << ";\n";

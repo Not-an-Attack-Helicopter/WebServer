@@ -10,9 +10,9 @@ class Parser {
 	public:
 		static Parser& instance(void);
 
-		const std::vector<ServerConfig>&	getAllConfigs(void) const;
+		const std::vector<Config>&	getAllConfigs(void) const;
 
-		const ServerConfig& 				getConfig(size_t index) const;
+		const Config& 				getConfig(size_t index) const;
 
 		size_t								countConfigs(void) const;
 
@@ -24,6 +24,6 @@ class Parser {
 		Parser& operator=(const Parser& other);
 		~Parser();
 
-		std::vector<ServerConfig>			_serverConfigs;
+		std::vector<Config>			_serverConfigs;
 
 };

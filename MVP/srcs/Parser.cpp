@@ -1,5 +1,5 @@
 #include "../incs/Parser.hpp"
-#include "../incs/helpers.hpp"
+#include "../incs/parsing.hpp"
 #include "../incs/Logger.hpp"
 #include <cstddef>
 
@@ -17,11 +17,11 @@ Parser& Parser::instance(void) {
 
 //-------------------------------getters-------------------------------//
 
-const std::vector<ServerConfig>& Parser::getAllConfigs() const {
+const std::vector<Config>& Parser::getAllConfigs() const {
 	return _serverConfigs;
 }
 
-const ServerConfig& Parser::getConfig(size_t index) const {
+const Config& Parser::getConfig(size_t index) const {
 	return _serverConfigs[index];
 }
 

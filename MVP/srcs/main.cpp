@@ -103,9 +103,10 @@ int main(int argc, char** argv) {
 	}
 	for (size_t i = 0; i < numSockets; ++i) {
 		try {
-			std::string address = parser.getConfig(i).host;
-			unsigned short port = parser.getConfig(i).port;
-			server.prepareListeningPort(address, port);
+			// std::string address = parser.getConfig(i).host;
+			// unsigned short port = parser.getConfig(i).port;
+			// server.prepareListeningPort(address, port);
+			server.prepareListeningPort(parser.getConfig(i));
 		} catch (const std::exception& e) {
 			log.error(e.what());
 			return 1;

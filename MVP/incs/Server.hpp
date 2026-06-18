@@ -10,18 +10,19 @@
 /*                                                                            */
 /* ************************************************************************** */
 
-#ifndef SERVER_H
-# define SERVER_H
+#pragma once
 
-# define server Server::instance()
+#include "types.hpp"
+#define server Server::instance()
 
-# include <netinet/in.h>
-# include <sys/epoll.h>
-# include <netdb.h>
-# include <string>
-# include <vector>
-# include <map>
-# include "Client.hpp"
+#include <netinet/in.h>
+#include <sys/epoll.h>
+#include <netdb.h>
+#include <string>
+#include <vector>
+#include <map>
+#include "Client.hpp"
+// # include "types.hpp"
 
 # define INVALID_ADDR "No valid address string was provided for the specified \
 address family."
@@ -30,20 +31,22 @@ address family."
 class Server {
 
 	public:
-		static Server&		instance(void);
+		static Server&					instance(void);
 
-		void	setNonblockFlag(int fd);
-		void	setReadInterest(int fd);
-		void	addWriteInterest(int fd);
-		void	removeWriteInterest(int fd);
-		void	prepareEPollInstance(void);
-		void	prepareListeningPort(const std::string& address, unsigned short port);
-		void	handleIncomingEvents(void);
-		void	acceptConnectRequest(int fd);
-		void	handleReadEvent(int fd);
-		void	handleWriteEvent(int fd);
-		void	cleanUpAllRessources();
-		void	cleanUpClient(std::map<int, Client*>::iterator it);
+		void							setNonblockFlag(int fd);
+		void							setReadInterest(int fd);
+		void							addWriteInterest(int fd);
+		void							removeWriteInterest(int fd);
+		void							prepareEPollInstance(void);
+		void							prepareListeningPort(const std::string& address, unsigned short port);
+		void							prepareListeningPort(const Config& config);
+		void							handleIncomingEvents(void);
+		void							acceptConnectRequest(int fd);
+		void							handleReadEvent(int fd);
+		void							handleWriteEvent(int fd);
+		void							cleanUpAllRessources();
+		void							cleanUpClient(std::map<int, Client*>::iterator it);
+		void							cleanUpSocket(std::map<int, const Config*>::iterator it);
 
 	private:
 		Server(void);
@@ -51,22 +54,22 @@ class Server {
 		Server(const Server& other);
 		Server& operator = (const Server& other);
 
-		static const int				MAXEVENTS = 10;
+		static const int				MAX_EPOLL_EVENTS = 64; // 64 - 512
+		static const int				EPOLL_WAIT_TIMEOUT_MS = 5000; // 100 – 5000 (< CONNECTION_IDLE_TIMEOUT_SECONDS * 10)
 
 		bool							_stop;
 
 		int								_epfd;
 
 		std::vector<sockaddr_in>		_addr;
-		std::vector<int>				_sockfd;
+		// std::vector<int>				_sockfd;
 
-		epoll_event						_events[MAXEVENTS];
+		epoll_event						_events[MAX_EPOLL_EVENTS];
 
+		std::map<int, const Config*>	_sockets;
 		std::map<int, Client*>			_clients;
 
 };
-
-#endif
 
 // class CreateEPollException : public std::exception {
 // public:

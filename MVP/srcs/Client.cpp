@@ -12,7 +12,7 @@
 
 #include "../incs/Client.hpp"
 #include "../incs/Logger.hpp"
-#include "../incs/types.hpp"
+#include "../incs/utils.hpp"
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
@@ -21,7 +21,7 @@
 //~~~~~~~~~~//
 
 /*	@brief Constructor	*/
-Client::Client(void) : _addrlen(sizeof(_addr)) {
+Client::Client(void) : _addrlen(sizeof(_addr)), _lastEvent(std::time(NULL)) {
 	log.debug("Client Constructor called");
 	return;
 }
@@ -67,27 +67,13 @@ socklen_t* Client::getAddrlenPointer(void) const {
 	return (socklen_t*)&_addrlen;
 }
 
-void Client::queueIncomingData(size_t len){
-	_incomingData.append(_buffer, len);
-	return;
-}
-
-void Client::queueOutgoingData(const std::string& message) {
-	_outgoingData.append(message);
-	return;
-}
-
-bool Client::hasPendingData(void) const {
-	return !_outgoingData.empty();
-}
-
-ssize_t Client::fillPendingData(int fd) {
+ssize_t Client::queueIncomingData(int fd) {
 	ssize_t n = recv(fd, _buffer, sizeof(_buffer) - 1, 0);
 	if (n <= 0) {
 		return n;
 	}
 	_buffer[n] = '\0';
-	// DEBUG
+// DEBUG
 	// Interpret the first 4 bytes as an admin command.
 	// Fine, but I hate having a ternary inside of a string declaration.
 	// std::string cmd(_buffer, (n < 4 ? (size_t)n : (size_t)4));
@@ -98,8 +84,47 @@ ssize_t Client::fillPendingData(int fd) {
 	if (cmd == "STOP") {
 		return STOP;
 	}
-	// DEBUG
+// DEBUG
+	_incomingData.append(_buffer, n);
+	_lastEvent = std::time(NULL);
 	return n;
+}
+
+void Client::parseIncomingData(void) {
+	switch (request.parse(_incomingData)) {
+	case PS_COMPLETE:
+		log.notice("Valid HTTP request received");
+		log.debug("State:\t\t" + i2a(request.getState()));
+		log.debug("Method:\t\t" + request.getMethod());
+		log.debug("Path:\t\t" + request.getPath());
+		log.debug("Query:\t\t" + request.getQuery());
+		log.debug("Header:\t\t" + request.getHeader("content-type"));
+		log.debug("Body:\t\t" + request.getBody());
+		log.debug("Content-Length:\t" + i2a(request.getContentLength()) + "\n");
+		_incomingData.clear();
+		break;
+	case PS_ERROR:
+		log.error("HTTP request parser returned error");
+		log.debug("State:\t\t" + i2a(request.getState()));
+		log.debug("Method:\t\t" + request.getMethod());
+		log.debug("Path:\t\t" + request.getPath());
+		log.debug("Query:\t\t" + request.getQuery());
+		log.debug("Header:\t\t" + request.getHeader("content-type"));
+		log.debug("Body:\t\t" + request.getBody());
+		log.debug("Content-Length:\t" + i2a(request.getContentLength()) + "\n");
+		_incomingData.clear();
+		break;
+	}
+}
+
+void Client::queueOutgoingData(const std::string& message) {
+	_outgoingData.append(message);
+	_lastEvent = std::time(NULL);
+	return;
+}
+
+bool Client::hasPendingData(void) const {
+	return !_outgoingData.empty();
 }
 
 ssize_t Client::flushPendingData(int fd) {
@@ -108,9 +133,23 @@ ssize_t Client::flushPendingData(int fd) {
 		return n;
 	}
 	_outgoingData.erase(0, static_cast<size_t>(n));
-	log.debug(_outgoingData.empty() ? "Full flush" : "Partial flush");
+	// log.debug(_outgoingData.empty() ? "Full flush" : "Partial flush");
+	_lastEvent = std::time(NULL);
 	return n;
 }
+
+bool Client::isTimedOut(void) const {
+	// double idleTime = std::difftime(std::time(NULL), _lastEvent);
+	// log.debug("client " + getHostAddress() + ":" + i2a(getHostPort()) + " idleTime: " + i2a(idleTime));
+	// return idleTime > CONNECTION_IDLE_TIMEOUT_SECONDS;
+	return std::difftime(std::time(NULL), _lastEvent) > CONNECTION_IDLE_TIMEOUT_SECONDS;
+}
+
+// DEBUG
+double Client::getIdleTime(void) const {
+	return (std::difftime(std::time(NULL), _lastEvent));
+}
+// DEBUG
 
   //~~~~~~~~~~~//
  /*  Private  */

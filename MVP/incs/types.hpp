@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <netinet/in.h>
 #include <string>
 #include <vector>
 #include <map>
@@ -18,9 +19,9 @@ struct LocationConfig {
 	std::vector<std::string>		cgi_path;      // /usr/bin/python3, /bin/bash
 };
 
-struct ServerConfig {
+struct Config {
 	std::string						host;
-	int								port;
+	in_port_t						port;
 	std::string						root;
 	std::string						index;
 	std::vector<std::string>		server_names;
@@ -29,19 +30,19 @@ struct ServerConfig {
 	std::vector<LocationConfig>		locations;
 };
 
-// typedef std::vector<ServerConfig> configs_t;
+// typedef std::vector<Config> configs_t;
 
 // Client
-enum ParseState {
-	PS_REQUEST_LINE,
-	PS_READING_HEADERS,
-	PS_READING_BODY,
-	PS_COMPLETE,
-	PS_ERROR
-};
+// enum ParseState {
+// 	PS_REQUEST_LINE,
+// 	PS_READING_HEADERS,
+// 	PS_READING_BODY,
+// 	PS_COMPLETE,
+// 	PS_ERROR
+// };
 
 // DEBUG
-enum AdminCommand {
-	STOP = 2000
-};
+// enum AdminCommand {
+// 	STOP = 2000
+// };
 // DEBUG

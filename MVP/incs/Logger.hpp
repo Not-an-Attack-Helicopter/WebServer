@@ -33,30 +33,30 @@ enum LogLevel {
 
 class Logger {
 
-public:
-	static Logger&		instance();
+	public:
+		static Logger&		instance();
 
-	void				setLevel(LogLevel lvl);
-	void				setLevel(const std::string& name);
+		void				setLevel(LogLevel lvl);
+		void				setLevel(const std::string& name);
 
-	LogLevel			getLevel(void) const;
+		LogLevel			getLevel(void) const;
 
-	const char*			getLevelName(LogLevel lvl) const;
-	const char*			getLevelColor(LogLevel lvl) const;
+		const char*			getLevelName(LogLevel lvl) const;
+		const char*			getLevelColor(LogLevel lvl) const;
 
-	void				debug(const std::string& msg);
-	void				info(const std::string& msg);
-	void				warning(const std::string& msg);
-	void				error(const std::string& msg);
-	void				notice(const std::string& msg);
-	void				logMessage(LogLevel lvl, const std::string& msg);
+		void				debug(const std::string& msg);
+		void				info(const std::string& msg);
+		void				warning(const std::string& msg);
+		void				error(const std::string& msg);
+		void				notice(const std::string& msg);
+		void				logMessage(LogLevel lvl, const std::string& msg);
 
-private:
-	Logger(void);
-	~Logger(void);
-	Logger(const Logger&);
-	Logger& operator=(const Logger&);
+	private:
+		Logger(void);
+		~Logger(void);
+		Logger(const Logger&);
+		Logger& operator=(const Logger&);
 
-	LogLevel			_logLevel;
+		LogLevel			_logLevel;
 
 };
