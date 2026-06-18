@@ -55,8 +55,6 @@ class Client {
 // DEBUG
 		void						reset(void);
 
-		HTTPRequest					request;
-		// HTTPReponse*				reponse;
 
 
 	private:
@@ -73,6 +71,9 @@ class Client {
 
 		std::string					_incomingData;
 		std::string					_outgoingData;
+
+		HTTPRequest					_request;
+		// HTTPReponse					_reponse;
 
 		time_t						_lastEvent;
 };

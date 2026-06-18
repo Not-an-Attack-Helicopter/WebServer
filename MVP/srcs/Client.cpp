@@ -91,27 +91,27 @@ ssize_t Client::queueIncomingData(int fd) {
 }
 
 void Client::parseIncomingData(void) {
-	switch (request.parse(_incomingData)) {
+	switch (_request.parse(_incomingData)) {
 	case PS_COMPLETE:
 		log.notice("Valid HTTP request received");
-		log.debug("State:\t\t" + i2a(request.getState()));
-		log.debug("Method:\t\t" + request.getMethod());
-		log.debug("Path:\t\t" + request.getPath());
-		log.debug("Query:\t\t" + request.getQuery());
-		log.debug("Header:\t\t" + request.getHeader("content-type"));
-		log.debug("Body:\t\t" + request.getBody());
-		log.debug("Content-Length:\t" + i2a(request.getContentLength()) + "\n");
+		log.debug("State:\t\t" + i2a(_request.getState()));
+		log.debug("Method:\t\t" + _request.getMethod());
+		log.debug("Path:\t\t" + _request.getPath());
+		log.debug("Query:\t\t" + _request.getQuery());
+		log.debug("Header:\t\t" + _request.getHeader("content-type"));
+		log.debug("Body:\t\t" + _request.getBody());
+		log.debug("Content-Length:\t" + i2a(_request.getContentLength()) + "\n");
 		_incomingData.clear();
 		break;
 	case PS_ERROR:
 		log.error("HTTP request parser returned error");
-		log.debug("State:\t\t" + i2a(request.getState()));
-		log.debug("Method:\t\t" + request.getMethod());
-		log.debug("Path:\t\t" + request.getPath());
-		log.debug("Query:\t\t" + request.getQuery());
-		log.debug("Header:\t\t" + request.getHeader("content-type"));
-		log.debug("Body:\t\t" + request.getBody());
-		log.debug("Content-Length:\t" + i2a(request.getContentLength()) + "\n");
+		log.debug("State:\t\t" + i2a(_request.getState()));
+		log.debug("Method:\t\t" + _request.getMethod());
+		log.debug("Path:\t\t" + _request.getPath());
+		log.debug("Query:\t\t" + _request.getQuery());
+		log.debug("Header:\t\t" + _request.getHeader("content-type"));
+		log.debug("Body:\t\t" + _request.getBody());
+		log.debug("Content-Length:\t" + i2a(_request.getContentLength()) + "\n");
 		reset();
 		break;
 	}
@@ -150,6 +150,16 @@ double Client::getIdleTime(void) const {
 	return (std::difftime(std::time(NULL), _lastEvent));
 }
 // DEBUG
+
+void Client::reset(void) {
+	_incomingData.clear();
+	_outgoingData.clear();
+	for (size_t i = 0; i < sizeof(_buffer); ++i) {
+		_buffer[i] = '\0';
+	}
+	HTTPRequest request;
+	return;
+}
 
   //~~~~~~~~~~~//
  /*  Private  */

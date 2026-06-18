@@ -51,7 +51,7 @@ int main(int argc, char** argv) {
 		} else if (av[1] == "-l" || av[1] == "--log-level") {
 			log.setLevel(av[2]);
 			// log.info("Using Default Configuration");
-			config = "Config_Files/default.conf";
+			config = "configs/default.conf";
 		} else {
 			log.notice("Usage: " + av[0] + " [-v] <config_file>");
 			return 0;
