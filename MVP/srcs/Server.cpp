@@ -211,9 +211,9 @@ void Server::acceptConnectRequest(int socket_fd) {
 			throw std::runtime_error("accept: " + std::string(strerror(errno)));
 		}
 	}
+	_clients[client_fd] = c;
 	setNonblockFlag(client_fd);
 	setReadInterest(client_fd);
-	_clients[client_fd] = c;
 	log.info("Client fd_" + i2a(client_fd) + ", endpoint "
 				+ c->getHostAddress() + ":" + i2a(c->getHostPort()));
 // TEST We don't care about potential DoS attack vectors here
