@@ -139,8 +139,12 @@ int HTTPRequest::parse(const std::string& raw) {
 	if (_state == PS_COMPLETE || _state == PS_ERROR)
 		return _state;
 
-	size_t header_end = raw.find("\r\n\r\n");
-	if (header_end == std::string::npos) {
+	size_t header_end;
+	size_t hEndUNIX = raw.find("\n\n"); // Unix style
+	size_t hENDSLOP = raw.find("\r\n\r\n"); // Windows style
+
+	if (hEndUNIX == std::string::npos && hENDSLOP == std::string::npos) {
+		header_end = std::string::npos;
 		std::istringstream ss(raw);
 		std::string line;
 		if (!std::getline(ss, line) || !_parse_request_line(line)) {
@@ -155,6 +159,10 @@ int HTTPRequest::parse(const std::string& raw) {
 		}
 		_state = PS_READING_HEADERS;
 		return _state;
+	} else if (hEndUNIX == std::string::npos) {
+		header_end = hENDSLOP;
+	} else {
+		header_end = hEndUNIX;
 	}
 
 	// We have a complete header, parse it

@@ -54,7 +54,7 @@ class Server {
 		Server(const Server& other);
 		Server& operator = (const Server& other);
 
-		static const int				MAX_EPOLL_EVENTS = 1; // 64 - 512
+		static const int				MAX_EPOLL_EVENTS = 64; // 64 - 512
 		static const int				EPOLL_WAIT_TIMEOUT_MS = 5000; // 100 – 5000
 
 		bool							_stop;

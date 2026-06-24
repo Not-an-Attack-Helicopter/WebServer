@@ -61,7 +61,7 @@ class Client {
 		Client(const Client& other);
 		Client& operator = (const Client& other);
 
-		static const time_t			CONNECTION_IDLE_TIMEOUT_SECONDS = 42;
+		static const time_t			CONNECTION_IDLE_TIMEOUT_SECONDS = 420;
 
 		sockaddr_storage			_addr;
 

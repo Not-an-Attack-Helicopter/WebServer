@@ -217,7 +217,7 @@ void Server::acceptConnectRequest(int socket_fd) {
 	log.info("Client fd_" + i2a(client_fd) + ", endpoint "
 				+ c->getHostAddress() + ":" + i2a(c->getHostPort()));
 // TEST We don't care about potential DoS attack vectors here
-	forking_around(socket_fd, client_fd);
+	// forking_around(socket_fd, client_fd);
 // TEST
 	return;
 }
