@@ -10,7 +10,8 @@
 /*                                                                            */
 /* ************************************************************************** */
 
-#pragma once
+#ifndef SERVER_HPP
+#define SERVER_HPP
 
 #include "types.hpp"
 #define server Server::instance()
@@ -18,7 +19,7 @@
 #include <netinet/in.h>
 #include <sys/epoll.h>
 #include <netdb.h>
-#include <string>
+// #include <string>
 #include <vector>
 #include <map>
 #include "Client.hpp"
@@ -38,7 +39,7 @@ class Server {
 		void							addWriteInterest(int fd);
 		void							removeWriteInterest(int fd);
 		void							prepareEPollInstance(void);
-		void							prepareListeningPort(const std::string& address, unsigned short port);
+		// void							prepareListeningPort(const std::string& address, unsigned short port);
 		void							prepareListeningPort(const Config& config);
 		void							handleIncomingEvents(void);
 		void							acceptConnectRequest(int fd);
@@ -73,6 +74,8 @@ class Server {
 // TEST
 
 };
+
+#endif
 
 // class CreateEPollException : public std::exception {
 // public:

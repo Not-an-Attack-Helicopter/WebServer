@@ -21,7 +21,7 @@
 //~~~~~~~~~~//
 
 /*	@brief Constructor	*/
-Client::Client(void) : _addrlen(sizeof(_addr)), _lastEvent(std::time(NULL)) {
+Client::Client(void) : _addrlen(sizeof(_addr)), _last_event(std::time(NULL)) {
 	log.debug("Client Constructor called");
 	return;
 }
@@ -51,11 +51,11 @@ const std::string Client::getBuffer(void) const {
 }
 
 const std::string& Client::getIncomingData(void) const {
-	return _incomingData;
+	return _incoming_data;
 }
 
 // const std::string& Client::getOutgoingData(void) const {
-// 	return _outgoingData;
+// 	return _outgoing_data;
 // }
 // DEBUG
 
@@ -85,75 +85,67 @@ ssize_t Client::queueIncomingData(int fd) {
 		return STOP;
 	}
 // DEBUG
-	_incomingData.append(_buffer, n);
-	_lastEvent = std::time(NULL);
+	_incoming_data.append(_buffer, n);
+	_last_event = std::time(NULL);
 	return n;
 }
 
 void Client::parseIncomingData(void) {
-	switch (_request.parse(_incomingData)) {
+	switch (_request.parse(_incoming_data)) {
+	case PS_READING_HEADERS:
+		log.debug("HTTP request incomplete: awaiting more data");
+		dumpRequest(_request);
+		break;
 	case PS_COMPLETE:
-		log.notice("Valid HTTP request received");
-		log.debug("State:\t\t" + i2a(_request.getState()));
-		log.debug("Method:\t\t" + _request.getMethod());
-		log.debug("Path:\t\t" + _request.getPath());
-		log.debug("Query:\t\t" + _request.getQuery());
-		log.debug("Header:\t\t" + _request.getHeader("content-type"));
-		log.debug("Body:\t\t" + _request.getBody());
-		log.debug("Content-Length:\t" + i2a(_request.getContentLength()) + "\n");
-		_incomingData.clear();
+		log.info("Valid HTTP request received");
+		dumpRequest(_request);
+		_incoming_data.clear();
 		break;
 	case PS_ERROR:
 		log.error("HTTP request parser returned error");
-		log.debug("State:\t\t" + i2a(_request.getState()));
-		log.debug("Method:\t\t" + _request.getMethod());
-		log.debug("Path:\t\t" + _request.getPath());
-		log.debug("Query:\t\t" + _request.getQuery());
-		log.debug("Header:\t\t" + _request.getHeader("content-type"));
-		log.debug("Body:\t\t" + _request.getBody());
-		log.debug("Content-Length:\t" + i2a(_request.getContentLength()) + "\n");
+		dumpRequest(_request);
 		reset();
 		break;
 	}
 }
 
 void Client::queueOutgoingData(const std::string& message) {
-	_outgoingData.append(message);
-	_lastEvent = std::time(NULL);
+	_outgoing_data.append(message);
+	_last_event = std::time(NULL);
 	return;
 }
 
 bool Client::hasPendingData(void) const {
-	return !_outgoingData.empty();
+	return !_outgoing_data.empty();
 }
 
 ssize_t Client::flushPendingData(int fd) {
-	ssize_t n = send(fd, _outgoingData.c_str(), _outgoingData.size(), 0);
+	ssize_t n = send(fd, _outgoing_data.c_str(), _outgoing_data.size(), 0);
 	if (n <= 0) {
 		return n;
 	}
-	_outgoingData.erase(0, static_cast<size_t>(n));
-	// log.debug(_outgoingData.empty() ? "Full flush" : "Partial flush");
-	_lastEvent = std::time(NULL);
+	_outgoing_data.erase(0, static_cast<size_t>(n));
+	// log.debug(_outgoing_data.empty() ? "Full flush" : "Partial flush");
+	_last_event = std::time(NULL);
 	return n;
 }
 
 bool Client::isTimedOut(void) const {
-	// double idleTime = std::difftime(std::time(NULL), _lastEvent);
+	// double idleTime = std::difftime(std::time(NULL), _last_event);
 	// log.debug("client " + getHostAddress() + ":" + i2a(getHostPort()) + " idleTime: " + i2a(idleTime));
 	// return idleTime > CONNECTION_IDLE_TIMEOUT_SECONDS;
-	return std::difftime(std::time(NULL), _lastEvent) > CONNECTION_IDLE_TIMEOUT_SECONDS;
+	return std::difftime(std::time(NULL), _last_event) > CONNECTION_IDLE_TIMEOUT_SECONDS;
 }
 
 // DEBUG
 double Client::getIdleTime(void) const {
-	return (std::difftime(std::time(NULL), _lastEvent));
+	return (std::difftime(std::time(NULL), _last_event));
 }
 // DEBUG
 
 void Client::reset(void) {
-	_incomingData.clear();
-	_outgoingData.clear();
+	_incoming_data.clear();
+	_outgoing_data.clear();
 	for (size_t i = 0; i < sizeof(_buffer); ++i) {
 		_buffer[i] = '\0';
 	}
@@ -169,8 +161,8 @@ void Client::reset(void) {
 Client::Client(const Client& other)
 	:	_addr(other._addr),
 		_addrlen(other._addrlen),
-		_incomingData(other._incomingData),
-		_outgoingData(other._outgoingData) {
+		_incoming_data(other._incoming_data),
+		_outgoing_data(other._outgoing_data) {
 	log.debug("Client Copy Constructor called");
 	for (size_t i = 0; i < sizeof(_buffer); ++i) {
 		_buffer[i] = other._buffer[i];
@@ -188,8 +180,8 @@ Client& Client::operator = (const Client& other) {
 		for (size_t i = 0; i < sizeof(_buffer); ++i) {
 			_buffer[i] = other._buffer[i];
 		}
-		_incomingData = other._incomingData;
-		_outgoingData = other._outgoingData;
+		_incoming_data = other._incoming_data;
+		_outgoing_data = other._outgoing_data;
 	}
 	return *this;
 }

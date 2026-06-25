@@ -1,4 +1,5 @@
-#pragma once
+#ifndef PARSER_HPP
+#define PARSER_HPP
 
 // #include "webserver.hpp"
 #include "types.hpp"
@@ -27,3 +28,5 @@ class Parser {
 		std::vector<Config>			_serverConfigs;
 
 };
+
+#endif

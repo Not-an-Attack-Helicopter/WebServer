@@ -1,4 +1,5 @@
-#pragma once
+#ifndef TYPES_HPP
+#define TYPES_HPP
 
 #include <netinet/in.h>
 #include <cstddef>
@@ -29,6 +30,8 @@ struct Config {
 	std::map<int, std::string>		error_pages;   // 404 -> /404.html
 	std::vector<LocationConfig>		locations;
 };
+
+#endif
 
 // typedef std::vector<Config> configs_t;
 

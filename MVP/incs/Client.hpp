@@ -10,7 +10,8 @@
 /*                                                                            */
 /* ************************************************************************** */
 
-#pragma once
+#ifndef CLIENT_HPP
+#define CLIENT_HPP
 
 #include <sys/socket.h>
 #include <string>
@@ -35,7 +36,6 @@ class Client {
 		const std::string			getHostAddress(void) const;
 		const std::string			getBuffer(void) const;
 		const std::string&			getIncomingData(void) const;
-		// const std::string&			getOutgoingData(void) const;
 // DEBUG
 
 		sockaddr*					getAddrPointer(void) const;
@@ -69,11 +69,15 @@ class Client {
 
 		char						_buffer[1024];
 
-		std::string					_incomingData;
-		std::string					_outgoingData;
+		std::string					_incoming_data;
+		std::string					_outgoing_data;
 
 		HTTPRequest					_request;
 		// HTTPReponse					_reponse;
 
-		time_t						_lastEvent;
+		time_t						_last_event;
 };
+
+#endif
+
+// const std::string&			getOutgoingData(void) const;

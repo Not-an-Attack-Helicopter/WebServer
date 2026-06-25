@@ -1,7 +1,9 @@
-#pragma once
+#ifndef UTILS_HPP
+#define UTILS_HPP
 
 // #include "webserver.hpp"
 #include "types.hpp"
+#include "HTTPRequest.hpp"
 #include <sys/epoll.h>
 #include <string>
 #include <vector>
@@ -9,6 +11,7 @@
 // DEBUG
 void			warnHighEventLoad(int nfds, int max_capacity);
 void			dumpEvents(int nfds, epoll_event* events);
+void			dumpRequest(const HTTPRequest& request);
 // void			check_tcp_drops(void);
 // DEBUG
 bool			valid_ip(const std::string& ip);
@@ -38,3 +41,5 @@ std::string		trim(const std::string& str);
 std::string		get_content_type(const std::string& path);
 
 void			print_conf(const std::vector<Config>& config);
+
+#endif

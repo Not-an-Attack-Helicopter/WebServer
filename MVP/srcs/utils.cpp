@@ -1,5 +1,6 @@
 #include "../incs/utils.hpp"
 #include "../incs/Logger.hpp"
+#include "../incs/HTTPRequest.hpp"
 #include <algorithm>
 #include <cstring>
 #include <iostream>
@@ -39,6 +40,37 @@ void dumpEvents(int nfds, epoll_event* events) {
 		if (events[i].events & EPOLLERR)	log.debug("\t\t\tEPOLLERR");
 		if (events[i].events & EPOLLHUP)	log.debug("\t\t\tEPOLLHUP");
 	}
+}
+
+void dumpRequest(const HTTPRequest& request) {
+	std::string stade;
+	switch(request.getState()) {
+		case PS_REQUEST_LINE: stade = "request line"; break;
+		case PS_READING_HEADERS: stade = "reading headers"; break;
+		case PS_READING_BODY: stade = "reading body"; break;
+		case PS_COMPLETE: stade = "complete"; break;
+		case PS_ERROR: stade = "error"; break;
+	}
+	log.debug("State:\t\t" + stade + " (" + i2a(request.getState()) + ")");
+	// log.debug("State:\t\t" + i2a(request.getState()));
+	log.debug("Method:\t\t" + request.getMethod());
+	log.debug("Path:\t\t" + request.getPath());
+	log.debug("Query:\t\t" + request.getQuery());
+	log.debug("Version:\t" + request.getVersion());
+
+	if (request.hasHeader("host"))
+		log.debug("Host:\t\t" + request.getHeader("host"));
+	if (request.hasHeader("user-agent"))
+		log.debug("User-Agent:\t" + request.getHeader("user-agent"));
+	if (request.hasHeader("accept"))
+		log.debug("Accept:\t\t" + request.getHeader("accept"));
+	if (request.hasHeader("connection"))
+		log.debug("Connection:\t" + request.getHeader("connection"));
+	if (request.hasHeader("content-type"))
+		log.debug("Content-Type:\t" + request.getHeader("content-type"));
+
+	log.debug("Content-Length:\t" + i2a(request.getContentLength()) + "\n");
+	log.debug("Body:\t\t" + request.getBody());
 }
 // DEBUG
 
