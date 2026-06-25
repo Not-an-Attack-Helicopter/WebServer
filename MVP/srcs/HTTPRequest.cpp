@@ -123,7 +123,6 @@ void HTTPRequest::reset(void) {
 }
 
 
-// parsers
 // Feed raw bytes; returns the current _state:
 int HTTPRequest::parse(const std::string& raw) {
 	if (_state == PS_COMPLETE || _state == PS_ERROR)
@@ -162,6 +161,7 @@ int HTTPRequest::parse(const std::string& raw) {
  /*  Private  */
 //~~~~~~~~~~~//
 
+// parsers
 size_t HTTPRequest::_findHeaderEnd(const std::string& raw) {
 
 	size_t unix_end = raw.find("\n\n");
@@ -262,19 +262,11 @@ bool HTTPRequest::_parseHeaderLine(const std::string& line) {
 	if (key.empty())
 		return false;
 
-	// Trim leading whitespace from value
-	// size_t val_start = value.find_first_not_of(" \t");
-	// value = (val_start == std::string::npos) ? "" : value.substr(val_start);
-
-	// Trim trailing whitespace and \r from value
-	// while (!value.empty() && (value[value.length() - 1] == ' ' || value[value.length() - 1] == '\t' || value[value.length() - 1] == '\r'))
-	// 	value.erase(value.length() - 1);
+	// Trim whitespaces from value
 	if (!value.empty())
 		trim(value);
 
 	// Lowercase key for case-insensitive lookup
-	// for (size_t i = 0; i < key.length(); ++i)
-	// 	key[i] = ::tolower(static_cast<unsigned char>(key[i]));
 	for (std::string::iterator it = key.begin(); it != key.end(); ++it)
 		*it = std::tolower(static_cast<unsigned char>(*it));
 
@@ -315,6 +307,16 @@ bool HTTPRequest::_parseBody(const std::string& raw, size_t header_end_pos) {
 	return true;
 }
 
+// for (size_t i = 0; i < key.length(); ++i)
+// 	key[i] = ::tolower(static_cast<unsigned char>(key[i]));
+
+// Trim leading whitespace from value
+// size_t val_start = value.find_first_not_of(" \t");
+// value = (val_start == std::string::npos) ? "" : value.substr(val_start);
+
+// Trim trailing whitespace and \r from value
+// while (!value.empty() && (value[value.length() - 1] == ' ' || value[value.length() - 1] == '\t' || value[value.length() - 1] == '\r'))
+// 	value.erase(value.length() - 1);
 
 // // Determine which style to use (prefer Windows if both exist, but Windows comes first)
 // if (windows_end != std::string::npos &&
