@@ -36,7 +36,7 @@ class HTTPRequest {
 
 		void					reset();
 
-		int						parse(const std::string& raw);
+		ParseState				parse(const std::string& raw);
 
 	private:
 		// For "\n\n" on Unix
@@ -62,7 +62,7 @@ class HTTPRequest {
 		bool					_parseHeaders(const std::string& raw, size_t header_end_pos);
 		bool					_parseRequestLine(const std::string& line);
 		bool					_parseHeaderLine(const std::string& line);
-		bool					_parseBody(const std::string& raw, size_t header_end_pos);
+		size_t					_findBodyStart(const std::string& value, size_t header_end_pos);
 
 };
 

@@ -92,8 +92,14 @@ ssize_t Client::queueIncomingData(int fd) {
 
 void Client::parseIncomingData(void) {
 	switch (_request.parse(_incoming_data)) {
+	case PS_REQUEST_LINE:
+		break;
 	case PS_READING_HEADERS:
-		log.debug("HTTP request incomplete: awaiting more data");
+		log.info("HTTP request incomplete: awaiting more data");
+		dumpRequest(_request);
+		break;
+	case PS_READING_BODY:
+		log.info("HTTP request incomplete: awaiting more data");
 		dumpRequest(_request);
 		break;
 	case PS_COMPLETE:
@@ -104,7 +110,7 @@ void Client::parseIncomingData(void) {
 	case PS_ERROR:
 		log.error("HTTP request parser returned error");
 		dumpRequest(_request);
-		reset();
+		_incoming_data.clear();
 		break;
 	}
 }
@@ -149,7 +155,8 @@ void Client::reset(void) {
 	for (size_t i = 0; i < sizeof(_buffer); ++i) {
 		_buffer[i] = '\0';
 	}
-	HTTPRequest request;
+	// HTTPRequest request;
+	_request.reset();
 	return;
 }
 
