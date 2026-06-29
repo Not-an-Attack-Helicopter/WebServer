@@ -37,7 +37,7 @@ struct Config {
 
 // Client
 // enum ParseState {
-// 	PS_REQUEST_LINE,
+// 	PS_READING_REQUEST_LINE,
 // 	PS_READING_HEADERS,
 // 	PS_READING_BODY,
 // 	PS_COMPLETE,

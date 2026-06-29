@@ -1,10 +1,11 @@
 #include "../incs/parsing.hpp"
 #include "../incs/utils.hpp"
 #include <algorithm>
-#include <climits>
 #include <stdexcept>
 #include <sstream>
 #include <fstream>
+#include <climits>
+#include <cstring>
 #include <cstdlib>
 #include <unistd.h>
 #include <sys/stat.h>
@@ -224,7 +225,7 @@ Config parse_server_block(const std::vector<std::string>& tokens, size_t& i, con
 			// server.port = std::atoi(val.c_str());
 			char* endptr;
 			unsigned long tmp = std::strtoul(val.c_str(), &endptr, 10);
-			if (endptr == val.c_str()) {
+			if (std::strcmp(endptr, val.c_str()) == 0 || *endptr != '\0') {
 				throw std::runtime_error("conversion failed: " + val);
 			} else if (tmp > USHRT_MAX) {
 				throw std::out_of_range("Value too large for unsigned short");

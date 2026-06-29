@@ -146,7 +146,7 @@ void Server::handleIncomingEvents(void) {
 		default:
 			dumpEvents(nfds, _events);
 			warnHighEventLoad(nfds, MAX_EPOLL_EVENTS);
-// DEBUG <<
+// << DEBUG
 		}
 		for (int n = 0; n < nfds; ++n) {
 			int fd = _events[n].data.fd;
@@ -175,24 +175,26 @@ void Server::handleIncomingEvents(void) {
 		if (_stop == true) {
 			break;
 		}
-// DEBUG <<
+// << DEBUG
 		std::map<int, Client*>::iterator immediate;
 		std::map<int, Client*>::iterator it = _clients.begin();
 		while (it != _clients.end()) {
 			immediate = it;
 			++it;
+			// if (!immediate->second->getIncomingData().empty())
+			// 	immediate->second->parseIncomingData();
 			if (immediate->second->isTimedOut()) {
 // DEBUG >>
 				log.debug("Client fd_" + i2a(immediate->first)
 				+ " idle time: " + i2a(immediate->second->getIdleTime()) + "s");
-// DEBUG <<
-				log.warning("Client fd_" + i2a(immediate->first) + " timed out");
+// << DEBUG
+				log.warn("Client fd_" + i2a(immediate->first) + " timed out");
 				cleanUpClient(immediate);
 // DEBUG >>
 				if (_clients.empty()) {
 					log.info("All clients disconnected");
 				}
-// DEBUG <<
+// << DEBUG
 			}
 		}
 	}
@@ -238,29 +240,34 @@ bool Server::handleReadEvent(int fd) {
 		if (_clients.empty()) {
 			log.info("All clients disconnected");
 		}
-// DEBUG <<
+// << DEBUG
 		return true;
 // DEBUG >>
 	case STOP:
 		log.info("Connection closed by the server");
 		_stop = true;
 		return true;
+// << DEBUG
 	default:
+// DEBUG >>
 		std::string buff = it->second->getBuffer();
-		buff.erase(n);
+		buff.erase(n); // Remove AT LEAST this line for production
 		log.debug("Read " + i2a(n) + " bytes from client fd_" + i2a(fd) + ":");
 		log.notice(buff);
 		log.debug("Current data in buffer:");
 		log.notice(it->second->getIncomingData());
+// << DEBUG
+		// it->second->cleanIncomingData(); // TEST
 		it->second->parseIncomingData(); // TEST
-// DEBUG <<
+// DEBUG >>
+		if (!it->second->hasPendingData()) { // We already established that the client exists
+			std::string response = "Data Received. Ctrl+D to close the connection.\n";
+			it->second->queueOutgoingData(response);
+			addWriteInterest(fd);
+		}
+// << DEBUG
+		return false;
 	}
-	if (!it->second->hasPendingData()) { // We already established that the client exists
-		std::string response = "Data Received. Ctrl+D to close the connection.\n";
-		it->second->queueOutgoingData(response);
-		addWriteInterest(fd);
-	}
-	return false;
 }
 
 void Server::handleWriteEvent(int fd) {
@@ -304,7 +311,7 @@ void Server::cleanUpAllRessources(void) {
 	if (_epfd != -1) {
 		log.debug("Closing fd " + i2a(_epfd) + " (epoll instance epfd)");
 		if (close(_epfd) == -1) {
-			log.warning("Error during cleanup: close: " + std::string(strerror(errno)));
+			log.warn("Error during cleanup: close: " + std::string(strerror(errno)));
 		}
 		_epfd = -1;
 	}
@@ -323,13 +330,13 @@ void Server::cleanUpClient(std::map<int, Client*>::iterator it) {
 	if (_epfd != -1) {
 		log.debug("Removing fd " + i2a(it->first) + " (client) from epoll instance");
 		if (epoll_ctl(_epfd, EPOLL_CTL_DEL, it->first, NULL) == -1) {
-			log.warning("Error during cleanup: epoll_ctl: " + std::string(strerror(errno)));
+			log.warn("Error during cleanup: epoll_ctl: " + std::string(strerror(errno)));
 		}
 	}
 	if (it->first != -1) {
 		log.debug("Closing fd " + i2a(it->first) + " (client)");
 		if (close(it->first) == -1) {
-			log.warning("Error during cleanup: close: " + std::string(strerror(errno)));
+			log.warn("Error during cleanup: close: " + std::string(strerror(errno)));
 		}
 	}
 	if (it->second != NULL) {
@@ -345,13 +352,13 @@ void Server::cleanUpSocket(std::map<int, const Config*>::iterator it) {
 	if (_epfd != -1) {
 		log.debug("Removing fd " + i2a(it->first) + " (socket) from epoll instance");
 		if (epoll_ctl(_epfd, EPOLL_CTL_DEL, it->first, NULL) == -1) {
-			log.warning("Error during cleanup: epoll_ctl: " + std::string(strerror(errno)));
+			log.warn("Error during cleanup: epoll_ctl: " + std::string(strerror(errno)));
 		}
 	}
 	if (it->first != -1) {
 		log.debug("Closing fd " + i2a(it->first) + " (socket)");
 		if (close(it->first) == -1) {
-			log.warning("Error during cleanup: close: " + std::string(strerror(errno)));
+			log.warn("Error during cleanup: close: " + std::string(strerror(errno)));
 		}
 	}
 	log.debug("Erasing container entry for above socket");

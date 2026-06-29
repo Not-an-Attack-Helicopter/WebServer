@@ -76,7 +76,7 @@ void Logger::info(const std::string& msg) {
 	logMessage(LOG_LEVEL_INFO, msg);
 }
 
-void Logger::warning(const std::string& msg) {
+void Logger::warn(const std::string& msg) {
 	// std::cout << "DING-W!" << std::endl;
 	logMessage(LOG_LEVEL_WARNING, msg);
 }

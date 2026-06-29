@@ -5,8 +5,15 @@
 #include <string>
 #include <map>
 
+#define HT "\t"
+#define LF "\n"
+#define CR "\r"
+#define LFLF "\n\n"
+#define CRLF "\r\n"
+#define SPACE " "
+
 enum ParseState {
-	PS_REQUEST_LINE,
+	PS_READING_REQUEST_LINE,
 	PS_READING_HEADERS,
 	PS_READING_BODY,
 	PS_COMPLETE,
@@ -16,65 +23,94 @@ enum ParseState {
 class HTTPRequest {
 
 	public:
-		HTTPRequest();
-		HTTPRequest(const HTTPRequest& other);
-		HTTPRequest& operator=(const HTTPRequest& other);
-		~HTTPRequest();
+		HTTPRequest(void);
+		~HTTPRequest(void);
 
 		// Getters
-		ParseState				getState() const;
+		ParseState				getState(void) const;
 
-		const std::string&		getMethod() const;
-		const std::string&		getPath() const;
-		const std::string&		getQuery() const;
-		const std::string&		getVersion() const;
+		bool					getStyle(void) const;
+
+		const std::string&		getMethod(void) const;
+		const std::string&		getPath(void) const;
+		const std::string&		getQuery(void) const;
+		const std::string&		getVersion(void) const;
 		bool					hasHeader(const std::string& key) const;
 		const std::string&		getHeader(const std::string& key) const;
+		const std::string&		getBody(void) const;
 
-		size_t					getContentLength() const;
-		const std::string&		getBody() const;
+		size_t					getBytesRead(void);
+		size_t					getContentLength(void) const;
 
-		void					reset();
+		void					reset(void);
 
 		ParseState				parse(const std::string& raw);
 
+// DEBUG >>
+		static unsigned long	global_count;
+		unsigned long			HR_object_id;
+		unsigned long			parses_count;
+// << DEBUG
+
 	private:
-		// For "\n\n" on Unix
-		static const size_t 					UNIX_LINE_ENDING_SIZE = 2;
-		// For "\r\n\r\n" on Windows
-		static const size_t 					WINDOWS_LINE_ENDING_SIZE = 4;
+
+		HTTPRequest(const HTTPRequest& other);
+		HTTPRequest& operator = (const HTTPRequest& other);
+
+		size_t					_findRequestLineEnd(const std::string raw);
+		// size_t					_findHeadersEnd(const std::string raw);
+
+		bool					_parseRequestLine(const std::string& line);
+		// bool					_parseHeaders(std::istringstream& headers);
+		// bool					_parseHeaders(const std::string raw);
+		bool					_parseHeaderLine(const std::string& line);
+		bool					_parseContentLength(void);
+
+		static const size_t 					UNIX_LINE_END_SIZE = 1;
+		static const size_t						UNIX_BLANK_LINE_SIZE = 2;
+		static const size_t 					WINDOWS_LINE_END_SIZE = 2;
+		static const size_t						WINDOWS_BLANK_LINE_SIZE = 4;
 
 		ParseState								_state;
 
 		bool									_is_unix_style;
 
-		std::map<std::string, std::string>		_headers;
-
+		std::string								_buffer;
 		std::string								_method;
 		std::string								_path;
 		std::string								_query;
 		std::string								_version;
 		std::string								_body;
 
-		size_t									_content_length;
+		std::map<std::string, std::string>		_headers;
 
-		size_t					_findHeaderEnd(const std::string& raw);
-		bool					_parseHeaders(const std::string& raw, size_t header_end_pos);
-		bool					_parseRequestLine(const std::string& line);
-		bool					_parseHeaderLine(const std::string& line);
-		size_t					_findBodyStart(const std::string& value, size_t header_end_pos);
+		size_t									_bytes_read_count;
+		size_t									_old_buffer_fill_level;
+		size_t									_request_line_end_pos;
+		size_t									_header_line_end_pos;
+		size_t									_line_end_size;
+		size_t									_blank_line_size;
+		size_t									_headers_start_pos;
+		size_t									_headers_end_pos;
+		size_t									_headers_size;
+		size_t									_body_start_pos;
+		size_t									_content_length;
+		size_t									_request_size;
+
+		// char									_buffer[128];
 
 };
 
 #endif
 
-// const std::map<std::string, std::string>&	getHeaders() const;
-// const std::string&							getURI() const;
-// bool										isComplete() const;
-// bool										_complete; // Serves no purpose!
-// std::string									_uri; // Never used!
-// Feed raw bytes; returns true when a complete request has been parsed
-// bool										parse(const std::string& raw);
-// bool										_parseRequestLine(const std::string& line);
-// bool										_parseHeaderLine(const std::string& line);
-// bool										_parseBody(const std::string& raw, size_t header_end_pos);
+
+// std::map<std::string, std::string>&	getHeaders(void);
+// const std::string&		getURI(void) const;
+// bool						isComplete(void) const;
+// bool						_complete; // Serves no purpose!
+// std::string				_uri; // Never used!
+// bool						parse(const std::string& raw);
+// bool						_parseRequestLine(const std::string& line);
+// bool						_parseHeaderLine(const std::string& line);
+// size_t					_findBodyStart(size_t header_end_pos);
+// bool						_parseBody(const std::string& raw, size_t header_end_pos);

@@ -15,9 +15,11 @@
 
 #include <sys/socket.h>
 #include <string>
+#include <vector>
 #include <ctime>
 // #include <cstddef>
 #include "HTTPRequest.hpp"
+// #include "HTTPRequestParser.hpp"
 
 // DEBUG
 enum AdminCommand {
@@ -43,6 +45,7 @@ class Client {
 		socklen_t*					getAddrlenPointer(void) const;
 
 		ssize_t						queueIncomingData(int fd);
+		// void						cleanIncomingData(void);
 		void						parseIncomingData(void);
 
 		void						queueOutgoingData(const std::string& message);
@@ -54,7 +57,6 @@ class Client {
 		double						getIdleTime(void) const;
 // DEBUG
 		void						reset(void);
-
 
 
 	private:
@@ -72,8 +74,8 @@ class Client {
 		std::string					_incoming_data;
 		std::string					_outgoing_data;
 
-		HTTPRequest					_request;
-		// HTTPReponse					_reponse;
+		std::vector<HTTPRequest*>	_requests;
+		// std::vector<HTTPResponse*>	_responses;
 
 		time_t						_last_event;
 };

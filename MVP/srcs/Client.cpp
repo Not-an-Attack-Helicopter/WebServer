@@ -13,6 +13,7 @@
 #include "../incs/Client.hpp"
 #include "../incs/Logger.hpp"
 #include "../incs/utils.hpp"
+// #include "../incs/types.hpp"
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
@@ -23,17 +24,28 @@
 /*	@brief Constructor	*/
 Client::Client(void) : _addrlen(sizeof(_addr)), _last_event(std::time(NULL)) {
 	log.debug("Client Constructor called");
+	// create new request object in vector container
+	HTTPRequest* request = new HTTPRequest();
+	_requests.push_back(request);
 	return;
 }
 
 /*	@brief Destructor	*/
 Client::~Client(void) {
 	log.debug("Client Destructor called");
+	if (!_requests.empty()) {
+		while (_requests.begin() != _requests.end()) {
+			delete *_requests.begin();
+			*_requests.begin() = NULL;
+			_requests.erase(_requests.begin());
+		}
+	}
+	_requests.clear();
 	return;
 }
 
 // DEBUG
-	unsigned short Client::getHostPort(void) const {
+unsigned short Client::getHostPort(void) const {
 	sockaddr_in* addr_in = (sockaddr_in*)&_addr;
 	return ntohs(addr_in->sin_port);
 }
@@ -68,12 +80,15 @@ socklen_t* Client::getAddrlenPointer(void) const {
 }
 
 ssize_t Client::queueIncomingData(int fd) {
+
 	ssize_t n = recv(fd, _buffer, sizeof(_buffer) - 1, 0);
+
 	if (n <= 0) {
 		return n;
 	}
-	_buffer[n] = '\0';
-// DEBUG
+
+	_buffer[n] = '\0'; // Extra precaution
+// DEBUG >>
 	// Interpret the first 4 bytes as an admin command.
 	// Fine, but I hate having a ternary inside of a string declaration.
 	// std::string cmd(_buffer, (n < 4 ? (size_t)n : (size_t)4));
@@ -84,35 +99,82 @@ ssize_t Client::queueIncomingData(int fd) {
 	if (cmd == "STOP") {
 		return STOP;
 	}
-// DEBUG
+// << DEBUG
 	_incoming_data.append(_buffer, n);
 	_last_event = std::time(NULL);
+
 	return n;
+
 }
 
 void Client::parseIncomingData(void) {
-	switch (_request.parse(_incoming_data)) {
-	case PS_REQUEST_LINE:
-		break;
-	case PS_READING_HEADERS:
-		log.info("HTTP request incomplete: awaiting more data");
-		dumpRequest(_request);
-		break;
-	case PS_READING_BODY:
-		log.info("HTTP request incomplete: awaiting more data");
-		dumpRequest(_request);
-		break;
-	case PS_COMPLETE:
-		log.info("Valid HTTP request received");
-		dumpRequest(_request);
-		_incoming_data.clear();
-		break;
-	case PS_ERROR:
-		log.error("HTTP request parser returned error");
-		dumpRequest(_request);
-		_incoming_data.clear();
-		break;
+
+	// hrp->append(_incoming_data);
+	// _incoming_data.clear();
+	// if (!hrp->isComplete())
+	// 	return;
+
+	// _incoming_data = hrp->buffer;
+	// // hrp->buffer.clear();
+	// delete hrp;
+	// hrp = new HTTPRequestParser;
+
+	HTTPRequest* request;
+
+	while (!_incoming_data.empty()) {
+
+		switch (_requests.back()->parse(_incoming_data)) {
+
+		case PS_READING_REQUEST_LINE:
+			log.info("HTTP request incomplete: awaiting more data");
+			dumpRequest(_requests.back());
+			_incoming_data.erase(0, _requests.back()->getBytesRead());
+			log.debug("Current data in buffer (client):\n");
+			log.notice(_incoming_data);
+			break;
+
+		case PS_READING_HEADERS:
+			log.info("HTTP request incomplete: awaiting more data");
+			dumpRequest(_requests.back());
+			_incoming_data.erase(0, _requests.back()->getBytesRead());
+			log.debug("Current data in buffer (client):\n");
+			log.notice(_incoming_data);
+			break;
+
+		case PS_READING_BODY:
+			log.info("HTTP request incomplete: awaiting more data");
+			dumpRequest(_requests.back());
+			_incoming_data.erase(0, _requests.back()->getBytesRead());
+			log.debug("Current data in buffer (client):\n");
+			log.notice(_incoming_data);
+			break;
+
+		case PS_COMPLETE:
+			log.info("Valid HTTP request received");
+			dumpRequest(_requests.back());
+			_incoming_data.erase(0, _requests.back()->getBytesRead());
+			log.debug("Current data in buffer (client):\n");
+			log.notice(_incoming_data);
+			// Create new request object in vector container
+			request = new HTTPRequest();
+			_requests.push_back(request);
+			break;
+
+		case PS_ERROR:
+			log.error("HTTP request parser returned error");
+			dumpRequest(_requests.back());
+			_incoming_data.erase(0, _requests.back()->getBytesRead());
+			log.debug("Current data in buffer (client):\n");
+			log.notice(_incoming_data);
+			_requests.back()->reset(); // reset last request object in vector container
+			break;
+
+		}
+
 	}
+
+	return;
+
 }
 
 void Client::queueOutgoingData(const std::string& message) {
@@ -155,8 +217,16 @@ void Client::reset(void) {
 	for (size_t i = 0; i < sizeof(_buffer); ++i) {
 		_buffer[i] = '\0';
 	}
-	// HTTPRequest request;
-	_request.reset();
+	if (!_requests.empty()) {
+		while (_requests.begin() != _requests.end()) {
+			delete *_requests.begin();
+			*_requests.begin() = NULL;
+			_requests.erase(_requests.begin());
+		}
+	}
+	_requests.clear();
+	HTTPRequest* request = new HTTPRequest();
+	_requests.push_back(request);
 	return;
 }
 

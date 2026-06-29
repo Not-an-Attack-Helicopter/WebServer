@@ -39,13 +39,12 @@ class Server {
 		void							addWriteInterest(int fd);
 		void							removeWriteInterest(int fd);
 		void							prepareEPollInstance(void);
-		// void							prepareListeningPort(const std::string& address, unsigned short port);
 		void							prepareListeningPort(const Config& config);
 		void							handleIncomingEvents(void);
 		void							acceptConnectRequest(int fd);
 		bool							handleReadEvent(int fd);
 		void							handleWriteEvent(int fd);
-		void							cleanUpAllRessources();
+		void							cleanUpAllRessources(void);
 		void							cleanUpClient(std::map<int, Client*>::iterator it);
 		void							cleanUpSocket(std::map<int, const Config*>::iterator it);
 

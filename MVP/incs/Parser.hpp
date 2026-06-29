@@ -23,7 +23,7 @@ class Parser {
 		Parser(void);
 		Parser(const Parser& other);
 		Parser& operator=(const Parser& other);
-		~Parser();
+		~Parser(void);
 
 		std::vector<Config>			_serverConfigs;
 

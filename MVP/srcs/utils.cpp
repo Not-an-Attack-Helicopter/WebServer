@@ -13,19 +13,19 @@
 void warnHighEventLoad(int nfds, int max_capacity) {
 	int utilization = (nfds * 100) / max_capacity;
 	if (utilization >= 95) {
-		log.warning("Event array (over) 95 percent full ("
+		log.warn("Event array (over) 95 percent full ("
 			+ i2a(nfds) + "/" + i2a(max_capacity) + ")");
 	}
 	else if (utilization >= 85) {
-		log.warning("Event array (over) 85 percent full ("
+		log.warn("Event array (over) 85 percent full ("
 			+ i2a(nfds) + "/" + i2a(max_capacity) + ")");
 	}
 	else if (utilization >= 70) {
-		log.warning("Event array (over) 70 percent full ("
+		log.warn("Event array (over) 70 percent full ("
 			+ i2a(nfds) + "/" + i2a(max_capacity) + ")");
 	}
 	else if (utilization >= 50) {
-		log.warning("Event array (over) 50 percent full ("
+		log.warn("Event array (over) 50 percent full ("
 			+ i2a(nfds) + "/" + i2a(max_capacity) + ")");
 	}
 }
@@ -42,35 +42,42 @@ void dumpEvents(int nfds, epoll_event* events) {
 	}
 }
 
-void dumpRequest(const HTTPRequest& request) {
-	std::string stade;
-	switch(request.getState()) {
-		case PS_REQUEST_LINE: stade = "request line"; break;
-		case PS_READING_HEADERS: stade = "reading headers"; break;
-		case PS_READING_BODY: stade = "reading body"; break;
-		case PS_COMPLETE: stade = "complete"; break;
-		case PS_ERROR: stade = "error"; break;
+void dumpRequest(HTTPRequest* request) {
+	std::string state;
+	switch(request->getState()) {
+		case PS_READING_REQUEST_LINE: state = "reading request line"; break;
+		case PS_READING_HEADERS: state = "reading headers"; break;
+		case PS_READING_BODY: state = "reading body"; break;
+		case PS_COMPLETE: state = "complete"; break;
+		case PS_ERROR: state = "error"; break;
 	}
-	log.debug("State:\t\t" + stade + " (" + i2a(request.getState()) + ")");
+	log.debug("State:\t\t" + state + " (" + i2a(request->getState()) + ")");
 	// log.debug("State:\t\t" + i2a(request.getState()));
-	log.debug("Method:\t\t" + request.getMethod());
-	log.debug("Path:\t\t" + request.getPath());
-	log.debug("Query:\t\t" + request.getQuery());
-	log.debug("Version:\t" + request.getVersion());
+	log.debug("Method:\t\t" + request->getMethod());
+	log.debug("Path:\t\t" + request->getPath());
+	log.debug("Query:\t\t" + request->getQuery());
+	log.debug("Version:\t" + request->getVersion());
 
-	if (request.hasHeader("host"))
-		log.debug("Host:\t\t" + request.getHeader("host"));
-	if (request.hasHeader("user-agent"))
-		log.debug("User-Agent:\t" + request.getHeader("user-agent"));
-	if (request.hasHeader("accept"))
-		log.debug("Accept:\t\t" + request.getHeader("accept"));
-	if (request.hasHeader("connection"))
-		log.debug("Connection:\t" + request.getHeader("connection"));
-	if (request.hasHeader("content-type"))
-		log.debug("Content-Type:\t" + request.getHeader("content-type"));
+	// std::map<std::string, std::string>::iterator it = request->getHeaders().begin();
+	// while (it != request->getHeaders().end()) {
+	// 	log.debug(it->first + ":\t\t\t" + it->second);
+	// 	++it;
+	// }
 
-	log.debug("Content-Length:\t" + i2a(request.getContentLength()) + "\n");
-	log.debug("Body:\t\t" + request.getBody());
+	if (request->hasHeader("host"))
+		log.debug("Host:\t\t" + request->getHeader("host"));
+	if (request->hasHeader("user-agent"))
+		log.debug("User-Agent:\t" + request->getHeader("user-agent"));
+	if (request->hasHeader("accept"))
+		log.debug("Accept:\t\t" + request->getHeader("accept"));
+	if (request->hasHeader("connection"))
+		log.debug("Connection:\t" + request->getHeader("connection"));
+	if (request->hasHeader("content-type"))
+		log.debug("Content-Type:\t" + request->getHeader("content-type"));
+	if (request->hasHeader("content-length"))
+		log.debug("Content-Length:\t" + i2a(request->getContentLength()) + "\n");
+
+	log.debug("Body:\t\t" + request->getBody());
 }
 // DEBUG
 

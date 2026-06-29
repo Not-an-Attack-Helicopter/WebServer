@@ -35,7 +35,7 @@ enum LogLevel {
 class Logger {
 
 	public:
-		static Logger&		instance();
+		static Logger&		instance(void);
 
 		void				setLevel(LogLevel lvl);
 		void				setLevel(const std::string& name);
@@ -47,7 +47,7 @@ class Logger {
 
 		void				debug(const std::string& msg);
 		void				info(const std::string& msg);
-		void				warning(const std::string& msg);
+		void				warn(const std::string& msg);
 		void				error(const std::string& msg);
 		void				notice(const std::string& msg);
 		void				logMessage(LogLevel lvl, const std::string& msg);

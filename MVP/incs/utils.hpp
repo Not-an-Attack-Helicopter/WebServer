@@ -11,7 +11,7 @@
 // DEBUG
 void			warnHighEventLoad(int nfds, int max_capacity);
 void			dumpEvents(int nfds, epoll_event* events);
-void			dumpRequest(const HTTPRequest& request);
+void			dumpRequest(HTTPRequest* request);
 // void			check_tcp_drops(void);
 // DEBUG
 bool			valid_ip(const std::string& ip);
