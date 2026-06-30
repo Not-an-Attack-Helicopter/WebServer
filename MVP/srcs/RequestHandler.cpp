@@ -12,8 +12,8 @@
 //~~~~~~~~~~//
 
 /*	@brief Constructor	*/
-RequestHandler::RequestHandler(const Config& server, const HTTPRequest& req)
-	:	_server(server), _req(req), _location(_match_location()) {
+RequestHandler::RequestHandler(const Config& config, const HTTPRequest& request)
+	:	_config(config), _request(request), _location(_matchLocation()) {
 	return;
 }
 
@@ -24,7 +24,7 @@ RequestHandler::~RequestHandler(void) {
 
 /*	@brief Copy Constructor	*/
 RequestHandler::RequestHandler(const RequestHandler& other)
-	:	_server(other._server), _req(other._req), _location(other._location) {
+	:	_config(other._config), _request(other._request), _location(other._location) {
 	return;
 }
 
@@ -39,17 +39,17 @@ RequestHandler& RequestHandler::operator = (const RequestHandler& other) {
 void RequestHandler::handler(HTTPResponse* response) {
 
 	if (_location && !_location->redirect.empty())
-		_handle_redirect(response);
+		_handleRedirect(response);
 	else if (_location && !_location->cgi_extension.empty())
-		_handle_static(response);
+		_handleStatic(response);
 	else if (_location && _location->autoindex)
-		_handle_autoindex(response, _location->root + _req.getPath());
+		_handleAutoindex(response, _location->root + _request.getPath());
 	else if (_location && !_location->upload_dir.empty())
-		_handle_upload(response);
+		_handleUpload(response);
 	else if (_location && std::find(_location->methods.begin(), _location->methods.end(), "DELETE") != _location->methods.end())
-		_handle_delete(response);
+		_handleDelete(response);
 	else
-		_handle_static(response);
+		_handleStatic(response);
 
 }
 
@@ -57,20 +57,20 @@ void RequestHandler::handler(HTTPResponse* response) {
  /*  Private  */
 //~~~~~~~~~~~//
 
-const LocationConfig* RequestHandler::_match_location() const {
+const LocationConfig* RequestHandler::_matchLocation(void) const {
 
 	const LocationConfig* best = NULL;
 	size_t best_len = 0;
-	const std::string& path = _req.getPath();
+	const std::string& path = _request.getPath();
 
-	for (size_t i = 0; i < _server.locations.size(); ++i)
+	for (size_t i = 0; i < _config.locations.size(); ++i)
 	{
-		const LocationConfig& loc = _server.locations[i];
+		const LocationConfig& loc = _config.locations[i];
 		if (path.compare(0, loc.path.size(), loc.path) == 0)
 		{
 			if (loc.path.size() > best_len)
 			{
-				best = &_server.locations[i];
+				best = &_config.locations[i];
 				best_len = loc.path.size();
 			}
 		}
@@ -79,42 +79,42 @@ const LocationConfig* RequestHandler::_match_location() const {
 
 }
 
-void RequestHandler::_handle_redirect(HTTPResponse* response) {
+void RequestHandler::_handleRedirect(HTTPResponse* response) {
 
 	response->setStatus(301, "Moved Permanently");
 	response->setHeader("Location", _location->redirect);
 
 }
 
-void RequestHandler::_handle_static(HTTPResponse* response) {
+void RequestHandler::_handleStatic(HTTPResponse* response) {
 
-	if(_req.getMethod() != "GET")
-		_error_response(response, 405);
+	if(_request.getMethod() != "GET")
+		_errorResponse(response, 405);
 
 	if (!_location)
-		_error_response(response, 404);
+		_errorResponse(response, 404);
 
 	struct stat st;
-	std::string file_path = _location->root + _req.getPath();
+	std::string file_path = _location->root + _request.getPath();
 
 	if (stat(file_path.c_str(), &st) == -1)
-		_error_response(response, 404);
+		_errorResponse(response, 404);
 
 	if (S_ISDIR(st.st_mode)) {
 
 		if (_location->index.empty())
-			_handle_autoindex(response, file_path);
+			_handleAutoindex(response, file_path);
 		file_path += "/" + _location->index;
 
 		if (stat(file_path.c_str(), &st) == -1 || !S_ISREG(st.st_mode))
-			_error_response(response, 404);
+			_errorResponse(response, 404);
 
 	}
 
 	std::ifstream in(file_path.c_str(), std::ios::binary);
 
 	if (!in.is_open())
-		_error_response(response, 403);
+		_errorResponse(response, 403);
 
 	std::string body((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
 
@@ -125,15 +125,15 @@ void RequestHandler::_handle_static(HTTPResponse* response) {
 
 }
 
-void RequestHandler::_handle_autoindex(HTTPResponse* response, const std::string& dir_path) {
+void RequestHandler::_handleAutoindex(HTTPResponse* response, const std::string& dir_path) {
 
 	DIR* dir = opendir(dir_path.c_str());
 
 	if (!dir)
-		_error_response(response, 403);
+		_errorResponse(response, 403);
 
 	struct dirent* entry;
-	std::string body = "<html><body><h1>Index of " + _req.getPath() + "</h1><ul>";
+	std::string body = "<html><body><h1>Index of " + _request.getPath() + "</h1><ul>";
 
 	while ((entry = readdir(dir)) != NULL) {
 		std::string name = entry->d_name;
@@ -150,18 +150,18 @@ void RequestHandler::_handle_autoindex(HTTPResponse* response, const std::string
 
 }
 
-void RequestHandler::_handle_upload(HTTPResponse* response) {
+void RequestHandler::_handleUpload(HTTPResponse* response) {
 
-	if (_req.getMethod() != "POST")
-		_error_response(response, 405);
+	if (_request.getMethod() != "POST")
+		_errorResponse(response, 405);
 
 	if (!_location)
-		_error_response(response, 404);
+		_errorResponse(response, 404);
 
-	if (_req.getBody().empty())
-		_error_response(response, 400);
+	if (_request.getBody().empty())
+		_errorResponse(response, 400);
 
-	if (_req.getBody().size() > _server.client_max_body_size) {
+	if (_request.getBody().size() > _config.client_max_body_size) {
 		response->setStatus(413, "Payload Too Large");
 	}
 
@@ -169,15 +169,15 @@ void RequestHandler::_handle_upload(HTTPResponse* response) {
 	std::string upload_dir = _location->upload_dir.empty() ? _location->root : _location->upload_dir;
 
 	if (stat(upload_dir.c_str(), &st) == -1 || !S_ISDIR(st.st_mode))
-		_error_response(response, 403);
+		_errorResponse(response, 403);
 
 	std::string out_path = upload_dir + "/upload.bin";
 	std::ofstream out(out_path.c_str(), std::ios::binary);
 
 	if (!out.is_open())
-		_error_response(response, 500);
+		_errorResponse(response, 500);
 
-	out << _req.getBody();
+	out << _request.getBody();
 	out.close();
 
 	response->setStatus(201, "Created");
@@ -185,43 +185,43 @@ void RequestHandler::_handle_upload(HTTPResponse* response) {
 
 }
 
-void RequestHandler::_handle_delete(HTTPResponse* response) {
+void RequestHandler::_handleDelete(HTTPResponse* response) {
 
-	if (_req.getMethod() != "DELETE")
-		_error_response(response, 405);
+	if (_request.getMethod() != "DELETE")
+		_errorResponse(response, 405);
 
 	if (!_location)
-		_error_response(response, 404);
+		_errorResponse(response, 404);
 
 	struct stat st;
-	std::string file_path = _location->root + _req.getPath();
+	std::string file_path = _location->root + _request.getPath();
 
 	if (stat(file_path.c_str(), &st) == -1)
-		_error_response(response, 404);
+		_errorResponse(response, 404);
 
 	if (!S_ISREG(st.st_mode))
-		_error_response(response, 403);
+		_errorResponse(response, 403);
 
 	if (unlink(file_path.c_str()) == -1)
-		_error_response(response, 500);
+		_errorResponse(response, 500);
 
 	response->setStatus(204, "No Content");
 
 }
 
 
-void RequestHandler::_error_response(HTTPResponse* response, int code) {
+void RequestHandler::_errorResponse(HTTPResponse* response, int code) {
 
 	std::string body;
-	std::map<int, std::string>::const_iterator it = _server.error_pages.find(code);
+	std::map<int, std::string>::const_iterator it = _config.error_pages.find(code);
 
 	response->setStatus(code);
 
-	if (it != _server.error_pages.end()) {
+	if (it != _config.error_pages.end()) {
 		std::string page_path = it->second;
 
 		if (!page_path.empty() && page_path[0] != '/')
-			page_path = _server.root + "/" + page_path;
+			page_path = _config.root + "/" + page_path;
 
 		std::ifstream in(page_path.c_str(), std::ios::binary);
 

@@ -13,7 +13,6 @@
 #ifndef SERVER_HPP
 #define SERVER_HPP
 
-#include "types.hpp"
 #define server Server::instance()
 
 #include <netinet/in.h>
@@ -23,7 +22,8 @@
 #include <vector>
 #include <map>
 #include "Client.hpp"
-// # include "types.hpp"
+#include "RequestHandler.hpp"
+#include "types.hpp"
 
 # define INVALID_ADDR "No valid address string was provided for the specified \
 address family."
@@ -67,6 +67,8 @@ class Server {
 
 		std::map<int, const Config*>	_sockets;
 		std::map<int, Client*>			_clients;
+
+		RequestHandler					_handler;
 
 // TEST
 		void							forking_around(int socket_fd, int client_fd);

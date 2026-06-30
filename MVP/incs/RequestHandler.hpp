@@ -1,7 +1,7 @@
 #pragma once
 
-#include "HTTPRequest.hpp"
 #include "HTTPResponse.hpp"
+#include "HTTPRequest.hpp"
 // #include "utils.hpp"
 #include "types.hpp"
 
@@ -29,7 +29,7 @@ class RequestHandler {
 
 	public:
 
-		RequestHandler(const Config& server, const HTTPRequest& req);
+		RequestHandler(const Config& config, const HTTPRequest& request);
 		~RequestHandler(void);
 		RequestHandler(const RequestHandler& other);
 		RequestHandler& operator = (const RequestHandler& other);
@@ -38,22 +38,22 @@ class RequestHandler {
 
 	private:
 
-		const Config&			_server;
+		const Config&			_config;
 
-		const HTTPRequest&		_req;
+		const HTTPRequest&		_request;
 
 		const LocationConfig*	_location;
 
-		const LocationConfig*	_match_location(void) const;
+		const LocationConfig*	_matchLocation(void) const;
 
-		bool					_method_allowed(void) const;
+		bool					_methodAllowed(void) const;
 
-		void					_handle_redirect(HTTPResponse* response);
-		void					_handle_static(HTTPResponse* response);
-		void					_handle_autoindex(HTTPResponse* response, const std::string& dir_path);
-		void					_handle_upload(HTTPResponse* response);
-		void					_handle_delete(HTTPResponse* response);
-		void					_error_response(HTTPResponse* response, int code);
+		void					_handleRedirect(HTTPResponse* response);
+		void					_handleStatic(HTTPResponse* response);
+		void					_handleAutoindex(HTTPResponse* response, const std::string& dir_path);
+		void					_handleUpload(HTTPResponse* response);
+		void					_handleDelete(HTTPResponse* response);
+		void					_errorResponse(HTTPResponse* response, int code);
 
 		RequestHandler(void);
 
