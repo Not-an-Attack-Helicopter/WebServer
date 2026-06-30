@@ -26,24 +26,26 @@ Logger& Logger::instance(void) {
 }
 
 void Logger::setLevel(LogLevel lvl) {
-	_logLevel = lvl;
+	_log_level = lvl;
+	return;
 }
 
 void Logger::setLevel(const std::string& input) {
-	// if (name == NULL) return;
+	if (input.empty()) return;
 	std::string name(input);
 	for (std::string::iterator i = name.begin(); i != name.end(); ++i)
 		*i = std::toupper(*i);
-	if (name == "DEBUG") _logLevel = LOG_LEVEL_DEBUG;
-	else if (name == "INFO") _logLevel = LOG_LEVEL_INFO;
-	else if (name == "WARNING") _logLevel = LOG_LEVEL_WARNING;
-	else if (name == "WARN") _logLevel = LOG_LEVEL_WARNING;
-	else if (name == "ERROR") _logLevel = LOG_LEVEL_ERROR;
-	else if (name == "OFF") _logLevel = LOG_LEVEL_OFF;
+	if (name == "DEBUG") _log_level = LOG_LEVEL_DEBUG;
+	else if (name == "INFO") _log_level = LOG_LEVEL_INFO;
+	else if (name == "WARNING") _log_level = LOG_LEVEL_WARNING;
+	else if (name == "WARN") _log_level = LOG_LEVEL_WARNING;
+	else if (name == "ERROR") _log_level = LOG_LEVEL_ERROR;
+	else if (name == "OFF") _log_level = LOG_LEVEL_OFF;
+	return;
 }
 
 LogLevel Logger::getLevel(void) const {
-	return _logLevel;
+	return _log_level;
 }
 
 const char* Logger::getLevelName(LogLevel lvl) const {
@@ -67,45 +69,31 @@ const char* Logger::getLevelColor(LogLevel lvl) const {
 }
 
 void Logger::debug(const std::string& msg) {
-	// std::cout << "DING-D!" << std::endl;
-	logMessage(LOG_LEVEL_DEBUG, msg);
+	_logMessage(LOG_LEVEL_DEBUG, msg);
+	return;
 }
 
 void Logger::info(const std::string& msg) {
-	// std::cout << "DING-I!" << std::endl;
-	logMessage(LOG_LEVEL_INFO, msg);
+	_logMessage(LOG_LEVEL_INFO, msg);
+	return;
 }
 
 void Logger::warn(const std::string& msg) {
-	// std::cout << "DING-W!" << std::endl;
-	logMessage(LOG_LEVEL_WARNING, msg);
+	_logMessage(LOG_LEVEL_WARNING, msg);
+	return;
 }
 
 void Logger::error(const std::string& msg) {
-	// std::cout << "DING-E!" << std::endl;
-	logMessage(LOG_LEVEL_ERROR, msg);
+	_logMessage(LOG_LEVEL_ERROR, msg);
+	return;
 }
 
 void Logger::notice(const std::string& msg) {
-	// std::cout << "BLUBB!" << std::endl;
-	// logMessage(LOG_LEVEL_NOTICE, msg);
-	if (LOG_LEVEL_NOTICE < _logLevel) return;
+	// _logMessage(LOG_LEVEL_NOTICE, msg);
+	if (LOG_LEVEL_NOTICE < _log_level) return;
 	std::string color = getLevelColor(LOG_LEVEL_NOTICE);
 	std::cout << color << msg << COLOR_RESET << std::endl;
-}
-
-void Logger::logMessage(LogLevel lvl, const std::string& msg) {
-	if (lvl < _logLevel || lvl == LOG_LEVEL_OFF) return;
-
-	// std::cout << "DONG!" << std::endl;
-	std::string name = getLevelName(lvl);
-	std::string color = getLevelColor(lvl);
-
-	std::ostream* stream = &std::cerr;
-	if (lvl == LOG_LEVEL_DEBUG || lvl == LOG_LEVEL_INFO) {
-		stream = &std::cout;
-	}
-	*stream << color << "[" << name << "]\t" << msg << COLOR_RESET << std::endl;
+	return;
 }
 
   //~~~~~~~~~~~//
@@ -113,7 +101,7 @@ void Logger::logMessage(LogLevel lvl, const std::string& msg) {
 //~~~~~~~~~~~//
 
 /*	@brief Constructor	*/
-Logger::Logger(void) : _logLevel(LOG_LEVEL_NOTICE) {
+Logger::Logger(void) : _log_level(LOG_LEVEL_NOTICE) {
 	// std::cerr << DEBUG << "[DEBUG] Logger Constructor called" << RESET << std::endl;
 	return;
 }
@@ -135,6 +123,22 @@ Logger& Logger::operator = (const Logger& other) {
 	if (this != &other) {}
 	return *this;
 }
+
+void Logger::_logMessage(LogLevel lvl, const std::string& msg) {
+	if (lvl < _log_level || lvl == LOG_LEVEL_OFF) return;
+
+	// std::cout << "DONG!" << std::endl;
+	std::string name = getLevelName(lvl);
+	std::string color = getLevelColor(lvl);
+
+	std::ostream* stream = &std::cerr;
+	if (lvl == LOG_LEVEL_DEBUG || lvl == LOG_LEVEL_INFO) {
+		stream = &std::cout;
+	}
+	*stream << color << "[" << name << "]\t" << msg << COLOR_RESET << std::endl;
+	return;
+}
+
 
 // if (lvl == LOG_LEVEL_INFO) {
 // 	std::cout << color << "[" << name << "] ";

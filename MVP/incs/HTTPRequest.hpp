@@ -1,3 +1,15 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   HTTPRequest.hpp                                    :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: sholz + bstorck <marvin@42.fr>             +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2026/06/30 18:43:14 by sholz             #+#    #+#             */
+/*   Updated: 2026/06/30 18:43:18 by bstorck          ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
 #ifndef HTTP_REQUEST_HPP
 #define HTTP_REQUEST_HPP
 
@@ -57,14 +69,15 @@ class HTTPRequest {
 		HTTPRequest(const HTTPRequest& other);
 		HTTPRequest& operator = (const HTTPRequest& other);
 
-		size_t					_findRequestLineEnd(const std::string raw);
-		// size_t					_findHeadersEnd(const std::string raw);
+		size_t					_findRequestLineEnd(const std::string& raw);
 
-		bool					_parseRequestLine(const std::string& line);
-		// bool					_parseHeaders(std::istringstream& headers);
-		// bool					_parseHeaders(const std::string raw);
+		bool					_extractTokens(const std::string& line);
 		bool					_parseHeaderLine(const std::string& line);
-		bool					_parseContentLength(void);
+		bool					_extractContentLength(void);
+
+		ParseState				_parseRequestLine(const std::string& raw);
+		ParseState				_parseHeaders(const std::string& raw);
+		ParseState				_parseBody(const std::string& raw);
 
 		static const size_t 					UNIX_LINE_END_SIZE = 1;
 		static const size_t						UNIX_BLANK_LINE_SIZE = 2;

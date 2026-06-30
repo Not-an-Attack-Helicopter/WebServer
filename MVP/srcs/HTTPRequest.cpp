@@ -101,6 +101,10 @@ const std::string& HTTPRequest::getHeader(const std::string& key) const {
 	return it->second;
 }
 
+const std::string& HTTPRequest::getBody(void) const{
+	return _body;
+};
+
 size_t HTTPRequest::getBytesRead(void) {
 	return _bytes_read_count;
 }
@@ -109,15 +113,12 @@ size_t HTTPRequest::getContentLength(void) const {
 	return _content_length;
 }
 
-const std::string& HTTPRequest::getBody(void) const{
-	return _body;
-};
-
 // std::map<std::string, std::string>& HTTPRequest::getHeaders() {
 // 	return _headers;
 // }
 
 void HTTPRequest::reset(void) {
+
 	_state = PS_READING_REQUEST_LINE;
 	_is_unix_style = true;
 	_bytes_read_count = 0;
@@ -139,220 +140,33 @@ void HTTPRequest::reset(void) {
 	_version.clear();
 	_body.clear();
 	_headers.clear();
+
+	return;
+
 }
 
 // Feed raw bytes; returns the current _state:
 ParseState HTTPRequest::parse(const std::string& raw) {
+
 // DEBUG >>
-	log.error("request id: " + i2a(HR_object_id) + "\tstate: " + i2a(_state) + "\tparses: " + i2a(parses_count));
+	log.notice("\n#################################################\n");
+	log.debug("request id: " + i2a(HR_object_id) + "\tstate: " + i2a(_state) + "\tparses: " + i2a(parses_count));
 	++parses_count;
 // << DEBUG
-	size_t tmp = 0;
-	std::string line;
 
 	switch (_state) {
 
 	case PS_READING_REQUEST_LINE:
 
-		// Find where request line ends
-		_request_line_end_pos = _findRequestLineEnd(raw);
-
-		// Calculate headers start position based on line ending style ("\n" or "\r\n")
-		_line_end_size = _is_unix_style ? UNIX_LINE_END_SIZE : WINDOWS_LINE_END_SIZE;
-
-		// Detected empty line (before start of request line): not copied into _buffer
-		if (_request_line_end_pos == 0) {
-			_bytes_read_count = 1; // set byte count to 1 to drop from data
-			return _state;
-		}
-
-		// No line feed detected (Data only): wait for more data
-		else if (_request_line_end_pos == std::string::npos) {
-			_buffer.append(raw);
-			_bytes_read_count = _buffer.size() - _old_buffer_fill_level;
-			log.debug("Bytes read: " + i2a(_bytes_read_count));
-			log.debug("Previous buffer fill level: " + i2a(_old_buffer_fill_level));
-			_old_buffer_fill_level = _buffer.size();
-			log.debug("Current buffer fill level: " + i2a(_buffer.size()));
-			log.debug("Current data in buffer (request):\n");
-			log.notice((_buffer));
-			return _state;
-		}
-
-		// Line feed detected (end of request line): procced with line parsing
-		else {
-			_buffer.append(raw, 0, _request_line_end_pos + 1);
-			// // _buffer.append(LF); DO NOT APPEND LINE FEED!
-			_bytes_read_count = _buffer.size() - _old_buffer_fill_level;
-			log.debug("Bytes read: " + i2a(_bytes_read_count));
-			log.debug("Previous buffer fill level: " + i2a(_old_buffer_fill_level));
-			_old_buffer_fill_level = _buffer.size();
-			log.debug("Current buffer fill level: " + i2a(_buffer.size()));
-			log.debug("Current data in buffer (request):\n");
-			log.notice((_buffer));
-			// log.debug("Line: " + _buffer);
-
-			// Parse request line
-			if (!_parseRequestLine(_buffer)) {
-				log.error("error while parsing request line");
-				_state = PS_ERROR;
-				return _state;
-			}
-
-			_state = PS_READING_HEADERS;
-			return _state;
-		}
+		return _parseRequestLine(raw);
 
 	case PS_READING_HEADERS:
 
-		_header_line_end_pos = raw.find(LF);
-
-		// Detected empty line: proceed with validity checks
-		if (_header_line_end_pos == 0) {
-
-			_buffer.append(raw, 0, 1);
-			_bytes_read_count = 1;
-			log.debug("Bytes read: " + i2a(_bytes_read_count));
-			log.debug("Previous buffer fill level: " + i2a(_old_buffer_fill_level));
-			++_old_buffer_fill_level;
-			log.debug("Current buffer fill level: " + i2a(_buffer.size()));
-			log.debug("Current data in buffer (request):\n");
-			log.notice((_buffer));
-			// // return _state; DO NOT RETURN AT THIS LINE!
-		}
-
-		// No line feed: wait for more data
-		else if (_header_line_end_pos == std::string::npos) {
-
-			_buffer.append(raw);
-			_bytes_read_count = _buffer.size() - _old_buffer_fill_level;
-			log.debug("Bytes read: " + i2a(_bytes_read_count));
-			log.debug("Previous buffer fill level: " + i2a(_old_buffer_fill_level));
-			_old_buffer_fill_level = _buffer.size();
-			log.debug("Current buffer fill level: " + i2a(_buffer.size()));
-			log.debug("Current data in buffer (request):\n");
-			log.notice((_buffer));
-			return _state;
-
-		} else {
-
-			// Data detected: proceed with line parsing
-			_buffer.append(raw, 0, _header_line_end_pos + 1);
-			// // _buffer.append(LF); DO NOT APPEND LINE FEED!
-			_bytes_read_count = _buffer.size() - _old_buffer_fill_level;
-			log.debug("Bytes read: " + i2a(_bytes_read_count));
-			log.debug("Previous buffer fill level: " + i2a(_old_buffer_fill_level));
-			_old_buffer_fill_level = _buffer.size();
-			log.debug("Current buffer fill level: " + i2a(_buffer.size()));
-			log.debug("Current data in buffer (request):\n");
-			log.notice((_buffer));
-
-			// Parse header line
-			line = _buffer.substr(_buffer.size() - _bytes_read_count);
-			if (!_parseHeaderLine(line)) {
-				log.error("error while parsing header line");
-				_state = PS_ERROR;
-				return _state;
-			}
-
-		}
-
-		_is_unix_style ? _headers_end_pos = _buffer.find(LF LF)
-			: _headers_end_pos = _buffer.find(CRLF CRLF);
-
-		// Detected empty line (before start of request line): invalid request (should never happen)
-		if (_headers_end_pos == 0) {
-
-			log.error("unexpected empty line");
-			_bytes_read_count = 0;
-			_state = PS_ERROR;
-			return _state;
-
-		}
-
-		// No empty line detected: expecting more header lines
-		if (_headers_end_pos == std::string::npos) {
-
-			// log.debug("no empty line in buffer\t\tyet");
-			return _state;
-
-		}
-
-		// Detected empty line: end of header lines
-		else {
-
-			// Calculate cumulative size of header lines
-			_headers_start_pos = _request_line_end_pos + _line_end_size;
-			_headers_size = _headers_end_pos - _headers_start_pos + 1;
-			// log.debug("_request_line_end_pos: " + i2a(_request_line_end_pos));
-			// log.debug("_line_end_size: " + i2a(_line_end_size));
-			// log.debug("_headers_start_pos: " + i2a(_headers_start_pos));
-			// log.debug("_headers_end_pos: " + i2a(_headers_end_pos));
-			// log.debug("_headers_size: " + i2a(_headers_size));
-
-			// Check for Host Header (mandatory for GET, POST, DELETE)
-			if (!hasHeader("host") || getHeader("host").empty()) {
-				log.error("no host header found");
-				_state = PS_ERROR;
-				return _state;
-			}
-
-			// GET and DELETE are not designed to carry request bodies
-			if (_method == "GET" || _method == "DELETE") {
-				_state = PS_COMPLETE;
-				return _state;
-			}
-
-			// Extract Content-Length value (mandatory for POST)
-			if (!_parseContentLength()) {
-				log.error("no content-length header found");
-				_state = PS_ERROR;
-				return _state;
-			}
-
-			_state = PS_READING_BODY;
-			return _state;
-
-		}
+		return _parseHeaders(raw);
 
 	case PS_READING_BODY:
 
-		// Calculate body start position based on line ending style ("\n\n" or "\r\n\r\n")
-		_blank_line_size = _is_unix_style ? UNIX_BLANK_LINE_SIZE : WINDOWS_BLANK_LINE_SIZE;
-		_body_start_pos = _headers_end_pos + _blank_line_size;
-		_request_size = _body_start_pos + _content_length;
-		// log.debug("_blank_line_size: " + i2a(_blank_line_size));
-		// log.debug("_body_start_pos: " + i2a(_body_start_pos));
-		// log.debug("_content_length: " + i2a(_content_length));
-		// log.debug("_request_size: " + i2a(_request_size));
-
-		// Check if complete body received
-		if (_buffer.size() + raw.size() < _request_size) {
-			// _buffer.erase(_old_buffer_fill_level);
-			_bytes_read_count = 0;
-			_state = PS_READING_BODY;
-			return _state;  // not enough data for body: wait for more
-		}
-
-		_buffer.append(raw);
-		_bytes_read_count = _buffer.size() - _old_buffer_fill_level;
-		log.debug("Bytes read: " + i2a(_bytes_read_count));
-		log.debug("Previous buffer fill level: " + i2a(_old_buffer_fill_level));
-		_old_buffer_fill_level = _buffer.size();
-		log.debug("Current buffer fill level: " + i2a(_buffer.size()));
-		log.debug("Current data in buffer (request):\n");
-		log.notice((_buffer));
-
-		// Store body (if valid)
-		_body = _buffer.substr(_body_start_pos, _content_length);
-		log.error("Expected overflow: " + i2a(_buffer.size() - _request_size));
-		tmp = _bytes_read_count;
-		_bytes_read_count = _bytes_read_count - (_buffer.size() - _request_size);
-		log.error("Actual overflow: " + i2a(tmp - _bytes_read_count));
-		// // _bytes_read_count = _bytes_read_count + 1;
-
-		_state = PS_COMPLETE;
-		return _state;
+		return _parseBody(raw);
 
 	case PS_COMPLETE:
 
@@ -438,7 +252,7 @@ HTTPRequest& HTTPRequest::operator = (const HTTPRequest& other) {
 }
 
 // parsers
-size_t HTTPRequest::_findRequestLineEnd(const std::string raw) {
+size_t HTTPRequest::_findRequestLineEnd(const std::string& raw) {
 
 	size_t unix_end = raw.find(LF);
 	size_t windows_end = raw.find(CRLF);
@@ -456,7 +270,7 @@ size_t HTTPRequest::_findRequestLineEnd(const std::string raw) {
 
 }
 
-bool HTTPRequest::_parseRequestLine(const std::string& line) {
+bool HTTPRequest::_extractTokens(const std::string& line) {
 
 	// Transform to stream
 	std::stringstream ss(line);
@@ -534,17 +348,329 @@ bool HTTPRequest::_parseHeaderLine(const std::string& line) {
 
 }
 
-bool HTTPRequest::_parseContentLength(void) {
+bool HTTPRequest::_extractContentLength(void) {
 
 	std::string value = getHeader("content-length");
 	if (value.empty())
 		return false; // Non-existent or empty value
+
 	char* endptr;
 	_content_length = static_cast<size_t>(strtoul(value.c_str(), &endptr, 10));
 	if (std::strcmp(endptr, value.c_str()) == 0 || *endptr != '\0')
 		return false; // Malformed Content-Length Header
 
 	return true;
+
+}
+
+ParseState HTTPRequest::_parseRequestLine(const std::string& raw) {
+
+	// Find where request line ends
+	_request_line_end_pos = _findRequestLineEnd(raw);
+
+	// Calculate headers start position based on line ending style ("\n" or "\r\n")
+	_line_end_size = _is_unix_style ? UNIX_LINE_END_SIZE : WINDOWS_LINE_END_SIZE;
+
+	// Detected empty line (before start of request line): not copied into _buffer
+	if (_request_line_end_pos == 0) {
+		_bytes_read_count = _line_end_size; // set byte count to _line_end_size to drop from data
+		return _state;
+
+	// No line feed detected (Data only): wait for more data
+	} else if (_request_line_end_pos == std::string::npos) {
+
+		_buffer.append(raw);
+
+		_bytes_read_count = _buffer.size() - _old_buffer_fill_level;
+
+		log.debug("Bytes read: " + i2a(_bytes_read_count));
+		log.debug("Previous buffer fill level: " + i2a(_old_buffer_fill_level));
+
+		_old_buffer_fill_level = _buffer.size();
+
+		log.debug("Current buffer fill level: " + i2a(_buffer.size()));
+		log.debug("Current data in buffer (request):\n");
+		log.notice((_buffer));
+
+		return _state;
+
+	// Line feed detected (end of request line): procced with line parsing
+	} else {
+
+		_buffer.append(raw, 0, _request_line_end_pos + _line_end_size);
+		// // _buffer.append(LF); DO NOT APPEND LINE FEED!
+
+		_bytes_read_count = _buffer.size() - _old_buffer_fill_level;
+
+		log.debug("Bytes read: " + i2a(_bytes_read_count));
+		log.debug("Previous buffer fill level: " + i2a(_old_buffer_fill_level));
+
+		_old_buffer_fill_level = _buffer.size();
+
+		log.debug("Current buffer fill level: " + i2a(_buffer.size()));
+		log.debug("Current data in buffer (request):\n");
+		log.notice((_buffer));
+		// log.debug("Line: " + _buffer);
+
+		// Extract method, path, query, and version
+		if (!_extractTokens(_buffer)) {
+			log.error("error while parsing request line");
+			_state = PS_ERROR;
+			return _state;
+		}
+
+		_state = PS_READING_HEADERS;
+		return _state;
+	}
+
+}
+
+ParseState HTTPRequest::_parseHeaders(const std::string& raw) {
+
+	// Check for line break
+	_is_unix_style ?
+		_header_line_end_pos = raw.find(LF) :
+		_header_line_end_pos = raw.find(CRLF);
+
+	// Detected line break at 0 pos (empty line): append and proceed with validity checks
+	if (_header_line_end_pos == 0) {
+
+		_buffer.append(raw, 0, _line_end_size);
+
+		_bytes_read_count = _line_end_size;
+
+		log.debug("Bytes read: " + i2a(_bytes_read_count));
+		log.debug("Previous buffer fill level: " + i2a(_old_buffer_fill_level));
+
+		_old_buffer_fill_level += _line_end_size;
+
+		log.debug("Current buffer fill level: " + i2a(_buffer.size()));
+		log.debug("Current data in buffer (request):\n");
+		log.notice((_buffer));
+
+		// // return _state; DO NOT RETURN AT THIS LINE!
+
+		// After detecting empty line, check buffer for end of headers
+		_is_unix_style ?
+			_headers_end_pos = _buffer.find(LF LF) :
+			_headers_end_pos = _buffer.find(CRLF CRLF);
+
+		// Detected empty line (before start of request line): invalid request
+		// (should never happen)
+		if (_headers_end_pos == 0) {
+
+			log.error("unexpected empty line");
+			_bytes_read_count = 0;
+			_state = PS_ERROR;
+			return _state;
+
+		// No empty line detected: expecting more header lines
+		// (should not occur: appended line break right before check)
+		} else if (_headers_end_pos == std::string::npos) {
+
+			// log.debug("no empty line in buffer\t\tyet");
+			return _state;
+
+		// Detected empty line: end of header lines
+		} else {
+
+			// Calculate cumulative size of header lines
+			_headers_start_pos = _request_line_end_pos + _line_end_size;
+			_headers_size = _headers_end_pos - _headers_start_pos + _line_end_size;
+
+			// Check for Host Header (mandatory for GET, POST, DELETE)
+			if (!hasHeader("host") || getHeader("host").empty()) {
+				log.error("no host header found");
+				_state = PS_ERROR;
+				return _state;
+			}
+
+			// GET and DELETE are not designed to carry request bodies
+			if (_method == "GET" || _method == "DELETE") {
+				_state = PS_COMPLETE;
+				return _state;
+			}
+
+			// Extract Content-Length value (mandatory for POST)
+			if (!_extractContentLength()) {
+				log.error("no content-length header found");
+				_state = PS_ERROR;
+				return _state;
+			}
+
+			_state = PS_READING_BODY;
+			return _state;
+
+		}
+
+	// No line break: wait for more data
+	} else if (_header_line_end_pos == std::string::npos) {
+
+		_buffer.append(raw);
+
+		_bytes_read_count = _buffer.size() - _old_buffer_fill_level;
+
+		log.debug("Bytes read: " + i2a(_bytes_read_count));
+		log.debug("Previous buffer fill level: " + i2a(_old_buffer_fill_level));
+
+		_old_buffer_fill_level = _buffer.size();
+
+		log.debug("Current buffer fill level: " + i2a(_buffer.size()));
+		log.debug("Current data in buffer (request):\n");
+		log.notice((_buffer));
+
+		return _state;
+
+	// Data detected: proceed with line parsing
+	} else {
+
+		_buffer.append(raw, 0, _header_line_end_pos + _line_end_size);
+		// // _buffer.append(LF); DO NOT APPEND LINE FEED!
+
+		_bytes_read_count = _buffer.size() - _old_buffer_fill_level;
+
+		log.debug("Bytes read: " + i2a(_bytes_read_count));
+		log.debug("Previous buffer fill level: " + i2a(_old_buffer_fill_level));
+
+		_old_buffer_fill_level = _buffer.size();
+
+		log.debug("Current buffer fill level: " + i2a(_buffer.size()));
+		log.debug("Current data in buffer (request):\n");
+		log.notice((_buffer));
+
+		// Parse header line
+		std::string line = _buffer.substr(_buffer.size() - _bytes_read_count);
+		if (!_parseHeaderLine(line)) {
+			log.error("error while parsing header line");
+			_state = PS_ERROR;
+			return _state;
+		}
+
+		return _state;
+
+	}
+
+	// // After detecting empty line, check buffer for end of headers
+	// _is_unix_style ?
+	// 	_headers_end_pos = _buffer.find(LF LF) :
+	// 	_headers_end_pos = _buffer.find(CRLF CRLF);
+ //
+	// // Detected empty line (before start of request line): invalid request
+	// // (should never happen)
+	// if (_headers_end_pos == 0) {
+ //
+	// 	log.error("unexpected empty line");
+	// 	_bytes_read_count = 0;
+	// 	_state = PS_ERROR;
+	// 	return _state;
+ //
+	// // No empty line detected: expecting more header lines
+	// // (should not occur: return after line parsing)
+	// } else if (_headers_end_pos == std::string::npos) {
+ //
+	// 	// log.debug("no empty line in buffer\t\tyet");
+	// 	return _state;
+ //
+	// // Detected empty line: end of header lines
+	// } else {
+ //
+	// 	// Calculate cumulative size of header lines
+	// 	_headers_start_pos = _request_line_end_pos + _line_end_size;
+	// 	_headers_size = _headers_end_pos - _headers_start_pos + 1;
+ //
+	// 	// log.debug("_request_line_end_pos: " + i2a(_request_line_end_pos));
+	// 	// log.debug("_line_end_size: " + i2a(_line_end_size));
+	// 	// log.debug("_headers_start_pos: " + i2a(_headers_start_pos));
+	// 	// log.debug("_headers_end_pos: " + i2a(_headers_end_pos));
+	// 	// log.debug("_headers_size: " + i2a(_headers_size));
+ //
+	// 	// Check for Host Header (mandatory for GET, POST, DELETE)
+	// 	if (!hasHeader("host") || getHeader("host").empty()) {
+	// 		log.error("no host header found");
+	// 		_state = PS_ERROR;
+	// 		return _state;
+	// 	}
+ //
+	// 	// GET and DELETE are not designed to carry request bodies
+	// 	if (_method == "GET" || _method == "DELETE") {
+	// 		_state = PS_COMPLETE;
+	// 		return _state;
+	// 	}
+ //
+	// 	// Extract Content-Length value (mandatory for POST)
+	// 	if (!_extractContentLength()) {
+	// 		log.error("no content-length header found");
+	// 		_state = PS_ERROR;
+	// 		return _state;
+	// 	}
+ //
+	// 	_state = PS_READING_BODY;
+	// 	return _state;
+ //
+	// }
+
+}
+
+ParseState HTTPRequest::_parseBody(const std::string& raw) {
+
+	// Calculate body start position based on line ending style ("\n\n" or "\r\n\r\n")
+	_blank_line_size = _is_unix_style ? UNIX_BLANK_LINE_SIZE : WINDOWS_BLANK_LINE_SIZE;
+	_body_start_pos = _headers_end_pos + _blank_line_size;
+	_request_size = _body_start_pos + _content_length;
+// DEBUG >>
+	log.debug("_request_line_end_pos: " + i2a(_request_line_end_pos));
+	log.debug("_line_end_size: " + i2a(_line_end_size));
+	log.debug("_headers_start_pos: " + i2a(_headers_start_pos));
+	log.debug("_headers_end_pos: " + i2a(_headers_end_pos));
+	log.debug("_headers_size: " + i2a(_headers_size));
+	log.debug("_blank_line_size: " + i2a(_blank_line_size));
+	log.debug("_body_start_pos: " + i2a(_body_start_pos));
+	log.debug("_content_length: " + i2a(_content_length));
+	log.debug("_request_size: " + i2a(_request_size));
+	log.debug("_buffer.size() + raw.size(): " + i2a(_buffer.size() + raw.size()));
+// DEBUG <<
+	// Check if complete body received
+	if (_buffer.size() + raw.size() < _request_size) {
+		// _buffer.erase(_old_buffer_fill_level);
+		_bytes_read_count = 0;
+		_state = PS_READING_BODY;
+		return _state;  // not enough data for body: wait for more
+
+	// Accumulated enough data for body: proceed
+	} else {
+
+		_buffer.append(raw);
+// DEBUG >>
+		log.debug("_buffer.size(): " + i2a(_buffer.size()));
+// DEBUG <<
+		_bytes_read_count = _buffer.size() - _old_buffer_fill_level;
+
+		log.debug("Bytes read: " + i2a(_bytes_read_count));
+		log.debug("Previous buffer fill level: " + i2a(_old_buffer_fill_level));
+
+		_old_buffer_fill_level = _buffer.size();
+
+		log.debug("Current buffer fill level: " + i2a(_buffer.size()));
+		log.debug("Current data in buffer (request):\n");
+		log.notice((_buffer));
+
+		// Store body (if valid)
+		_body = _buffer.substr(_body_start_pos, _content_length);
+
+		log.debug("Expected overflow: " + i2a(_buffer.size() - _request_size));
+
+		size_t tmp = _bytes_read_count;
+		// _bytes_read_count = _bytes_read_count - (_buffer.size() - _request_size);
+		_bytes_read_count = _content_length;
+
+		log.debug("Actual overflow: " + i2a(tmp - _bytes_read_count));
+		// _bytes_read_count = _bytes_read_count + _line_end_size - 1;
+		// _bytes_read_count = _content_length;
+
+		_state = PS_COMPLETE;
+		return _state;
+
+	}
 
 }
 

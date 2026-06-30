@@ -19,7 +19,7 @@
 #include <ctime>
 // #include <cstddef>
 #include "HTTPRequest.hpp"
-// #include "HTTPRequestParser.hpp"
+// #include "HTTPResponse.hpp"
 
 // DEBUG
 enum AdminCommand {
@@ -63,21 +63,30 @@ class Client {
 		Client(const Client& other);
 		Client& operator = (const Client& other);
 
-		static const time_t			CONNECTION_IDLE_TIMEOUT_SECONDS = 420;
+		static const time_t				CONNECTION_IDLE_TIMEOUT_SECONDS = 420;
 
-		sockaddr_storage			_addr;
+		sockaddr_storage				_addr;
 
-		socklen_t					_addrlen;
+		socklen_t						_addrlen;
 
-		char						_buffer[1024];
+		char							_buffer[1024];
 
-		std::string					_incoming_data;
-		std::string					_outgoing_data;
+		std::string						_incoming_data;
+		std::string						_outgoing_data;
 
-		std::vector<HTTPRequest*>	_requests;
-		// std::vector<HTTPResponse*>	_responses;
+		std::vector<HTTPRequest*>		_request_queue; // FIFO queue of parsed requests
+		// std::vector<HTTPResponse*>		_response_queue; // FIFO queue of responses to send
+		// RequestHandler& _handler; // Shared stateless handler
+		// void processRequests() {
+		// 	while (!_requestQueue.empty()) {
+		// 		HTTPRequest request = _requestQueue.front();
+		// 		_requestQueue.erase(_requestQueue.begin());
+		// 		HTTPResponse response = _handler.handle(request);
+		// 		_responseQueue.push_back(response);
+		// 	}
+		// }
 
-		time_t						_last_event;
+		time_t							_last_event;
 };
 
 #endif

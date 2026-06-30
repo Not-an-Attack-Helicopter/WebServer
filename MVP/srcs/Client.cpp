@@ -26,21 +26,31 @@ Client::Client(void) : _addrlen(sizeof(_addr)), _last_event(std::time(NULL)) {
 	log.debug("Client Constructor called");
 	// create new request object in vector container
 	HTTPRequest* request = new HTTPRequest();
-	_requests.push_back(request);
+	_request_queue.push_back(request);
+	// HTTPResponse* response = new HTTPResponse;
+	// _responses.push_back(response);
 	return;
 }
 
 /*	@brief Destructor	*/
 Client::~Client(void) {
 	log.debug("Client Destructor called");
-	if (!_requests.empty()) {
-		while (_requests.begin() != _requests.end()) {
-			delete *_requests.begin();
-			*_requests.begin() = NULL;
-			_requests.erase(_requests.begin());
+	if (!_request_queue.empty()) {
+		while (_request_queue.begin() != _request_queue.end()) {
+			delete *_request_queue.begin();
+			*_request_queue.begin() = NULL;
+			_request_queue.erase(_request_queue.begin());
 		}
 	}
-	_requests.clear();
+	_request_queue.clear();
+	// if (!_responses.empty()) {
+	// 	while (_responses.begin() != _responses.end()) {
+	// 		delete *_responses.begin();
+	// 		*_responses.begin() = NULL;
+	// 		_responses.erase(_responses.begin());
+	// 	}
+	// }
+	// _responses.clear();
 	return;
 }
 
@@ -119,54 +129,81 @@ void Client::parseIncomingData(void) {
 	// delete hrp;
 	// hrp = new HTTPRequestParser;
 
+	// _incoming_data = "POST / HTTP/1.1\nHost: x\nContent-Length: 6\nUser-Agent: Mozilla\n\nQWERTYPOST / HTTP/1.1\r\nHost: x\r\nContent-Length: 6\r\nUser-Agent: Mozilla\r\n\r\nQWERTY";
+	// log.error("Data:");
+	// log.notice(_incoming_data);
+	// log.error("Size: " + i2a(_incoming_data.size()));
+
 	HTTPRequest* request;
 
 	while (!_incoming_data.empty()) {
 
-		switch (_requests.back()->parse(_incoming_data)) {
+		switch (_request_queue.back()->parse(_incoming_data)) {
 
 		case PS_READING_REQUEST_LINE:
+
 			log.info("HTTP request incomplete: awaiting more data");
-			dumpRequest(_requests.back());
-			_incoming_data.erase(0, _requests.back()->getBytesRead());
+			dumpRequest(_request_queue.back());
+
+			_incoming_data.erase(0, _request_queue.back()->getBytesRead());
+
 			log.debug("Current data in buffer (client):\n");
 			log.notice(_incoming_data);
+
 			break;
 
 		case PS_READING_HEADERS:
+
 			log.info("HTTP request incomplete: awaiting more data");
-			dumpRequest(_requests.back());
-			_incoming_data.erase(0, _requests.back()->getBytesRead());
+			dumpRequest(_request_queue.back());
+
+			_incoming_data.erase(0, _request_queue.back()->getBytesRead());
+
 			log.debug("Current data in buffer (client):\n");
 			log.notice(_incoming_data);
+
 			break;
 
 		case PS_READING_BODY:
+
 			log.info("HTTP request incomplete: awaiting more data");
-			dumpRequest(_requests.back());
-			_incoming_data.erase(0, _requests.back()->getBytesRead());
+			dumpRequest(_request_queue.back());
+
+			_incoming_data.erase(0, _request_queue.back()->getBytesRead());
+
 			log.debug("Current data in buffer (client):\n");
 			log.notice(_incoming_data);
+
 			break;
 
 		case PS_COMPLETE:
+
 			log.info("Valid HTTP request received");
-			dumpRequest(_requests.back());
-			_incoming_data.erase(0, _requests.back()->getBytesRead());
+			dumpRequest(_request_queue.back());
+
+			_incoming_data.erase(0, _request_queue.back()->getBytesRead());
+
 			log.debug("Current data in buffer (client):\n");
 			log.notice(_incoming_data);
+
 			// Create new request object in vector container
 			request = new HTTPRequest();
-			_requests.push_back(request);
+			_request_queue.push_back(request);
+
 			break;
 
 		case PS_ERROR:
+
 			log.error("HTTP request parser returned error");
-			dumpRequest(_requests.back());
-			_incoming_data.erase(0, _requests.back()->getBytesRead());
+			dumpRequest(_request_queue.back());
+
+			_incoming_data.erase(0, _request_queue.back()->getBytesRead());
+
 			log.debug("Current data in buffer (client):\n");
 			log.notice(_incoming_data);
-			_requests.back()->reset(); // reset last request object in vector container
+
+			_request_queue.back()->reset(); // reset last request object in vector container
+
 			break;
 
 		}
@@ -178,9 +215,11 @@ void Client::parseIncomingData(void) {
 }
 
 void Client::queueOutgoingData(const std::string& message) {
+
 	_outgoing_data.append(message);
 	_last_event = std::time(NULL);
 	return;
+
 }
 
 bool Client::hasPendingData(void) const {
@@ -188,14 +227,18 @@ bool Client::hasPendingData(void) const {
 }
 
 ssize_t Client::flushPendingData(int fd) {
+
 	ssize_t n = send(fd, _outgoing_data.c_str(), _outgoing_data.size(), 0);
 	if (n <= 0) {
 		return n;
 	}
+
 	_outgoing_data.erase(0, static_cast<size_t>(n));
 	// log.debug(_outgoing_data.empty() ? "Full flush" : "Partial flush");
 	_last_event = std::time(NULL);
+
 	return n;
+
 }
 
 bool Client::isTimedOut(void) const {
@@ -212,22 +255,29 @@ double Client::getIdleTime(void) const {
 // DEBUG
 
 void Client::reset(void) {
+
 	_incoming_data.clear();
 	_outgoing_data.clear();
+
 	for (size_t i = 0; i < sizeof(_buffer); ++i) {
 		_buffer[i] = '\0';
 	}
-	if (!_requests.empty()) {
-		while (_requests.begin() != _requests.end()) {
-			delete *_requests.begin();
-			*_requests.begin() = NULL;
-			_requests.erase(_requests.begin());
+
+	if (!_request_queue.empty()) {
+		while (_request_queue.begin() != _request_queue.end()) {
+			delete *_request_queue.begin();
+			*_request_queue.begin() = NULL;
+			_request_queue.erase(_request_queue.begin());
 		}
 	}
-	_requests.clear();
+
+	_request_queue.clear();
+
 	HTTPRequest* request = new HTTPRequest();
-	_requests.push_back(request);
+	_request_queue.push_back(request);
+
 	return;
+
 }
 
   //~~~~~~~~~~~//

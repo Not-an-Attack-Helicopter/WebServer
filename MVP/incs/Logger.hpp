@@ -50,7 +50,6 @@ class Logger {
 		void				warn(const std::string& msg);
 		void				error(const std::string& msg);
 		void				notice(const std::string& msg);
-		void				logMessage(LogLevel lvl, const std::string& msg);
 
 	private:
 		Logger(void);
@@ -58,7 +57,9 @@ class Logger {
 		Logger(const Logger&);
 		Logger& operator=(const Logger&);
 
-		LogLevel			_logLevel;
+		void				_logMessage(LogLevel lvl, const std::string& msg);
+
+		LogLevel			_log_level;
 
 };
 

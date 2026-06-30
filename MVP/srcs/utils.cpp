@@ -1,3 +1,15 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   utils.cpp                                          :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: sholz + bstorck <marvin@42.fr>                     +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2026/06/30 18:36:42 by bstorck           #+#    #+#             */
+/*   Updated: 2026/06/30 18:36:43 by bstorck          ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
 #include "../incs/utils.hpp"
 #include "../incs/Logger.hpp"
 #include "../incs/HTTPRequest.hpp"
@@ -9,7 +21,7 @@
 #include <cctype>
 #include <cstdio>
 
-// DEBUG
+// DEBUG >>
 void warnHighEventLoad(int nfds, int max_capacity) {
 	int utilization = (nfds * 100) / max_capacity;
 	if (utilization >= 95) {
@@ -75,11 +87,12 @@ void dumpRequest(HTTPRequest* request) {
 	if (request->hasHeader("content-type"))
 		log.debug("Content-Type:\t" + request->getHeader("content-type"));
 	if (request->hasHeader("content-length"))
-		log.debug("Content-Length:\t" + i2a(request->getContentLength()) + "\n");
+		log.debug("Content-Length:\t" + request->getHeader("content-length"));
+		// log.debug("Content-Length:\t" + i2a(request->getContentLength()) + "\n");
 
 	log.debug("Body:\t\t" + request->getBody());
 }
-// DEBUG
+// << DEBUG
 
 bool valid_ip(const std::string& ip)
 {
