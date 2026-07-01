@@ -22,7 +22,10 @@
 //~~~~~~~~~~//
 
 /*	@brief Constructor	*/
-Client::Client(void) : _addrlen(sizeof(_addr)), _last_event(std::time(NULL)) {
+Client::Client(const Config* config)
+	:	_addrlen(sizeof(_addr)),
+		_config(config),
+		_last_event(std::time(NULL)) {
 	log.debug("Client Constructor called");
 	// create new request object in vector container
 	HTTPRequest* request = new HTTPRequest();
@@ -87,6 +90,10 @@ sockaddr* Client::getAddrPointer(void) const {
 
 socklen_t* Client::getAddrlenPointer(void) const {
 	return (socklen_t*)&_addrlen;
+}
+
+const Config* Client::getConfigPointer(void) const {
+	return _config;
 }
 
 ssize_t Client::queueIncomingData(int fd) {
@@ -214,6 +221,31 @@ void Client::parseIncomingData(void) {
 
 }
 
+// void Client::processNextRequest() {
+// 	if (!_request_queue.empty()) {
+// 		HTTPResponse* response;
+// 		_response_queue.push_back(response);
+// 		_handler.handle(*_request_queue.front(), *_response_queue.back(), *_config);
+// 	}
+// }
+
+void Client::processRequests() {
+	while (!_request_queue.empty()) {
+		HTTPRequest* request = _request_queue.front();
+		HTTPResponse* response = new HTTPResponse();
+		_handler.handle(*request, *response, *_config);
+		_response_queue.push_back(response);
+		_request_queue.erase(_request_queue.begin());
+		delete request;
+	}
+}
+
+void Client::sendResponse(HTTPResponse* res) {
+	// Write to socket...
+	_response_queue.erase(_response_queue.begin());
+	delete res;
+}
+
 void Client::queueOutgoingData(const std::string& message) {
 
 	_outgoing_data.append(message);
@@ -288,6 +320,7 @@ void Client::reset(void) {
 Client::Client(const Client& other)
 	:	_addr(other._addr),
 		_addrlen(other._addrlen),
+		_config(other._config),
 		_incoming_data(other._incoming_data),
 		_outgoing_data(other._outgoing_data) {
 	log.debug("Client Copy Constructor called");
@@ -304,6 +337,7 @@ Client& Client::operator = (const Client& other) {
 	if (this != &other) {
 		_addr = other._addr;
 		_addrlen = other._addrlen;
+		_config = other._config;
 		for (size_t i = 0; i < sizeof(_buffer); ++i) {
 			_buffer[i] = other._buffer[i];
 		}

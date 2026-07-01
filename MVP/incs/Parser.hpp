@@ -34,7 +34,7 @@ class Parser {
 	private:
 		Parser(void);
 		Parser(const Parser& other);
-		Parser& operator=(const Parser& other);
+		Parser& operator = (const Parser& other);
 		~Parser(void);
 
 		static std::string					_directiveKey(const std::string& line);

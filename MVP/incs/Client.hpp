@@ -18,8 +18,10 @@
 #include <vector>
 #include <ctime>
 // #include <cstddef>
+#include "types.hpp"
 #include "HTTPRequest.hpp"
 // #include "HTTPResponse.hpp"
+#include "RequestHandler.hpp"
 
 // DEBUG
 enum AdminCommand {
@@ -27,10 +29,12 @@ enum AdminCommand {
 };
 // DEBUG
 
+class HTTPResponse;
+
 class Client {
 
 	public:
-		Client(void);
+		Client(const Config* config);
 		~Client(void);
 
 // DEBUG
@@ -44,9 +48,15 @@ class Client {
 
 		socklen_t*					getAddrlenPointer(void) const;
 
+		const Config*				getConfigPointer(void) const;
+
 		ssize_t						queueIncomingData(int fd);
 		// void						cleanIncomingData(void);
 		void						parseIncomingData(void);
+
+		// void						processNextRequest(void);
+		void						processRequests(void);
+		void						sendResponse(HTTPResponse* res);
 
 		void						queueOutgoingData(const std::string& message);
 		bool						hasPendingData(void) const;
@@ -69,22 +79,18 @@ class Client {
 
 		socklen_t						_addrlen;
 
+		const Config*					_config;
+
 		char							_buffer[1024];
 
 		std::string						_incoming_data;
 		std::string						_outgoing_data;
 
-		std::vector<HTTPRequest*>		_request_queue; // FIFO queue of parsed requests
-		// std::vector<HTTPResponse*>		_response_queue; // FIFO queue of responses to send
+		RequestHandler					_handler;
 		// RequestHandler& _handler; // Shared stateless handler
-		// void processRequests() {
-		// 	while (!_requestQueue.empty()) {
-		// 		HTTPRequest request = _requestQueue.front();
-		// 		_requestQueue.erase(_requestQueue.begin());
-		// 		HTTPResponse response = _handler.handle(request);
-		// 		_responseQueue.push_back(response);
-		// 	}
-		// }
+
+		std::vector<HTTPRequest*>		_request_queue; // FIFO queue of parsed requests
+		std::vector<HTTPResponse*>		_response_queue; // FIFO queue of responses to send
 
 		time_t							_last_event;
 };

@@ -12,10 +12,10 @@
 //~~~~~~~~~~//
 
 /*	@brief Constructor	*/
-RequestHandler::RequestHandler(const Config& config, const HTTPRequest& request)
-	:	_config(config), _request(request), _location(_matchLocation()) {
+RequestHandler::RequestHandler(void) {
 	return;
 }
+
 
 /*	@brief Destructor	*/
 RequestHandler::~RequestHandler(void) {
@@ -23,8 +23,7 @@ RequestHandler::~RequestHandler(void) {
 }
 
 /*	@brief Copy Constructor	*/
-RequestHandler::RequestHandler(const RequestHandler& other)
-	:	_config(other._config), _request(other._request), _location(other._location) {
+RequestHandler::RequestHandler(const RequestHandler& other) {
 	return;
 }
 
@@ -36,21 +35,63 @@ RequestHandler& RequestHandler::operator = (const RequestHandler& other) {
 	return *this;
 }
 
-void RequestHandler::handler(HTTPResponse* response) {
+void RequestHandler::handle(HTTPRequest* request, HTTPResponse* response, Config* config) {
 
 	if (_location && !_location->redirect.empty())
-		_handleRedirect(response);
+		_handleRedirect(request, response);
 	else if (_location && !_location->cgi_extension.empty())
-		_handleStatic(response);
+		_handleStatic(request, response);
 	else if (_location && _location->autoindex)
-		_handleAutoindex(response, _location->root + _request.getPath());
+		_handleAutoindex(response, _location->root + _request->getPath());
 	else if (_location && !_location->upload_dir.empty())
-		_handleUpload(response);
+		_handleUpload(request, response);
 	else if (_location && std::find(_location->methods.begin(), _location->methods.end(), "DELETE") != _location->methods.end())
-		_handleDelete(response);
+		_handleDelete(request, response);
 	else
-		_handleStatic(response);
+		_handleStatic(request, response);
 
+}
+
+void RequestHandler::handle(const HTTPRequest& req, HTTPResponse& res, const Config& config) {
+	std::string reqPath = req.getPath();
+	std::string reqMethod = req.getMethod();
+
+	// Find matching LocationConfig
+	LocationConfig* matchedLocation = NULL;
+	for (size_t i = 0; i < config.locations.size(); ++i) {
+	// if (matchedPath(config.locations[i].path, reqPath)) {
+	//   matchedLocation = &config.locations[i];
+	//   break; // Or implement priority logic if needed
+	// }
+	}
+
+	if (!matchedLocation) {
+		res.setStatus(404);
+	return;
+	}
+
+	// Check if method is allowed
+	bool methodAllowed = false;
+	for (size_t i = 0; i < matchedLocation->methods.size(); ++i) {
+		if (matchedLocation->methods[i] == reqMethod) {
+			methodAllowed = true;
+			break;
+		}
+	}
+
+	if (!methodAllowed) {
+		res.setStatus(405); // Method Not Allowed
+		return;
+	}
+
+	// Now dispatch based on method and location config
+	// if (reqMethod == "GET") {
+	// 	handleGet(req, res, *matchedLocation);
+	// } else if (reqMethod == "POST") {
+	// 	handlePost(req, res, *matchedLocation);
+	// } else if (reqMethod == "DELETE") {
+	// 	handleDelete(req, res, *matchedLocation);
+	// }
 }
 
   //~~~~~~~~~~~//
@@ -61,16 +102,16 @@ const LocationConfig* RequestHandler::_matchLocation(void) const {
 
 	const LocationConfig* best = NULL;
 	size_t best_len = 0;
-	const std::string& path = _request.getPath();
+	const std::string& path = _request->getPath();
 
-	for (size_t i = 0; i < _config.locations.size(); ++i)
+	for (size_t i = 0; i < _config->locations.size(); ++i)
 	{
-		const LocationConfig& loc = _config.locations[i];
+		const LocationConfig& loc = _config->locations[i];
 		if (path.compare(0, loc.path.size(), loc.path) == 0)
 		{
 			if (loc.path.size() > best_len)
 			{
-				best = &_config.locations[i];
+				best = &_config->locations[i];
 				best_len = loc.path.size();
 			}
 		}
@@ -79,23 +120,23 @@ const LocationConfig* RequestHandler::_matchLocation(void) const {
 
 }
 
-void RequestHandler::_handleRedirect(HTTPResponse* response) {
+void RequestHandler::_handleRedirect(HTTPRequest* request, HTTPResponse* response) {
 
 	response->setStatus(301, "Moved Permanently");
 	response->setHeader("Location", _location->redirect);
 
 }
 
-void RequestHandler::_handleStatic(HTTPResponse* response) {
+void RequestHandler::_handleStatic(HTTPRequest* request, HTTPResponse* response) {
 
-	if(_request.getMethod() != "GET")
+	if(_request->getMethod() != "GET")
 		_errorResponse(response, 405);
 
 	if (!_location)
 		_errorResponse(response, 404);
 
 	struct stat st;
-	std::string file_path = _location->root + _request.getPath();
+	std::string file_path = _location->root + _request->getPath();
 
 	if (stat(file_path.c_str(), &st) == -1)
 		_errorResponse(response, 404);
@@ -133,7 +174,7 @@ void RequestHandler::_handleAutoindex(HTTPResponse* response, const std::string&
 		_errorResponse(response, 403);
 
 	struct dirent* entry;
-	std::string body = "<html><body><h1>Index of " + _request.getPath() + "</h1><ul>";
+	std::string body = "<html><body><h1>Index of " + _request->getPath() + "</h1><ul>";
 
 	while ((entry = readdir(dir)) != NULL) {
 		std::string name = entry->d_name;
@@ -150,18 +191,18 @@ void RequestHandler::_handleAutoindex(HTTPResponse* response, const std::string&
 
 }
 
-void RequestHandler::_handleUpload(HTTPResponse* response) {
+void RequestHandler::_handleUpload(HTTPRequest* request, HTTPResponse* response) {
 
-	if (_request.getMethod() != "POST")
+	if (_request->getMethod() != "POST")
 		_errorResponse(response, 405);
 
 	if (!_location)
 		_errorResponse(response, 404);
 
-	if (_request.getBody().empty())
+	if (_request->getBody().empty())
 		_errorResponse(response, 400);
 
-	if (_request.getBody().size() > _config.client_max_body_size) {
+	if (_request->getBody().size() > _config->client_max_body_size) {
 		response->setStatus(413, "Payload Too Large");
 	}
 
@@ -177,7 +218,7 @@ void RequestHandler::_handleUpload(HTTPResponse* response) {
 	if (!out.is_open())
 		_errorResponse(response, 500);
 
-	out << _request.getBody();
+	out << _request->getBody();
 	out.close();
 
 	response->setStatus(201, "Created");
@@ -185,16 +226,16 @@ void RequestHandler::_handleUpload(HTTPResponse* response) {
 
 }
 
-void RequestHandler::_handleDelete(HTTPResponse* response) {
+void RequestHandler::_handleDelete(HTTPRequest* request, HTTPResponse* response) {
 
-	if (_request.getMethod() != "DELETE")
+	if (_request->getMethod() != "DELETE")
 		_errorResponse(response, 405);
 
 	if (!_location)
 		_errorResponse(response, 404);
 
 	struct stat st;
-	std::string file_path = _location->root + _request.getPath();
+	std::string file_path = _location->root + _request->getPath();
 
 	if (stat(file_path.c_str(), &st) == -1)
 		_errorResponse(response, 404);
@@ -213,15 +254,15 @@ void RequestHandler::_handleDelete(HTTPResponse* response) {
 void RequestHandler::_errorResponse(HTTPResponse* response, int code) {
 
 	std::string body;
-	std::map<int, std::string>::const_iterator it = _config.error_pages.find(code);
+	std::map<int, std::string>::const_iterator it = _config->error_pages.find(code);
 
 	response->setStatus(code);
 
-	if (it != _config.error_pages.end()) {
+	if (it != _config->error_pages.end()) {
 		std::string page_path = it->second;
 
 		if (!page_path.empty() && page_path[0] != '/')
-			page_path = _config.root + "/" + page_path;
+			page_path = _config->root + "/" + page_path;
 
 		std::ifstream in(page_path.c_str(), std::ios::binary);
 

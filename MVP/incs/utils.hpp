@@ -15,6 +15,7 @@
 
 // #include "webserver.hpp"
 #include "types.hpp"
+#include "Client.hpp"
 #include "HTTPRequest.hpp"
 #include <sys/epoll.h>
 #include <string>
@@ -23,6 +24,7 @@
 // DEBUG
 void			warnHighEventLoad(int nfds, int max_capacity);
 void			dumpEvents(int nfds, epoll_event* events);
+void			dumpClientConfig(const Client* client);
 void			dumpRequest(HTTPRequest* request);
 // void			check_tcp_drops(void);
 // DEBUG

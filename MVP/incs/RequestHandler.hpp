@@ -29,18 +29,19 @@ class RequestHandler {
 
 	public:
 
-		RequestHandler(const Config& config, const HTTPRequest& request);
+		RequestHandler(void);
 		~RequestHandler(void);
 		RequestHandler(const RequestHandler& other);
 		RequestHandler& operator = (const RequestHandler& other);
 
-		void					handler(HTTPResponse* response);
+		void					handle(HTTPRequest* request, HTTPResponse* response, Config* config);
+		void					handle(const HTTPRequest& req, HTTPResponse& res, const Config& config);
 
 	private:
 
-		const Config&			_config;
+		const Config*			_config;
 
-		const HTTPRequest&		_request;
+		const HTTPRequest*		_request;
 
 		const LocationConfig*	_location;
 
@@ -48,13 +49,12 @@ class RequestHandler {
 
 		bool					_methodAllowed(void) const;
 
-		void					_handleRedirect(HTTPResponse* response);
-		void					_handleStatic(HTTPResponse* response);
+		void					_handleRedirect(HTTPRequest* request, HTTPResponse* response);
+		void					_handleStatic(HTTPRequest* request, HTTPResponse* response);
 		void					_handleAutoindex(HTTPResponse* response, const std::string& dir_path);
-		void					_handleUpload(HTTPResponse* response);
-		void					_handleDelete(HTTPResponse* response);
+		void					_handleUpload(HTTPRequest* request, HTTPResponse* response);
+		void					_handleDelete(HTTPRequest* request, HTTPResponse* response);
 		void					_errorResponse(HTTPResponse* response, int code);
 
-		RequestHandler(void);
 
 };

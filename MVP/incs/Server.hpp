@@ -22,7 +22,6 @@
 #include <vector>
 #include <map>
 #include "Client.hpp"
-#include "RequestHandler.hpp"
 #include "types.hpp"
 
 # define INVALID_ADDR "No valid address string was provided for the specified \
@@ -41,7 +40,7 @@ class Server {
 		void							prepareEPollInstance(void);
 		void							prepareListeningPort(const Config& config);
 		void							handleIncomingEvents(void);
-		void							acceptConnectRequest(int fd);
+		void							acceptConnectRequest(std::map<int, const Config*>::iterator it);
 		bool							handleReadEvent(int fd);
 		void							handleWriteEvent(int fd);
 		void							cleanUpAllRessources(void);
@@ -67,8 +66,6 @@ class Server {
 
 		std::map<int, const Config*>	_sockets;
 		std::map<int, Client*>			_clients;
-
-		RequestHandler					_handler;
 
 // TEST
 		void							forking_around(int socket_fd, int client_fd);

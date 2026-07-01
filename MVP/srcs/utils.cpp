@@ -54,6 +54,24 @@ void dumpEvents(int nfds, epoll_event* events) {
 	}
 }
 
+void dumpClientConfig(const Client* client) {
+
+	size_t i;;
+	const Config& c = *client->getConfigPointer();
+	const std::vector<std::string> n = c.server_names;
+	const std::vector<LocationConfig> l = c.locations;
+
+	log.info(c.host + " " + i2a(c.port) + " " + c.root + " " + c.index);
+	i = -1;
+	while (++i < n.size()) {
+		log.info(n[i]);
+	}
+	i = -1;
+	while (++i < l.size()) {
+		log.info(l[i].path + " " + l[i].root + " " + l[i].index + " " + l[i].redirect + " " + i2a(l[i].autoindex) + " " + l[i].upload_dir);
+	}
+}
+
 void dumpRequest(HTTPRequest* request) {
 	std::string state;
 	switch(request->getState()) {

@@ -212,7 +212,7 @@ void Server::handleIncomingEvents(void) {
 					handleWriteEvent(fd);
 
 			} else {
-				acceptConnectRequest(fd);
+				acceptConnectRequest(it);
 			}
 
 		}
@@ -253,11 +253,14 @@ void Server::handleIncomingEvents(void) {
 
 }
 
-void Server::acceptConnectRequest(int socket_fd) {
+void Server::acceptConnectRequest(std::map<int, const Config*>::iterator it) {
+
+	int socket_fd = it->first;
+	const Config* config= it->second;
 
 	log.info("New connection on socket fd_" + i2a(socket_fd));
 
-	Client* c = new Client();
+	Client* c = new Client(config);
 
 	int client_fd = accept(socket_fd, c->getAddrPointer(), c->getAddrlenPointer());
 	if (client_fd == -1) {
@@ -279,6 +282,7 @@ void Server::acceptConnectRequest(int socket_fd) {
 
 	log.info("Client fd_" + i2a(client_fd) + ", endpoint "
 				+ c->getHostAddress() + ":" + i2a(c->getHostPort()));
+	// dumpClientConfig(c);
 
 // TEST We don't care about potential DoS attack vectors here
 	// forking_around(socket_fd, client_fd);
