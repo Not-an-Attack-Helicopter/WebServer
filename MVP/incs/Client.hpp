@@ -21,7 +21,7 @@
 #include "types.hpp"
 #include "HTTPRequest.hpp"
 // #include "HTTPResponse.hpp"
-#include "RequestHandler.hpp"
+// #include "RequestHandler.hpp"
 
 // DEBUG
 enum AdminCommand {
@@ -29,7 +29,7 @@ enum AdminCommand {
 };
 // DEBUG
 
-class HTTPResponse;
+// class HTTPResponse;
 
 class Client {
 
@@ -55,8 +55,8 @@ class Client {
 		void						parseIncomingData(void);
 
 		// void						processNextRequest(void);
-		void						processRequests(void);
-		void						sendResponse(HTTPResponse* res);
+		// void						processRequests(void);
+		// void						sendResponse(HTTPResponse* res);
 
 		void						queueOutgoingData(const std::string& message);
 		bool						hasPendingData(void) const;
@@ -86,11 +86,11 @@ class Client {
 		std::string						_incoming_data;
 		std::string						_outgoing_data;
 
-		RequestHandler					_handler;
+		// RequestHandler					_handler;
 		// RequestHandler& _handler; // Shared stateless handler
 
 		std::vector<HTTPRequest*>		_request_queue; // FIFO queue of parsed requests
-		std::vector<HTTPResponse*>		_response_queue; // FIFO queue of responses to send
+		// std::vector<HTTPResponse*>		_response_queue; // FIFO queue of responses to send
 
 		time_t							_last_event;
 };

@@ -229,22 +229,22 @@ void Client::parseIncomingData(void) {
 // 	}
 // }
 
-void Client::processRequests() {
-	while (!_request_queue.empty()) {
-		HTTPRequest* request = _request_queue.front();
-		HTTPResponse* response = new HTTPResponse();
-		_handler.handle(*request, *response, *_config);
-		_response_queue.push_back(response);
-		_request_queue.erase(_request_queue.begin());
-		delete request;
-	}
-}
+// void Client::processRequests() {
+// 	while (!_request_queue.empty()) {
+// 		HTTPRequest* request = _request_queue.front();
+// 		HTTPResponse* response = new HTTPResponse();
+// 		_handler.handle(*request, *response, *_config);
+// 		_response_queue.push_back(response);
+// 		_request_queue.erase(_request_queue.begin());
+// 		delete request;
+// 	}
+// }
 
-void Client::sendResponse(HTTPResponse* res) {
-	// Write to socket...
-	_response_queue.erase(_response_queue.begin());
-	delete res;
-}
+// void Client::sendResponse(HTTPResponse* res) {
+// 	// Write to socket...
+// 	_response_queue.erase(_response_queue.begin());
+// 	delete res;
+// }
 
 void Client::queueOutgoingData(const std::string& message) {
 
