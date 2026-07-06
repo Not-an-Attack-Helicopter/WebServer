@@ -1,5 +1,8 @@
 #include "parse_helper.hpp"
 
+// Forward declarations
+bool valid_read(const std::string& path);
+bool valid_conf_ext(const std::string& filename);
 
 static std::string directive_key(const std::string& line)
 {

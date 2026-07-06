@@ -4,7 +4,7 @@
 class Client {
 private:
     int             _fd;
-    ServerConfig*   _server;
+    const ServerConfig* _server;
     std::string     _recv_buf;
     std::string     _send_buf;
     time_t          _last_active;
@@ -15,14 +15,14 @@ private:
     Client();
 
 public:
-    Client(int fd, ServerConfig* server);
+    Client(int fd, const ServerConfig* server);
     Client(const Client& other);
     Client& operator=(const Client& other);
     ~Client();
 
     // Accessors
     int             getFd()         const;
-    ServerConfig*   getServer()     const;
+    const ServerConfig* getServer()     const;
     time_t          getLastActive() const;
     ParseState      getParseState() const;
     void            setParseState(ParseState state);

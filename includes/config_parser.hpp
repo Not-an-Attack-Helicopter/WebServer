@@ -13,5 +13,8 @@ public:
 	ConfigParser& operator=(const ConfigParser& other);
 	~ConfigParser();
 
-	Config get_config() const;
+	Config                  get_config() const;
+	const Config&           getAllConfigs() const;
+	const ServerConfig&     getSingleConfig(size_t index) const;
+	size_t                  getServerConfigCount() const;
 };

@@ -14,6 +14,8 @@ private:
 public:
     HTTPResponse();
 	~HTTPResponse();
+	HTTPResponse(const HTTPResponse& other);
+	HTTPResponse& operator=(const HTTPResponse& other);
 
     // Setters
     void setStatus(int code, const std::string& reason = "");

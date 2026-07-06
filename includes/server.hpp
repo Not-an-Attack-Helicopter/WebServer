@@ -1,30 +1,149 @@
-#pragma once
-#include "webserver.hpp"
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   Server.hpp                                         :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: bstorck <marvin@42.fr>                     +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2026/06/04 06:03:28 by bstorck           #+#    #+#             */
+/*   Updated: 2026/06/04 06:03:31 by bstorck          ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
+#ifndef SERVER_H
+# define SERVER_H
+
+# include <netinet/in.h>
+# include <sys/epoll.h>
+// # include <netdb.h>
+# include <map>
+# include <string>
+# include <vector>
+# include <exception>
+# include "types.hpp"
 
 class Client;
 
+# define EINADDR "Did not provide a character string representing \
+a valid network address in the specified address family."
+# define ENOCLNT "Missing Client."
+
 class Server {
-private:
-    Config                          _config;
-    int                             _epoll_fd;
-    std::map<int, ServerConfig*>    _listen_fds;   // fd -> which server config
-    std::map<int, Client*>          _clients;      // fd -> client state
 
-	void    _accept_new_client(int listen_fd);
-    void    _handle_client_read(int client_fd);
-    void    _handle_client_write(int client_fd);
-    void    _close_client(int client_fd);
-    int     _create_listen_socket(const ServerConfig& sc);
-    Server();   // not implemented — prevents default construction (C++98 = delete)
+	public:
+		Server(void);
+		~Server(void);
 
-public:
-    Server(const Config& config);
-	Server(const Server& other);
-	Server& operator=(const Server& other);
-    ~Server();
+		void	setConfig(const Config& cfg);
+		void	setNonblockFlag(int fd);
+		void	setReadInterest(int fd);
+		void	addWriteInterest(int fd);
+		void	removeWriteInterest(int fd);
+		void	prepareEPollInstance(void);
+		void	prepareListeningPort(const std::string& address, unsigned short port,
+				const ServerConfig* srv_cfg);
+		void	handleIncomingEvents(void);
+		void	acceptConnectRequest(int fd);
+		void	handleReadEvent(int fd);
+		void	handleWriteEvent(int fd);
+		void	cleanUpAllRessources();
+		void	cleanUpClient(std::map<int, Client*>::iterator it);
 
-    void    setup();    // bind + listen for each ServerConfig
-    void    start();      // main epoll loop
-    void    stop();     // cleanup all fds
+		class AFNotSupportedException : public std::exception {
+		public:
+			virtual const char*		what(void) const throw ();
+		};
+
+		class InvalidAddressException : public std::exception {
+		public:
+			virtual const char*		what(void) const throw ();
+		};
+
+		class SocketException : public std::exception {
+		public:
+			virtual const char*		what(void) const throw ();
+		};
+
+		class SetOptionException : public std::exception {
+		public:
+			virtual const char*		what(void) const throw ();
+		};
+
+		class BindException : public std::exception {
+		public:
+			virtual const char*		what(void) const throw ();
+		};
+
+		class ListenException : public std::exception {
+		public:
+			virtual const char*		what(void) const throw ();
+		};
+
+		class CreateEPollException : public std::exception {
+		public:
+			virtual const char*		what(void) const throw ();
+		};
+
+		class ModifyEPollException : public std::exception {
+		public:
+			virtual const char*		what(void) const throw ();
+		};
+
+		class EventPollingException : public std::exception {
+		public:
+			virtual const char*		what(void) const throw ();
+		};
+
+		class GetFlagsException : public std::exception {
+		public:
+			virtual const char*		what(void) const throw ();
+		};
+
+		class SetFlagsException : public std::exception {
+		public:
+			virtual const char*		what(void) const throw ();
+		};
+
+		class AcceptException : public std::exception {
+		public:
+			virtual const char*		what(void) const throw ();
+		};
+
+		class MissingClientException : public std::exception {
+		public:
+			virtual const char*		what(void) const throw ();
+		};
+
+		class ReadDataException : public std::exception {
+		public:
+			virtual const char*		what(void) const throw ();
+		};
+
+		class FlushDataException : public std::exception {
+		public:
+			virtual const char*		what(void) const throw ();
+		};
+
+	private:
+		Server(const Server& other);
+		Server& operator = (const Server& other);
+
+		static const int				MAXEVENTS = 64;
+
+		bool							_stop;
+
+		int								_epfd;
+
+		std::vector<sockaddr_in>		_addr;
+		std::vector<int>				_sockfd;
+
+		epoll_event						_events[MAXEVENTS];
+
+		std::map<int, Client*>			_clients;
+
+		Config							_config;
+		std::map<int, const ServerConfig*>	_listen_configs;
 
 };
+
+#endif

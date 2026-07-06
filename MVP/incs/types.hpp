@@ -1,0 +1,63 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   types.hpp                                          :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: sholz <marvin@42.fr>                       +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2026/06/30 18:40:36 by sholz             #+#    #+#             */
+/*   Updated: 2026/06/30 18:40:37 by bstorck          ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
+#ifndef TYPES_HPP
+#define TYPES_HPP
+
+#include <netinet/in.h>
+#include <cstddef>
+#include <string>
+#include <vector>
+#include <map>
+
+// Configuration
+struct LocationConfig {
+	std::string						path;
+	std::vector<std::string>		methods;       // GET, POST, DELETE
+	std::string						root;
+	std::string						index;
+	std::string						redirect;       // return 301 /url
+	bool							autoindex;
+	std::string						upload_dir;
+	std::vector<std::string>		cgi_extension;  // .py, .sh
+	std::vector<std::string>		cgi_path;      // /usr/bin/python3, /bin/bash
+};
+
+struct Config {
+	std::string						host;
+	in_port_t						port;
+	std::string						root;
+	std::string						index;
+	std::vector<std::string>		server_names;
+	size_t							client_max_body_size;
+	std::map<int, std::string>		error_pages;   // 404 -> /404.html
+	std::vector<LocationConfig>		locations;
+};
+
+#endif
+
+// typedef std::vector<Config> configs_t;
+
+// Client
+// enum ParseState {
+// 	PS_READING_REQUEST_LINE,
+// 	PS_READING_HEADERS,
+// 	PS_READING_BODY,
+// 	PS_COMPLETE,
+// 	PS_ERROR
+// };
+
+// DEBUG
+// enum AdminCommand {
+// 	STOP = 2000
+// };
+// DEBUG

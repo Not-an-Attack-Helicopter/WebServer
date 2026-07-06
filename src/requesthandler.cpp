@@ -56,17 +56,32 @@ HTTPResponse    RequestHandler::_handle_static()
 		return _error_response(405);
 	if (!_location)
 		return _error_response(404);
-	std::string file_path = _location->root + _req.getPath();
+
+	// Use location root, fall back to server root
+	std::string root = _location->root.empty() ? _server.root : _location->root;
+	std::string file_path = root + _req.getPath();
+
 	struct stat st;
 	if (stat(file_path.c_str(), &st) == -1)
 		return _error_response(404);
 	if (S_ISDIR(st.st_mode))
 	{
-		if (_location->index.empty())
+		std::string index_file = _location->index.empty() ? _server.index : _location->index;
+		if (!index_file.empty())
+		{
+			std::string index_path = file_path + "/" + index_file;
+			if (stat(index_path.c_str(), &st) == -1 || !S_ISREG(st.st_mode))
+			{
+				if (_location->autoindex)
+					return _handle_autoindex(file_path);
+				return _error_response(404);
+			}
+			file_path = index_path;
+		}
+		else if (_location->autoindex)
 			return _handle_autoindex(file_path);
-		file_path += "/" + _location->index;
-		if (stat(file_path.c_str(), &st) == -1 || !S_ISREG(st.st_mode))
-			return _error_response(404);
+		else
+			return _error_response(403);
 	}
 	std::ifstream in(file_path.c_str(), std::ios::binary);
 	if (!in.is_open())
@@ -113,7 +128,14 @@ HTTPResponse    RequestHandler::_handle_upload()
 		return res;
 	}
 
-	std::string upload_dir = _location->upload_dir.empty() ? _location->root : _location->upload_dir;
+	std::string upload_dir = _location->upload_dir;
+	if (upload_dir.empty())
+	{
+		if (_location->root.empty())
+			upload_dir = _server.root;
+		else
+			upload_dir = _location->root;
+	}
 	struct stat st;
 	if (stat(upload_dir.c_str(), &st) == -1 || !S_ISDIR(st.st_mode))
 		return _error_response(403);
@@ -137,7 +159,8 @@ HTTPResponse    RequestHandler::_handle_delete()
 	if (!_location)
 		return _error_response(404);
 
-	std::string file_path = _location->root + _req.getPath();
+	std::string root = _location->root.empty() ? _server.root : _location->root;
+	std::string file_path = root + _req.getPath();
 	struct stat st;
 	if (stat(file_path.c_str(), &st) == -1)
 		return _error_response(404);
@@ -161,14 +184,19 @@ HTTPResponse    RequestHandler::_error_response(int code)
 	if (it != _server.error_pages.end())
 	{
 		std::string page_path = it->second;
-		if (!page_path.empty() && page_path[0] != '/')
-			page_path = _server.root + "/" + page_path;
+		// Try the path as-is first (relative to CWD)
 		std::ifstream in(page_path.c_str(), std::ios::binary);
+		if (!in.is_open() && !page_path.empty() && page_path[0] != '/')
+		{
+			// Fall back to server-root-relative
+			page_path = _server.root + "/" + page_path;
+			in.open(page_path.c_str(), std::ios::binary);
+		}
 		if (in.is_open())
 		{
 			body.assign((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
 			in.close();
-			res.setBody(body, get_content_type(it->second));
+			res.setBody(body, get_content_type(page_path));
 			return res;
 		}
 	}
@@ -185,12 +213,10 @@ HTTPResponse    RequestHandler::handler()
 	if (_location && !_location->redirect.empty())
 		return _handle_redirect();
 	if (_location && !_location->cgi_extension.empty())
-		return _handle_static();
-	if (_location && _location->autoindex)
-		return _handle_autoindex(_location->root + _req.getPath());
-	if (_location && !_location->upload_dir.empty())
-		return _handle_upload();
-	if (_location && std::find(_location->methods.begin(), _location->methods.end(), "DELETE") != _location->methods.end())
+		return _error_response(501);
+	if (_req.getMethod() == "DELETE")
 		return _handle_delete();
+	if (_req.getMethod() == "POST" && _location && !_location->upload_dir.empty())
+		return _handle_upload();
 	return _handle_static();
 }

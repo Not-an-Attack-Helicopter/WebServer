@@ -14,7 +14,6 @@ private:
     std::map<std::string, std::string>  _headers;
     std::string                         _body;
     size_t                              _content_length;
-    bool                                _complete;
     ParseState                          _state;
 
     bool    _parse_request_line(const std::string& line);
@@ -38,7 +37,6 @@ public:
     bool                                      hasHeader(const std::string& key) const;
     const std::string&                        getBody()          const;
     size_t                                    getContentLength() const;
-    bool                                      isComplete()       const;
     ParseState                                getState()         const;
 
     // Feed raw bytes; returns true when a complete request has been parsed

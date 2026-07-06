@@ -7,6 +7,22 @@ HTTPResponse::HTTPResponse() : _status_code(200), _reason_phrase("OK"), _body(""
 
 HTTPResponse::~HTTPResponse() {}
 
+HTTPResponse::HTTPResponse(const HTTPResponse& other)
+	: _status_code(other._status_code),
+	  _reason_phrase(other._reason_phrase),
+	  _headers(other._headers),
+	  _body(other._body) {}
+
+HTTPResponse& HTTPResponse::operator=(const HTTPResponse& other) {
+	if (this != &other) {
+		_status_code = other._status_code;
+		_reason_phrase = other._reason_phrase;
+		_headers = other._headers;
+		_body = other._body;
+	}
+	return *this;
+}
+
 std::string HTTPResponse::_defaultReason(int code)
 {
 	switch (code) {

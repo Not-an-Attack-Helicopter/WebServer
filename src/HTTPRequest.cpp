@@ -4,8 +4,8 @@
 #include <cstdlib>
 #include "HTTPRequest.hpp"
 
-HTTPRequest::HTTPRequest() : _content_length(0), _complete(false), _state(PS_REQUEST_LINE) {}
-HTTPRequest::HTTPRequest(const HTTPRequest& other) : _method(other._method), _uri(other._uri), _path(other._path), _query(other._query), _version(other._version), _headers(other._headers), _body(other._body), _content_length(other._content_length), _complete(other._complete), _state(other._state) {}
+HTTPRequest::HTTPRequest() : _content_length(0), _state(PS_REQUEST_LINE) {}
+HTTPRequest::HTTPRequest(const HTTPRequest& other) : _method(other._method), _uri(other._uri), _path(other._path), _query(other._query), _version(other._version), _headers(other._headers), _body(other._body), _content_length(other._content_length), _state(other._state) {}
 HTTPRequest& HTTPRequest::operator=(const HTTPRequest& other) {
     if (this != &other) {
         _method = other._method;
@@ -16,7 +16,6 @@ HTTPRequest& HTTPRequest::operator=(const HTTPRequest& other) {
         _headers = other._headers;
         _body = other._body;
         _content_length = other._content_length;
-        _complete = other._complete;
         _state = other._state;
     }
     return *this;
@@ -90,7 +89,8 @@ bool    HTTPRequest::_parse_body(const std::string& raw, size_t header_end)
 	if (endptr == it->second.c_str() || *endptr != '\0')
 		return false; // malformed Content-Length
 	if (raw.size() < header_end + 4 + _content_length)
-		return false; // not enough data received yet
+		return true; // not enough data yet, but no error — wait for more
+
 	_body = raw.substr(header_end + 4, _content_length);
 	return true;
 }
@@ -106,7 +106,7 @@ bool    HTTPRequest::_parse_body(const std::string& raw, size_t header_end)
     const std::map<std::string, std::string>& HTTPRequest::getHeaders()       const { return _headers; }
     const std::string& HTTPRequest::getHeader(const std::string& key) const {
         std::map<std::string, std::string>::const_iterator it = _headers.find(key);
-        static const std::string empty;
+        static const std::string empty;	
         if (it == _headers.end()) return empty;
         return it->second;
     }
@@ -115,7 +115,6 @@ bool    HTTPRequest::_parse_body(const std::string& raw, size_t header_end)
     }
     const std::string&                        HTTPRequest::getBody()          const{ return _body; };
     size_t                                    HTTPRequest::getContentLength() const { return _content_length; }
-    bool                                      HTTPRequest::isComplete()       const { return _complete; }
     ParseState                                HTTPRequest::getState()         const { return _state; }
 
 
@@ -126,21 +125,10 @@ bool    HTTPRequest::_parse_body(const std::string& raw, size_t header_end)
 		if (_state == PS_COMPLETE || _state == PS_ERROR)
 			return _state == PS_COMPLETE;
 
+		// Wait until we have the full header terminator
 		size_t header_end = raw.find("\r\n\r\n");
 		if (header_end == std::string::npos) {
-			std::istringstream ss(raw);
-			std::string line;
-			if (!std::getline(ss, line) || !_parse_request_line(line)) {
-				_state = PS_ERROR;
-				return false;
-			}
-			while (std::getline(ss, line) && line != "\r") {
-				if (!_parse_header_line(line)) {
-					_state = PS_ERROR;
-					return false;
-				}
-			}
-			_state = PS_READING_HEADERS;
+			// Don't try to parse incomplete data — wait for more
 			return false;
 		}
 
@@ -163,7 +151,6 @@ bool    HTTPRequest::_parse_body(const std::string& raw, size_t header_end)
 			return false;
 		}
 		_state = PS_COMPLETE;
-		_complete = true;
 		return true;
 	}
 
@@ -177,6 +164,5 @@ bool    HTTPRequest::_parse_body(const std::string& raw, size_t header_end)
 		_headers.clear();
 		_body.clear();
 		_content_length = 0;
-		_complete = false;
 		_state = PS_REQUEST_LINE;
 	}

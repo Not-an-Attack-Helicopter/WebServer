@@ -1,0 +1,38 @@
+GET /logs HTTP/1.1
+Host: example.com
+
+
+DELETE /logs HTTP/1.1
+Host: example.com
+
+
+POST /logs HTTP/1.1
+Host: example.com
+Content-Length: 15
+
+{"name":"John"}
+
+
+POST /logs?id=123&name=Alice HTTP/1.1
+Host: example.com
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)
+Accept: index.html
+Connection: keep-alive
+Cache-Control: no-cache
+Pragma: no-cache
+Content-Type: application/json
+Content-Length: 27
+Authorization: Bearer token123
+X-Custom-Header-1: value1
+X-Custom-Header-2: value2
+X-Custom-Header-3: value3
+X-Custom-Header-4: value4
+X-Custom-Header-5: value5
+
+{"name":"Alice","age":"30"}
+
+POST / HTTP/1.1
+Host: x
+Content-Length: 6
+
+QWERTY

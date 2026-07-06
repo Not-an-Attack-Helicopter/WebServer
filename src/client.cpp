@@ -2,7 +2,7 @@
 
 // ─── Constructors / Destructor ───────────────────────────────────────────────
 
-Client::Client(int fd, ServerConfig* server)
+Client::Client(int fd, const ServerConfig* server)
 	: _fd(fd), _server(server), _last_active(std::time(NULL)), _parse_state(PS_READING_HEADERS)
 {
 }
@@ -39,7 +39,7 @@ Client::~Client() {}
 // ─── Accessors ───────────────────────────────────────────────────────────────
 
 int            Client::getFd()         const { return _fd; }
-ServerConfig*  Client::getServer()     const { return _server; }
+const ServerConfig* Client::getServer()     const { return _server; }
 time_t         Client::getLastActive() const { return _last_active; }
 ParseState     Client::getParseState() const { return _parse_state; }
 void           Client::setParseState(ParseState state) { _parse_state = state; }

@@ -43,3 +43,18 @@ Config ConfigParser::get_config() const
 {
 	return config;
 }
+
+const Config& ConfigParser::getAllConfigs() const
+{
+	return config;
+}
+
+const ServerConfig& ConfigParser::getSingleConfig(size_t index) const
+{
+	return config.servers[index];
+}
+
+size_t ConfigParser::getServerConfigCount() const
+{
+	return config.servers.size();
+}
