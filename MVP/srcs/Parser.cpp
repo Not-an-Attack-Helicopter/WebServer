@@ -328,6 +328,137 @@ Parser::serverDirectiveHandlerMap Parser::_initServerDirectiveHandlerMap(void) {
 	return handlers;
 }
 
+void Parser::_parseLocationBlock(std::ifstream& config_file, Config& config, LocationConfig& loc) {
+
+	static const locationDirectiveHandlerMap handlers = _initLocationDirectiveHandlerMap();
+
+	std::string line;
+	while (std::getline(config_file, line)) {
+
+		std::string trimmed = trim(line);
+
+		// Skip empty lines and comments
+		if (trimmed.empty() || trimmed[0] == '#') {
+			continue;
+		}
+
+		// End of block
+		if (trimmed == "}") {
+
+			// Block is complete — now finalize and validate
+			if (loc.cgi_extensions.size() != loc.cgi_paths.size()) {
+				throw std::runtime_error("parse error: cgi_ext and cgi_path \
+										count mismatch in location '" + loc.path + "'");
+			}
+
+			// Check for duplicate paths
+			for (size_t i = 0; i < config.locations.size(); ++i) {
+
+				if (config.locations[i].path == loc.path) {
+					throw std::runtime_error("parse error: \
+											duplicate location path '" + loc.path + "'");
+				}
+
+			}
+
+			config.locations.push_back(loc);
+
+			return;
+
+		}
+
+		std::string key = extractDirectiveKey(trimmed);
+		std::string val = extractDirectiveValue(trimmed);
+
+		if (handlers.find(key) != handlers.end()) {
+			(this->*handlers.at(key))(val, loc);
+
+		} else {
+			throw std::runtime_error("parse error: \
+unknown directive in location block: " + key);
+		}
+
+	}
+
+	// If we exit the loop without finding }, throw
+	throw std::runtime_error("parse error: \
+unclosed location block '" + loc.path + "' (missing '}')");
+
+}
+
+void Parser::_parseServerBlock(std::ifstream& config_file_stream) {
+
+	Config server_block;
+	server_block.port = 80;
+	server_block.client_max_body_size = 1048576;
+
+	static const serverDirectiveHandlerMap handlers = _initServerDirectiveHandlerMap();
+
+	std::string line;
+	while (std::getline(config_file_stream, line)) {
+
+		std::string trimmed = trim(line);
+
+		// Skip empty lines and comments
+		if (trimmed.empty() || trimmed[0] == '#') {
+			continue;
+		}
+
+		// End of block
+		if (trimmed == "}") {
+
+			// Block is complete — now finalize and validate
+			if (server_block.host.empty()) {
+				server_block.host = "0.0.0.0";
+			}
+
+			// Check for duplicate hosts
+			if (isAlreadyInUse(_configs, server_block.host, server_block.port)) {
+				std::ostringstream oss;
+				oss	<< "parse error: host " << server_block.host
+					<< " port " << server_block.port
+					<< " is already in use by another server block";
+				throw std::runtime_error(oss.str());
+			}
+
+			_configs.push_back(server_block);
+
+			return;
+
+		}
+
+		std::string key = extractDirectiveKey(trimmed);
+		std::string val = extractDirectiveValue(trimmed);
+
+		if (handlers.find(key) != handlers.end()) {
+			(this->*handlers.at(key))(val, server_block);
+
+		} else if (key == "location") {
+
+			LocationConfig location_block;
+			location_block.autoindex = false;
+
+			// Read the location header line
+			extractLocationPath(trimmed, location_block);
+
+			// Read the location block
+			_parseLocationBlock(config_file_stream, server_block, location_block);
+
+			continue;
+
+		} else {
+			throw std::runtime_error("parse error: \
+									unknown directive in server block: " + key);
+		}
+
+	}
+
+	// If we get here, block was never closed
+	throw std::runtime_error("parse error: \
+							unclosed server block (missing '}')");
+
+}
+
 void Parser::_handleAllowedMethods(const std::string& val, LocationConfig& loc) {
 
 	if (!loc.methods.empty())
@@ -452,64 +583,6 @@ void Parser::_handleCGIPath(const std::string& val, LocationConfig& loc) {
 
 }
 
-void Parser::_parseLocationBlock(std::ifstream& config_file, Config& config, LocationConfig& loc) {
-
-	static const locationDirectiveHandlerMap handlers = _initLocationDirectiveHandlerMap();
-
-	std::string line;
-	while (std::getline(config_file, line)) {
-
-		std::string trimmed = trim(line);
-
-		// Skip empty lines and comments
-		if (trimmed.empty() || trimmed[0] == '#') {
-			continue;
-		}
-
-		// End of block
-		if (trimmed == "}") {
-
-			// Block is complete — now finalize and validate
-			if (loc.cgi_extensions.size() != loc.cgi_paths.size()) {
-				throw std::runtime_error("parse error: cgi_ext and cgi_path \
-										count mismatch in location '" + loc.path + "'");
-			}
-
-			// Check for duplicate paths
-			for (size_t i = 0; i < config.locations.size(); ++i) {
-
-				if (config.locations[i].path == loc.path) {
-					throw std::runtime_error("parse error: \
-											duplicate location path '" + loc.path + "'");
-				}
-
-			}
-
-			config.locations.push_back(loc);
-
-			return;
-
-		}
-
-		std::string key = extractDirectiveKey(trimmed);
-		std::string val = extractDirectiveValue(trimmed);
-
-		if (handlers.find(key) != handlers.end()) {
-			(this->*handlers.at(key))(val, loc);
-
-		} else {
-			throw std::runtime_error("parse error: \
-									unknown directive in location block: " + key);
-		}
-
-	}
-
-	// If we exit the loop without finding }, throw
-	throw std::runtime_error("parse error: \
-							unclosed location block '" + loc.path + "' (missing '}')");
-
-}
-
 void Parser::_handleListen(const std::string& val, Config& config) {
 
 	if (!isValidPort(val)) {
@@ -615,77 +688,5 @@ void Parser::_handleServerIndex(const std::string& val, Config& config) {
 	}
 
 	config.index = val;
-
-}
-
-void Parser::_parseServerBlock(std::ifstream& config_file_stream) {
-
-	Config server_block;
-	server_block.port = 80;
-	server_block.client_max_body_size = 1048576;
-
-	static const serverDirectiveHandlerMap handlers = _initServerDirectiveHandlerMap();
-
-	std::string line;
-	while (std::getline(config_file_stream, line)) {
-
-		std::string trimmed = trim(line);
-
-		// Skip empty lines and comments
-		if (trimmed.empty() || trimmed[0] == '#') {
-			continue;
-		}
-
-		// End of block
-		if (trimmed == "}") {
-
-			// Block is complete — now finalize and validate
-			if (server_block.host.empty()) {
-				server_block.host = "0.0.0.0";
-			}
-
-			// Check for duplicate hosts
-			if (isAlreadyInUse(_configs, server_block.host, server_block.port)) {
-				std::ostringstream oss;
-				oss << "parse error: host " << server_block.host << " port " << server_block.port
-				<< " is already in use by another server block";
-				throw std::runtime_error(oss.str());
-			}
-
-			_configs.push_back(server_block);
-
-			return;
-
-		}
-
-		std::string key = extractDirectiveKey(trimmed);
-		std::string val = extractDirectiveValue(trimmed);
-
-		if (handlers.find(key) != handlers.end()) {
-			(this->*handlers.at(key))(val, server_block);
-
-		} else if (key == "location") {
-
-			LocationConfig location_block;
-			location_block.autoindex = false;
-
-			// Read the location header line
-			extractLocationPath(trimmed, location_block);
-
-			// Read the location block
-			_parseLocationBlock(config_file_stream, server_block, location_block);
-
-			continue;
-
-		} else {
-			throw std::runtime_error("parse error: \
-									unknown directive in server block: " + key);
-		}
-
-	}
-
-	// If we get here, block was never closed
-	throw std::runtime_error("parse error: \
-							unclosed server block (missing '}')");
 
 }

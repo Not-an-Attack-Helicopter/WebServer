@@ -56,6 +56,12 @@ class Parser {
 
 		static serverDirectiveHandlerMap _initServerDirectiveHandlerMap(void);
 
+		void	_parseLocationBlock(std::ifstream& config_file,
+									Config& config,
+									LocationConfig& loc);
+
+		void	_parseServerBlock(std::ifstream& config_file);
+
 		// Location directive handlers
 		void	_handleAllowedMethods(const std::string& val, LocationConfig& loc);
 		void	_handleAutoindex(const std::string& val, LocationConfig& loc);
@@ -66,10 +72,6 @@ class Parser {
 		void	_handleCGIExt(const std::string& val, LocationConfig& loc);
 		void	_handleCGIPath(const std::string& val, LocationConfig& loc);
 
-		void	_parseLocationBlock(std::ifstream& config_file,
-									Config& config,
-									LocationConfig& loc);
-
 		// Server directive handlers
 		void	_handleListen(const std::string& val, Config& config);
 		void	_handleHost(const std::string& val, Config& config);
@@ -78,8 +80,6 @@ class Parser {
 		void	_handleErrorPage(const std::string& val, Config& config);
 		void	_handleServerRoot(const std::string& val, Config& config);
 		void	_handleServerIndex(const std::string& val, Config& config);
-
-		void	_parseServerBlock(std::ifstream& config_file);
 
 		std::vector<Config>		_configs;
 
