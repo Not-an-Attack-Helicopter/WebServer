@@ -13,7 +13,7 @@
 #include "../incs/Client.hpp"
 #include "../incs/Logger.hpp"
 #include "../incs/utils.hpp"
-// #include "../incs/types.hpp"
+#include "../incs/Config.hpp"
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
@@ -31,7 +31,7 @@ Client::Client(const Config* config)
 	HTTPRequest* request = new HTTPRequest();
 	_request_queue.push_back(request);
 	// HTTPResponse* response = new HTTPResponse;
-	// _responses.push_back(response);
+	// _response_queue.push_back(response);
 	return;
 }
 
@@ -92,8 +92,12 @@ socklen_t* Client::getAddrlenPointer(void) const {
 	return (socklen_t*)&_addrlen;
 }
 
-const Config* Client::getConfigPointer(void) const {
-	return _config;
+// const Config* Client::getConfigPointer(void) const {
+// 	return _config;
+// }
+
+const Config& Client::getConfig(void) const {
+	return *_config;
 }
 
 ssize_t Client::queueIncomingData(int fd) {

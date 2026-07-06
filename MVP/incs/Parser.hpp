@@ -3,33 +3,48 @@
 /*                                                        :::      ::::::::   */
 /*   Parser.hpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: sholz <marvin@42.fr>                       +#+  +:+       +#+        */
+/*   By: sholz, bstorck <marvin@42.fr>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/30 18:41:59 by sholz             #+#    #+#             */
-/*   Updated: 2026/06/30 18:42:00 by sholz            ###   ########.fr       */
+/*   Updated: 2026/07/04 18:15:14 by bstorck          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #ifndef PARSER_HPP
 #define PARSER_HPP
 
-// #include "webserver.hpp"
-#include "types.hpp"
+#include "Config.hpp"
+#include <cstddef>
+#include <string>
+#include <vector>
+#include <map>
 
 #define parser Parser::instance()
 
 class Parser {
 
 	public:
-		static Parser& 						instance(void);
+		static Parser&						instance(void);
 
 		const std::vector<Config>&			getAllConfigs(void) const;
 
 		const Config& 						getConfig(size_t index) const;
 
-		size_t								countConfigs(void) const;
+		size_t								getNumConfigs(void) const;
 
-		void								readFile(const std::string& config);
+		void								scan(const std::string& config_file);
+
+		typedef void (Parser::*locationDirectiveHandler) (const std::string& val,
+														LocationConfig& loc);
+
+		typedef void (Parser::*serverDirectiveHandler) (const std::string& val,
+														Config& config);
+
+		typedef std::map<std::string,
+						locationDirectiveHandler> locationDirectiveHandlerMap;
+
+		typedef std::map<std::string,
+						serverDirectiveHandler> serverDirectiveHandlerMap;
 
 	private:
 		Parser(void);
@@ -37,17 +52,36 @@ class Parser {
 		Parser& operator = (const Parser& other);
 		~Parser(void);
 
-		static std::string					_directiveKey(const std::string& line);
-		static std::string					_directiveValue(const std::string& line);
-		static std::vector<std::string>		_tokenizer(const std::string& config_file);
-		LocationConfig						_parseLocationBlock(const std::vector<std::string>& tokens, size_t& i);
-		Config								_parseServerBlock(const std::vector<std::string>& tokens, size_t& i, const std::vector<Config>& config);
-		std::vector<Config>					_parseConfigFile(const std::string& config_file);
-		bool								_validConfExt(const std::string& filename);
-		bool								_validCGIExt(const std::string& ext);
-		bool								_validCGI(const std::string& path);
+		static locationDirectiveHandlerMap _initLocationDirectiveHandlerMap(void);
 
-		std::vector<Config>					_serverConfigs;
+		static serverDirectiveHandlerMap _initServerDirectiveHandlerMap(void);
+
+		// Location directive handlers
+		void	_handleAllowedMethods(const std::string& val, LocationConfig& loc);
+		void	_handleAutoindex(const std::string& val, LocationConfig& loc);
+		void	_handleIndex(const std::string& val, LocationConfig& loc);
+		void	_handleRoot(const std::string& val, LocationConfig& loc);
+		void	_handleReturn(const std::string& val, LocationConfig& loc);
+		void	_handleUploadDir(const std::string& val, LocationConfig& loc);
+		void	_handleCGIExt(const std::string& val, LocationConfig& loc);
+		void	_handleCGIPath(const std::string& val, LocationConfig& loc);
+
+		void	_parseLocationBlock(std::ifstream& config_file,
+									Config& config,
+									LocationConfig& loc);
+
+		// Server directive handlers
+		void	_handleListen(const std::string& val, Config& config);
+		void	_handleHost(const std::string& val, Config& config);
+		void	_handleServerNames(const std::string& val, Config& config);
+		void	_handleClientMaxBodySize(const std::string& val, Config& config);
+		void	_handleErrorPage(const std::string& val, Config& config);
+		void	_handleServerRoot(const std::string& val, Config& config);
+		void	_handleServerIndex(const std::string& val, Config& config);
+
+		void	_parseServerBlock(std::ifstream& config_file);
+
+		std::vector<Config>		_configs;
 
 };
 

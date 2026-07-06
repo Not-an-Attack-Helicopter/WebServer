@@ -1,6 +1,5 @@
 #include "../incs/RequestHandler.hpp"
 #include "../incs/utils.hpp"
-#include "../incs/types.hpp"
 #include <sys/stat.h>   // stat
 #include <sys/wait.h>   // waitpid
 #include <dirent.h>     // opendir, readdir, closedir
@@ -39,7 +38,7 @@ void RequestHandler::handle(HTTPRequest* request, HTTPResponse* response, Config
 
 	if (_location && !_location->redirect.empty())
 		_handleRedirect(request, response);
-	else if (_location && !_location->cgi_extension.empty())
+	else if (_location && !_location->cgi_extensions.empty())
 		_handleStatic(request, response);
 	else if (_location && _location->autoindex)
 		_handleAutoindex(response, _location->root + _request->getPath());

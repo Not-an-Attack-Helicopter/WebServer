@@ -3,7 +3,7 @@
 /*                                                        :::      ::::::::   */
 /*   HTTPRequest.cpp                                    :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: sholz + bstorck <marvin@42.fr>             +#+  +:+       +#+        */
+/*   By: sholz, bstorck <marvin@42.fr>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/25 17:39:21 by bstorck           #+#    #+#             */
 /*   Updated: 2026/06/25 17:39:23 by bstorck          ###   ########.fr       */
@@ -11,9 +11,9 @@
 /* ************************************************************************** */
 
 #include "../incs/HTTPRequest.hpp"
+#include "../incs/templates.hpp"
 #include "../incs/Logger.hpp"
 #include "../incs/utils.hpp"
-// #include "../incs/types.hpp"
 #include <sstream>
 #include <cstring>
 #include <cctype>
@@ -323,7 +323,11 @@ bool HTTPRequest::_parseHeaderLine(const std::string& line) {
 
 	// Find separator ':'
 	size_t colon_pos = line.find(':');
-	if (colon_pos == std::string::npos || colon_pos == 0) {
+	if (colon_pos == 0) {
+		log.error("no key provided");
+		return false;
+	}
+	if (colon_pos == std::string::npos) {
 		log.error("colon not found");
 		return false;
 	}

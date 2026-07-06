@@ -18,9 +18,10 @@
 #include <vector>
 #include <ctime>
 // #include <cstddef>
-#include "types.hpp"
+// #include "types.hpp"
+#include "Config.hpp"
 #include "HTTPRequest.hpp"
-// #include "HTTPResponse.hpp"
+#include "HTTPResponse.hpp"
 // #include "RequestHandler.hpp"
 
 // DEBUG
@@ -48,7 +49,8 @@ class Client {
 
 		socklen_t*					getAddrlenPointer(void) const;
 
-		const Config*				getConfigPointer(void) const;
+		// const Config*				getConfigPointer(void) const;
+		const Config&				getConfig(void) const;
 
 		ssize_t						queueIncomingData(int fd);
 		// void						cleanIncomingData(void);
@@ -90,7 +92,7 @@ class Client {
 		// RequestHandler& _handler; // Shared stateless handler
 
 		std::vector<HTTPRequest*>		_request_queue; // FIFO queue of parsed requests
-		// std::vector<HTTPResponse*>		_response_queue; // FIFO queue of responses to send
+		std::vector<HTTPResponse*>		_response_queue; // FIFO queue of responses to send
 
 		time_t							_last_event;
 };

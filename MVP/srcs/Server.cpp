@@ -11,9 +11,9 @@
 /* ************************************************************************** */
 
 #include "../incs/Server.hpp"
+#include "../incs/templates.hpp"
 #include "../incs/Logger.hpp"
 #include "../incs/utils.hpp"
-// #include "../incs/types.hpp"
 #include <sys/socket.h>
 #include <sys/epoll.h>
 #include <arpa/inet.h>
@@ -212,7 +212,7 @@ void Server::handleIncomingEvents(void) {
 					handleWriteEvent(fd);
 
 			} else {
-				acceptConnectRequest(it);
+				acceptConnectRequest(it->first, it->second);
 			}
 
 		}
@@ -253,10 +253,10 @@ void Server::handleIncomingEvents(void) {
 
 }
 
-void Server::acceptConnectRequest(std::map<int, const Config*>::iterator it) {
+void Server::acceptConnectRequest(int socket_fd, const Config* config) {
 
-	int socket_fd = it->first;
-	const Config* config= it->second;
+	// int socket_fd = it->first;
+	// const Config* config= it->second;
 
 	log.info("New connection on socket fd_" + i2a(socket_fd));
 

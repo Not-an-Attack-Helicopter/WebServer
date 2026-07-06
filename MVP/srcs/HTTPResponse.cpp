@@ -35,11 +35,15 @@ void HTTPResponse::setHeader(const std::string& key, const std::string& value) {
 }
 
 void HTTPResponse::setBody(const std::string& body, const std::string& content_type) {
+
 	_body = body;
+
 	setHeader("Content-Type", content_type);
+
 	std::ostringstream oss;
 	oss << body.size();
 	setHeader("Content-Length", oss.str());
+
 }
 
 // Getters
@@ -61,18 +65,28 @@ const std::map<std::string, std::string>& HTTPResponse::getHeaders(void) const {
 
 // Produce the raw HTTP/1.1 string ready to write to the socket
 std::string HTTPResponse::serialize(void) const {
+
 	std::ostringstream oss;
 	oss << _status_code;
+
 	std::string response = "HTTP/1.1 " + oss.str() + " " + _reason_phrase + "\r\n";
-	for (std::map<std::string, std::string>::const_iterator it = _headers.begin(); it != _headers.end(); ++it) {
+
+	// for (std::map<std::string, std::string>::const_iterator it = _headers.begin(); it != _headers.end(); ++it) {
+	// 	response += it->first + ": " + it->second + "\r\n";
+	// }
+	std::map<std::string, std::string>::const_iterator it = _headers.begin();
+	while (it != _headers.end()) {
 		response += it->first + ": " + it->second + "\r\n";
+		++it;
 	}
+
 	response += "\r\n" + _body;
+
 	return response;
+
 }
 
-void HTTPResponse::reset(void)
-{
+void HTTPResponse::reset(void) {
 	_status_code = 200;
 	_reason_phrase = "OK";
 	_headers.clear();

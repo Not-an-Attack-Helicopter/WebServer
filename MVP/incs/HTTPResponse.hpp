@@ -36,8 +36,9 @@ private:
 
 	int											_status_code;
 
-	std::map<std::string, std::string>			_headers;
-	std::string									_body;
 	std::string									_reason_phrase;
+	std::string									_body;
+
+	std::map<std::string, std::string>			_headers;
 
 };
