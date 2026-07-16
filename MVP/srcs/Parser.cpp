@@ -11,9 +11,9 @@
 /* ************************************************************************** */
 
 #include "../incs/Parser.hpp"
+#include "../incs/templates.hpp"
 #include "../incs/Config.hpp"
 #include "../incs/Logger.hpp"
-#include "../incs/templates.hpp"
 #include "../incs/utils.hpp"
 #include <sys/stat.h>
 #include <unistd.h>
@@ -66,42 +66,63 @@ static bool isSupportedCGIExtension(const std::string& ext) {
 
 }
 
+// static bool isRegularFile(const std::string& path) {
+
+// 	// if (access(path.c_str(), F_OK) == -1) {
+// 	// 	return false;
+// 	// } // redundant
+
+// 	struct stat sb;
+// 	if (stat(path.c_str(), &sb) != 0) {
+// 		return false;
+// 	}
+
+// 	return S_ISREG(sb.st_mode);
+
+// }
+
+// static bool isDirectory(const std::string& path) {
+
+// 	// if (access(path.c_str(), F_OK) == -1) {
+// 	// 	return false;
+// 	// }
+
+// 	struct stat sb;
+// 	if (stat(path.c_str(), &sb) != 0) {
+// 		return false;
+// 	}
+
+// 	return S_ISDIR(sb.st_mode);
+
+// }
+
+// static bool isReadable(const std::string& path) {
+
+// 	if (!isRegularFile(path)) {
+// 		return false;
+// 	}
+
+// 	return access(path.c_str(), R_OK) == 0;
+
+// }
+
+static bool isWritable(const std::string& path) {
+
+	// if (!isRegularFile(path)) { // Checking directory!
+	// 	return false;
+	// }
+
+	return access(path.c_str(), W_OK) == 0;
+
+}
+
 static bool isExecutable(const std::string& path) {
 
-	struct stat buffer;
-
-	if (stat(path.c_str(), &buffer) != 0) {
+	if (!isRegularFile(path)) {
 		return false;
 	}
 
-	return S_ISREG(buffer.st_mode) && access(path.c_str(), X_OK) == 0;
-
-}
-
-static std::string extractDirectiveKey(const std::string& line) {
-
-	size_t space = line.find(' ');
-	if (space == std::string::npos) {
-		return line;
-	}
-
-	return line.substr(0, space);
-
-}
-
-static std::string extractDirectiveValue(const std::string& line) {
-
-	size_t space = line.find(' ');
-	if (space == std::string::npos) {
-		return "";
-	}
-
-	std::string val = line.substr(space + 1);
-	if (!val.empty() && val[val.size() - 1] == ';') {
-		val = val.substr(0, val.size() - 1);
-	}
-
-	return trim(val);
+	return /*isRegularFile(path) && */access(path.c_str(), X_OK) == 0;
 
 }
 
@@ -157,11 +178,11 @@ static bool isValidBodySize(const int size) {
 
 }
 
-static bool isValidErrorCode(const int code) {
-
-	return code >= 400 && code < 600;
-
-}
+// static bool isValidErrorCode(const int code) {
+//
+// 	return code >= 400 && code < 600;
+//
+// }
 
 static bool isAlreadyInUse(const std::vector<Config>& config, const std::string& host, int port) {
 
@@ -177,7 +198,34 @@ static bool isAlreadyInUse(const std::vector<Config>& config, const std::string&
 
 }
 
-static void extractLocationPath(const std::string& header, LocationConfig& loc) {
+static std::string extractDirectiveKey(const std::string& line) {
+
+	size_t space = line.find(' ');
+	if (space == std::string::npos) {
+		return line;
+	}
+
+	return line.substr(0, space);
+
+}
+
+static std::string extractDirectiveValue(const std::string& line) {
+
+	size_t space = line.find(' ');
+	if (space == std::string::npos) {
+		return "";
+	}
+
+	std::string val = line.substr(space + 1);
+	if (!val.empty() && val[val.size() - 1] == ';') {
+		val = val.substr(0, val.size() - 1);
+	}
+
+	return trim(val);
+
+}
+
+static void extractLocationPath(const std::string& header, Location& loc) {
 
 	size_t first_space = header.find(' ');
 	size_t last_space  = header.rfind(' ');
@@ -189,9 +237,19 @@ static void extractLocationPath(const std::string& header, LocationConfig& loc) 
 		loc.path = "/";
 	}
 
-	if (loc.path.empty() || loc.path[0] != '/') {
-		throw std::runtime_error("parse error: invalid location path (must start with '/'): " + loc.path);
+	if (loc.path.empty()) {
+		throw std::runtime_error("parse error: location directive requires a value");
 	}
+
+	if (loc.path.size() > 1 && loc.path[0] != '/') {
+		throw std::runtime_error("parse error: location path must start with '/': " + loc.path);
+	}
+
+	if (loc.path.size() > 1 && loc.path[loc.path.size() - 1] == '/') {
+		throw std::runtime_error("parse error: location path must not end with '/': " + loc.path);
+	}
+
+	return;
 
 }
 
@@ -263,6 +321,8 @@ void Parser::scan(const std::string& config_file) {
 
 	file.close();
 
+	return;
+
 }
 
   //~~~~~~~~~~~//
@@ -290,9 +350,9 @@ Parser& Parser::operator=(const Parser& other) {
 	return *this;
 };
 
-/*	@brief Destructor	*/
+/*	@brief Deconstructor	*/
 Parser::~Parser() {
-	log.debug("Parser Destructor called");
+	log.debug("Parser Deconstructor called");
 	return;
 };
 
@@ -300,14 +360,16 @@ Parser::locationDirectiveHandlerMap Parser::_initLocationDirectiveHandlerMap(voi
 
 	locationDirectiveHandlerMap handlers;
 
+	handlers["root"] = &Parser::_handleRoot;
+	handlers["redirect"] = &Parser::_handleRedirect;
 	handlers["allow_methods"] = &Parser::_handleAllowedMethods;
 	handlers["autoindex"] = &Parser::_handleAutoindex;
-	handlers["index"] = &Parser::_handleIndex;
-	handlers["root"] = &Parser::_handleRoot;
-	handlers["return"] = &Parser::_handleReturn;
-	handlers["upload_dir"] = &Parser::_handleUploadDir;
-	handlers["cgi_ext"] = &Parser::_handleCGIExt;
-	handlers["cgi_path"] = &Parser::_handleCGIPath;
+	handlers["index"] = &Parser::_handleIndexFile;
+	handlers["upload_dir"] = &Parser::_handleUploadDirectory;
+	// handlers["cgi_ext"] = &Parser::_handleCGIExt;
+	// handlers["cgi_path"] = &Parser::_handleCGIPath;
+	handlers["interpreter"] = &Parser::_handleInterpreter;
+	handlers["error_page"] = &Parser::_handleErrorPage;
 
 	return handlers;
 
@@ -320,15 +382,16 @@ Parser::serverDirectiveHandlerMap Parser::_initServerDirectiveHandlerMap(void) {
 	handlers["listen"] = &Parser::_handleListen;
 	handlers["host"] = &Parser::_handleHost;
 	handlers["server_name"] = &Parser::_handleServerNames;
-	handlers["client_max_body_size"] = &Parser::_handleClientMaxBodySize;
+	handlers["root"] = &Parser::_handleRoot;
+	handlers["index"] = &Parser::_handleIndexFile;
 	handlers["error_page"] = &Parser::_handleErrorPage;
-	handlers["root"] = &Parser::_handleServerRoot;
-	handlers["index"] = &Parser::_handleServerIndex;
+	handlers["client_max_body_size"] = &Parser::_handleClientMaxBodySize;
 
 	return handlers;
 }
 
-void Parser::_parseLocationBlock(std::ifstream& config_file, Config& config, LocationConfig& loc) {
+void Parser::_parseLocationBlock(std::ifstream& config_file,
+								 Config& config, Location& loc) {
 
 	static const locationDirectiveHandlerMap handlers = _initLocationDirectiveHandlerMap();
 
@@ -345,18 +408,29 @@ void Parser::_parseLocationBlock(std::ifstream& config_file, Config& config, Loc
 		// End of block
 		if (trimmed == "}") {
 
-			// Block is complete — now finalize and validate
-			if (loc.cgi_extensions.size() != loc.cgi_paths.size()) {
-				throw std::runtime_error("parse error: cgi_ext and cgi_path \
-										count mismatch in location '" + loc.path + "'");
+			// // Block is complete — now finalize and validate
+			// if (loc.cgi_extensions.size() != loc.cgi_paths.size()) {
+			// 	throw std::runtime_error("parse error: cgi_ext and cgi_path count mismatch in location '" + loc.path + "'");
+			// }
+
+			// Check for location root: if empty, substitute server root
+			if (loc.root.empty()) {
+				loc.root = config.root;
+			}
+
+			if (loc.index_files.empty()) {
+				loc.index_files = config.index_files;
+			}
+
+			if (loc.error_pages.empty()) {
+				loc.error_pages = config.error_pages;
 			}
 
 			// Check for duplicate paths
 			for (size_t i = 0; i < config.locations.size(); ++i) {
 
 				if (config.locations[i].path == loc.path) {
-					throw std::runtime_error("parse error: \
-											duplicate location path '" + loc.path + "'");
+					throw std::runtime_error("parse error: duplicate location path '" + loc.path + "'");
 				}
 
 			}
@@ -374,15 +448,15 @@ void Parser::_parseLocationBlock(std::ifstream& config_file, Config& config, Loc
 			(this->*handlers.at(key))(val, loc);
 
 		} else {
-			throw std::runtime_error("parse error: \
-unknown directive in location block: " + key);
+			throw std::runtime_error("parse error: unknown directive in location block: " + key);
 		}
 
 	}
 
 	// If we exit the loop without finding }, throw
-	throw std::runtime_error("parse error: \
-unclosed location block '" + loc.path + "' (missing '}')");
+	throw std::runtime_error("parse error: unclosed location block '" + loc.path + "' (missing '}')");
+
+	return;
 
 }
 
@@ -435,7 +509,7 @@ void Parser::_parseServerBlock(std::ifstream& config_file_stream) {
 
 		} else if (key == "location") {
 
-			LocationConfig location_block;
+			Location location_block;
 			location_block.autoindex = false;
 
 			// Read the location header line
@@ -447,19 +521,59 @@ void Parser::_parseServerBlock(std::ifstream& config_file_stream) {
 			continue;
 
 		} else {
-			throw std::runtime_error("parse error: \
-									unknown directive in server block: " + key);
+			throw std::runtime_error("parse error: unknown directive in server block: " + key);
 		}
 
 	}
 
 	// If we get here, block was never closed
-	throw std::runtime_error("parse error: \
-							unclosed server block (missing '}')");
+	throw std::runtime_error("parse error: unclosed server block (missing '}')");
+
+	return;
 
 }
 
-void Parser::_handleAllowedMethods(const std::string& val, LocationConfig& loc) {
+// void Parser::_handleRoot(const std::string& val, Location& loc) {
+
+// 	if (val.empty()) {
+// 		throw std::runtime_error("parse error: root directive requires a value");
+// 	}
+
+// 	if (val[0] != '/') {
+// 		throw std::runtime_error("parse error: root path must start with '/': " + val);
+// 	}
+
+// 	if (val[val.size() - 1] == '/') {
+// 		throw std::runtime_error("parse error: root path must not end with '/': " + val);
+// 	}
+
+// 	loc.root = val;
+
+// 	return;
+
+// }
+
+void Parser::_handleRedirect(const std::string& val, Location& loc) {
+
+	if (val.empty()) {
+		throw std::runtime_error("parse error: redirect directive requires a value");
+	}
+
+	if (val[0] != '/') {
+		throw std::runtime_error("parse error: redirect value must start with '/': " + val);
+	}
+
+	if (val[val.size() - 1] == '/') {
+		throw std::runtime_error("parse error: redirect value must not end with '/': " + val);
+	}
+
+	loc.redirect = val;
+
+	return;
+
+}
+
+void Parser::_handleAllowedMethods(const std::string& val, Location& loc) {
 
 	if (!loc.methods.empty())
 		log.debug(loc.methods.back());
@@ -477,9 +591,11 @@ void Parser::_handleAllowedMethods(const std::string& val, LocationConfig& loc) 
 
 	}
 
+	return;
+
 }
 
-void Parser::_handleAutoindex(const std::string& val, LocationConfig& loc) {
+void Parser::_handleAutoindex(const std::string& val, Location& loc) {
 
 	if (val != "on" && val != "off") {
 		throw std::runtime_error("parse error: autoindex must be 'on' or 'off', got: " + val);
@@ -487,101 +603,209 @@ void Parser::_handleAutoindex(const std::string& val, LocationConfig& loc) {
 
 	loc.autoindex = (val == "on");
 
-}
-
-void Parser::_handleIndex(const std::string& val, LocationConfig& loc) {
-
-	if (val.empty()) {
-		throw std::runtime_error("parse error: index directive requires a value");
-	}
-
-	loc.index = val;
+	return;
 
 }
 
-void Parser::_handleRoot(const std::string& val, LocationConfig& loc) {
+// void Parser::_handleIndexFile(const std::string& val, Location& loc) {
 
-	if (val.empty()) {
-		throw std::runtime_error("parse error: root directive requires a value");
-	}
+// 	if (val.empty()) {
+// 		throw std::runtime_error("parse error: index_files directive requires at least one file");
+// 	}
 
-	if (val[0] != '/') {
-		throw std::runtime_error("parse error: root path must start with '/': " + val);
-	}
+// 	std::istringstream iss(val);
+// 	std::string path;
 
-	loc.root = val;
+// 	while (iss >> path) {
 
-}
+// 		// if (val.empty()) {
+// 		// 	throw std::runtime_error("parse error: index file directive requires a value");
+// 		// } // redundant, see "if (!(iss >> path))"
 
-void Parser::_handleReturn(const std::string& val, LocationConfig& loc) {
+// 		if (val[0] == '/') {
+// 			throw std::runtime_error("parse error: index file path must not start with '/': " + val);
+// 		}
 
-	if (val.empty()) {
-		throw std::runtime_error("parse error: return directive requires a value");
-	}
+// 		if (val[val.size() - 1] == '/') {
+// 			throw std::runtime_error("parse error: index file path must not end with '/': " + val);
+// 		}
 
-	if (val[0] != '/') {
-		throw std::runtime_error("parse error: return value must start with '/': " + val);
-	}
+// 		if (!isReadable(loc.root + "/" + path)) {
+// 			throw std::runtime_error("parse error: no read access: " + path);
+// 		}
 
-	loc.redirect = val;
+// 		loc.index_files.push_back(path);
 
-}
+// 	}
 
-void Parser::_handleUploadDir(const std::string& val, LocationConfig& loc) {
+// 	return;
+
+// }
+
+void Parser::_handleUploadDirectory(const std::string& val, Location& loc) {
 
 	if (val.empty()) {
 		throw std::runtime_error("parse error: upload_dir directive requires a value");
 	}
 
 	if (val[0] != '/') {
-		throw std::runtime_error("parse error: upload_dir path must start with '/': " + val);
+		throw std::runtime_error("parse error: upload directory path must start with '/': " + val);
+	}
+
+	if (val[val.size() - 1] == '/') {
+		throw std::runtime_error("parse error: upload directory path must not end with '/': " + val);
+	}
+
+	if (!isWritable(val)) {
+		throw std::runtime_error("parse error: no write access (upload directory): " + val);
 	}
 
 	loc.upload_dir = val;
 
+	return;
+
 }
 
-void Parser::_handleCGIExt(const std::string& val, LocationConfig& loc) {
+// void Parser::_handleCGIExt(const std::string& val, Location& loc) {
+
+// 	if (val.empty()) {
+// 		throw std::runtime_error("parse error: cgi_ext directive requires at least one extension");
+// 	}
+
+// 	std::istringstream iss(val);
+// 	std::string ext;
+
+// 	while (iss >> ext) {
+
+// 		if (!isSupportedCGIExtension(ext)) {
+// 			throw std::runtime_error("parse error: invalid CGI extension: " + ext);
+// 		}
+
+// 		loc.cgi_extensions.push_back(ext);
+
+// 	}
+
+// 	return;
+
+// }
+
+// void Parser::_handleCGIPath(const std::string& val, Location& loc) {
+
+// 	if (val.empty()) {
+// 		throw std::runtime_error("parse error: cgi_path directive requires at least one path");
+// 	}
+
+// 	std::istringstream iss(val);
+// 	std::string path;
+
+// 	while (iss >> path) {
+
+// 		if (path[0] != '/') {
+// 			throw std::runtime_error("parse error: CGI path must start with '/': " + path);
+// 		}
+
+// 		if (path[path.size() - 1] == '/') {
+// 			throw std::runtime_error("parse error: CGI path must not end with '/': " + path);
+// 		}
+
+// 		if (!isExecutable(path)) {
+// 			throw std::runtime_error("parse error: invalid CGI path (not executable): " + path);
+// 		}
+
+// 		loc.cgi_paths.push_back(path);
+
+// 	}
+
+// 	return;
+
+// }
+
+void Parser::_handleInterpreter(const std::string& val, Location& loc) {
 
 	if (val.empty()) {
-		throw std::runtime_error("parse error: cgi_ext directive requires at least one extension");
+		throw std::runtime_error("parse error: interpreter directive requires extension and path");
 	}
 
 	std::istringstream iss(val);
 	std::string ext;
-
-	while (iss >> ext) {
-
-		if (!isSupportedCGIExtension(ext)) {
-			throw std::runtime_error("parse error: invalid CGI extension: " + ext);
-		}
-
-		loc.cgi_extensions.push_back(ext);
-
-	}
-
-}
-
-void Parser::_handleCGIPath(const std::string& val, LocationConfig& loc) {
-
-	if (val.empty()) {
-		throw std::runtime_error("parse error: cgi_path directive requires at least one path");
-	}
-
-	std::istringstream iss(val);
 	std::string path;
 
-	while (iss >> path) {
-
-		if (!isExecutable(path)) {
-			throw std::runtime_error("parse error: invalid CGI path (not executable): " + path);
-		}
-
-		loc.cgi_paths.push_back(path);
-
+	if (!(iss >> ext >> path)) {
+		throw std::runtime_error("parse error: interpreter requires both extension and path");
 	}
 
+	if (!isSupportedCGIExtension(ext)) {
+		throw std::runtime_error("parse error: unsupported CGI extension: " + ext);
+	}
+
+	// if (path.empty()) {
+	// 	throw std::runtime_error("parse error: interpreter directive requires a value");
+	// } // redundant, see "if (!(iss >> ext >> path))"
+
+	if (path[0] != '/') {
+		throw std::runtime_error("parse error: interpreter path must start with '/': " + path);
+	}
+
+	if (path[path.size() - 1] == '/') {
+		throw std::runtime_error("parse error: interpreter path must not end with '/': " + path);
+	}
+
+	if (!isExecutable(path)) {
+		throw std::runtime_error("parse error: interpreter path not executable: " + path);
+	}
+
+	if (loc.interpreters.count(ext) > 0) {
+		throw std::runtime_error("parse error: CGI extension '" + ext
+									+ "' already mapped in location '" + loc.path + "'");
+	}
+
+	loc.interpreters[ext] = path;
+
+	return;
+
 }
+
+// void Parser::_handleErrorPage(const std::string& val, Location& loc) {
+//
+// 	if (val.empty()) {
+// 		throw std::runtime_error("parse error: error_page directive requires code and path");
+// 	}
+//
+// 	std::istringstream iss(val);
+// 	std::string code_str;
+// 	std::string path;
+//
+// 	if (!(iss >> code_str >> path)) {
+// 		throw std::runtime_error("parse error: error_page directive requires both code and path");
+// 	}
+//
+// 	int code = stringToInt(code_str);
+//
+// 	if (!isValidErrorCode(code)) {
+// 		throw std::runtime_error("parse error: invalid error code: " + code_str);
+// 	}
+//
+// 	// if (path.empty()) {
+// 	// 	throw std::runtime_error("parse error: error page directive requires a value");
+// 	// } // redundant, see "if (!(iss >> code_str >> path))"
+//
+// 	if (path[0] == '/') {
+// 		throw std::runtime_error("parse error: error page file path must not start with '/': " + path);
+// 	}
+//
+// 	if (path[path.size() - 1] == '/') {
+// 		throw std::runtime_error("parse error: error page file path must not end with '/': " + path);
+// 	}
+//
+// 	if (!isReadable(path)) {
+// 		throw std::runtime_error("parse error: no read access: " + path);
+// 	}
+//
+// 	loc.error_pages[code] = path;
+//
+// 	return;
+//
+// }
 
 void Parser::_handleListen(const std::string& val, Config& config) {
 
@@ -590,6 +814,8 @@ void Parser::_handleListen(const std::string& val, Config& config) {
 	}
 
 	config.port = stringToUnsignedShort(val);
+
+	return;
 
 }
 
@@ -600,6 +826,8 @@ void Parser::_handleHost(const std::string& val, Config& config) {
 	}
 
 	config.host = val;
+
+	return;
 
 }
 
@@ -622,7 +850,106 @@ void Parser::_handleServerNames(const std::string& val, Config& config) {
 
 	}
 
+	return;
+
 }
+
+// void Parser::_handleRoot(const std::string& val, Config& config) {
+
+// 	if (val.empty()) {
+// 		throw std::runtime_error("parse error: root directive requires a value");
+// 	}
+
+// 	if (val[0] != '/') {
+// 		throw std::runtime_error("parse error: root path must start with '/': " + val);
+// 	}
+
+// 	if (val[val.size() - 1] == '/') {
+// 		throw std::runtime_error("parse error: root path must not end with '/': " + val);
+// 	}
+
+// 	config.root = val;
+
+// 	return;
+
+// }
+
+// void Parser::_handleIndexFile(const std::string& val, Config& config) {
+
+// 	if (val.empty()) {
+// 		throw std::runtime_error("parse error: index_files directive requires at least one file");
+// 	}
+
+// 	std::istringstream iss(val);
+// 	std::string path;
+
+// 	while (iss >> path) {
+
+// 		// if (val.empty()) {
+// 		// 	throw std::runtime_error("parse error: index file directive requires a value");
+// 		// } // redundant, see "if (!(iss >> path))"
+
+// 		if (val[0] == '/') {
+// 			throw std::runtime_error("parse error: index file path must not start with '/': " + val);
+// 		}
+
+// 		if (val[val.size() - 1] == '/') {
+// 			throw std::runtime_error("parse error: index file path must not end with '/': " + val);
+// 		}
+
+// 		if (!isReadable(config.root + "/" + path)) {
+// 			throw std::runtime_error("parse error: no read access: " + path);
+// 		}
+
+// 		config.index_files.push_back(path);
+
+// 	}
+
+// 	return;
+
+// }
+
+// void Parser::_handleErrorPage(const std::string& val, Config& config) {
+//
+// 	if (val.empty()) {
+// 		throw std::runtime_error("parse error: error_page directive requires code and path");
+// 	}
+//
+// 	std::istringstream iss(val);
+// 	std::string code_str;
+// 	std::string path;
+//
+// 	if (!(iss >> code_str >> path)) {
+// 		throw std::runtime_error("parse error: error_page requires both status code and path");
+// 	}
+//
+// 	int code = stringToInt(code_str);
+//
+// 	if (!isValidErrorCode(code)) {
+// 		throw std::runtime_error("parse error: invalid error code: " + code_str);
+// 	}
+//
+// 	// if (path.empty()) {
+// 	// 	throw std::runtime_error("parse error: error page directive requires a value");
+// 	// } // redundant, see "if (!(iss >> code_str >> path))"
+//
+// 	if (path[0] == '/') {
+// 		throw std::runtime_error("parse error: error page file path must not start with '/': " + path);
+// 	}
+//
+// 	if (path[path.size() - 1] == '/') {
+// 		throw std::runtime_error("parse error: error page file path must not end with '/': " + path);
+// 	}
+//
+// 	if (!isReadable(path)) {
+// 		throw std::runtime_error("parse error: no read access: " + path);
+// 	}
+//
+// 	config.error_pages[code] = path;
+//
+// 	return;
+//
+// }
 
 void Parser::_handleClientMaxBodySize(const std::string& val, Config& config) {
 
@@ -638,55 +965,6 @@ void Parser::_handleClientMaxBodySize(const std::string& val, Config& config) {
 
 	config.client_max_body_size = size;
 
-}
-
-void Parser::_handleErrorPage(const std::string& val, Config& config) {
-
-	if (val.empty()) {
-		throw std::runtime_error("parse error: error_page directive requires code and path");
-	}
-
-	std::istringstream iss(val);
-	std::string code_str;
-	std::string path;
-
-	if (!(iss >> code_str >> path)) {
-		throw std::runtime_error("parse error: error_page requires both status code and path");
-	}
-
-	int code = stringToInt(code_str);
-
-	if (!isValidErrorCode(code)) {
-		throw std::runtime_error("parse error: invalid error code: " + code_str);
-	}
-
-	if (path.empty()) {
-		throw std::runtime_error("parse error: error_page path cannot be empty");
-	}
-
-	config.error_pages[code] = path;
-
-}
-
-void Parser::_handleServerRoot(const std::string& val, Config& config) {
-
-	if (val.empty()) {
-		throw std::runtime_error("parse error: root directive requires a value");
-	}
-
-	if (val[0] != '/') {
-		throw std::runtime_error("parse error: root path must start with '/': " + val);
-	}
-
-	config.root = val;
-}
-
-void Parser::_handleServerIndex(const std::string& val, Config& config) {
-
-	if (val.empty()) {
-		throw std::runtime_error("parse error: index directive requires a value");
-	}
-
-	config.index = val;
+	return;
 
 }

@@ -21,19 +21,24 @@
 #include <string>
 // #include <vector>
 
-void			dumpConfigs(const std::vector<Config>& config);
 // DEBUG
-void			dumpClientConfig(const Client* client);
-void			dumpEvents(int nfds, epoll_event* events);
-void			dumpRequest(HTTPRequest* request);
-
 void			warnHighEventLoad(int nfds, int max_capacity);
+void			dumpEvents(int nfds, epoll_event* events);
+void			dumpClientConfig(const Client* client);
+void			dumpRequest(HTTPRequest* request);
 // DEBUG
+
 unsigned short	stringToUnsignedShort(const std::string& str);
 size_t			stringToSize(const std::string& str);
 int				stringToInt(const std::string& str);
 
 std::string		trim(const std::string& str);
-std::string		get_content_type(const std::string& path);
+
+bool			isRegularFile(const std::string& path);
+bool			isDirectory(const std::string& path);
+// bool			isReadable(const std::string& path);
+// bool			isValidErrorCode(const int code);
+
+void			dumpConfigs(const std::vector<Config>& config);
 
 #endif

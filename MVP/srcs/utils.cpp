@@ -14,13 +14,15 @@
 #include "../incs/Logger.hpp"
 #include "../incs/templates.hpp"
 #include "../incs/HTTPRequest.hpp"
-#include <climits>   // for USHRT_MAX, INT_MIN, INT_MAX
+#include <sys/stat.h>	// stat
+#include <unistd.h>
+#include <iostream>
+#include <climits>		// for USHRT_MAX, INT_MIN, INT_MAX
 #include <cstring>
 #include <cstdlib>
 #include <cstdio>
-#include <iostream>
 
-// DEBUG >>
+// DEBUG BEGIN
 void warnHighEventLoad(int nfds, int max_capacity) {
 	int utilization = (nfds * 100) / max_capacity;
 	if (utilization >= 95) {
@@ -55,19 +57,30 @@ void dumpEvents(int nfds, epoll_event* events) {
 
 void dumpClientConfig(const Client* client) {
 
-	size_t i;;
+	size_t j;
+	size_t k;
 	const Config& c = client->getConfig();
 	const std::vector<std::string> n = c.server_names;
-	const std::vector<LocationConfig> l = c.locations;
+	const std::vector<Location> l = c.locations;
+	const std::vector<std::string> i = c.index_files;
 
-	log.info(c.host + " " + i2a(c.port) + " " + c.root + " " + c.index);
-	i = -1;
-	while (++i < n.size()) {
-		log.info(n[i]);
+	log.info(c.host + " " + i2a(c.port) + " " + c.root + " ");
+	j = -1;
+	while (++j < i.size()) {
+		log.info(i[j]);
 	}
-	i = -1;
-	while (++i < l.size()) {
-		log.info(l[i].path + " " + l[i].root + " " + l[i].index + " " + l[i].redirect + " " + i2a(l[i].autoindex) + " " + l[i].upload_dir);
+	j = -1;
+	while (++j < n.size()) {
+		log.info(n[j]);
+	}
+	j = -1;
+	k = -1;
+	while (++j < l.size()) {
+		log.info(l[j].path + " " + l[j].root + " ");
+		while (++k < l[j].index_files.size()) {
+			log.info(l[j].index_files[j] + " ");
+		}
+		log.info(l[j].redirect + " " + i2a(l[j].autoindex) + " " + l[j].upload_dir);
 	}
 }
 
@@ -109,7 +122,7 @@ void dumpRequest(HTTPRequest* request) {
 
 	log.debug("Body:\t\t" + request->getBody());
 }
-// << DEBUG
+// DEBUG END
 
 unsigned short stringToUnsignedShort(const std::string& str) {
 
@@ -168,71 +181,136 @@ std::string trim(const std::string& str) {
 	return str.substr(first, last - first + 1);
 }
 
-std::string get_content_type(const std::string& path) {
-	size_t dot = path.rfind('.');
-	if (dot == std::string::npos || dot == path.size() - 1)
-		return "application/octet-stream";
-	std::string ext = path.substr(dot);
-	if (ext == ".html" || ext == ".htm")
-		return "text/html";
-	else if (ext == ".css")
-		return "text/css";
-	else if (ext == ".js")
-		return "application/javascript";
-	else if (ext == ".jpg" || ext == ".jpeg")
-		return "image/jpeg";
-	else if (ext == ".png")
-		return "image/png";
-	else if (ext == ".gif")
-		return "image/gif";
-	else if (ext == ".py" || ext == ".sh")
-		return "text/x-script";
-	else
-		return "application/octet-stream";
+bool isRegularFile(const std::string& path) {
+
+	// if (access(path.c_str(), F_OK) == -1) {
+	// 	// return false;
+	// 	log.error("F_KO");
+	// }
+
+	// log.error(path);
+	struct stat sb;
+	int status = stat(path.c_str(), &sb);
+	// log.error(i2a(status));
+	if (status != 0) {
+		// log.error("cassé");
+		return false;
+	}
+
+	return S_ISREG(sb.st_mode);
+
 }
+
+bool isDirectory(const std::string& path) {
+
+	// if (access(path.c_str(), F_OK) == -1) {
+	// 	// return false;
+	// 	log.error("F_KO");
+	// }
+
+	// log.error(path);
+	struct stat sb;
+	// if (stat(path.c_str(), &sb) != 0) {
+	int status = stat(path.c_str(), &sb);
+	// log.error(i2a(status));
+	if (status != 0) {
+		// log.error("cassé");
+		return false;
+	}
+
+	return S_ISDIR(sb.st_mode);
+
+}
+
+// bool isReadable(const std::string& path) {
+//
+// 	if (!isRegularFile(path)) {
+// 		return false;
+// 	}
+//
+// 	return access(path.c_str(), R_OK) == 0;
+//
+// }
+
+// bool isValidErrorCode(const int code) {
+//
+// 	return code >= 400 && code < 600;
+//
+// }
 
 void dumpConfigs(const std::vector<Config>& config) {
 	for (std::vector<Config>::const_iterator server = config.begin(); server != config.end(); ++server) {
 		std::cout << "server {\n";
 		std::cout << "    host: " << server->host << ";\n";
 		std::cout << "    port: " << server->port << ";\n";
+		std::cout << "    server_names: [";
+		for (size_t j = 0; j < server->server_names.size(); ++j) {
+			std::cout << server->server_names[j];
+			if (j < server->server_names.size() - 1) std::cout << ", ";
+		}
+		std::cout << "];\n";
 		std::cout << "    root: " << server->root << ";\n";
-		std::cout << "    index: " << server->index << ";\n";
-		std::cout << "    client_max_body_size: " << server->client_max_body_size << ";\n";
+		std::cout << "    index_files: [";
+		for (size_t j = 0; j < server->index_files.size(); ++j) {
+			std::cout << server->index_files[j];
+			if (j < server->index_files.size() - 1) std::cout << ", ";
+		}
+		std::cout << "];\n";
 		std::cout << "    error_pages {\n";
 		for (std::map<int, std::string>::const_iterator error_page = server->error_pages.begin(); error_page != server->error_pages.end(); ++error_page) {
 			std::cout << "        " << error_page->first << " " << error_page->second << ";\n";
 		}
 		std::cout << "    }\n";
+		std::cout << "    client_max_body_size: " << server->client_max_body_size << ";\n";
 		std::cout << "    locations {\n";
-		for (std::vector<LocationConfig>::const_iterator location = server->locations.begin(); location != server->locations.end(); ++location) {
+		for (std::vector<Location>::const_iterator location = server->locations.begin(); location != server->locations.end(); ++location) {
 			std::cout << "        location " << location->path << " {\n";
+			std::cout << "            root: " << location->root << ";\n";
+			std::cout << "            redirect: " << location->redirect << ";\n";
 			std::cout << "            methods: [";
 			for (size_t i = 0; i < location->methods.size(); ++i) {
 				std::cout << location->methods[i];
 				if (i < location->methods.size() - 1) std::cout << ", ";
 			}
 			std::cout << "];\n";
-			std::cout << "            root: " << location->root << ";\n";
-			std::cout << "            index: " << location->index << ";\n";
-			std::cout << "            redirect: " << location->redirect << ";\n";
 			std::cout << "            autoindex: " << (location->autoindex ? "on" : "off") << ";\n";
+			// std::cout << "            index: " << location->index << ";\n";
+			std::cout << "            index files: [";
+			for (size_t j = 0; j < location->index_files.size(); ++j) {
+				std::cout << location->index_files[j];
+					if (j < location->index_files.size() - 1) std::cout << ", ";
+			}
+			std::cout << "];\n";
 			std::cout << "            upload_dir: " << location->upload_dir << ";\n";
-			std::cout << "            cgi_extension: [";
-			for (size_t j = 0; j < location->cgi_extensions.size(); ++j) {
-				std::cout << location->cgi_extensions[j];
-				if (j < location->cgi_extensions.size() - 1) std::cout << ", ";
+			// std::cout << "            cgi_extension: [";
+			// for (size_t j = 0; j < location->cgi_extensions.size(); ++j) {
+			// 	std::cout << location->cgi_extensions[j];
+			// 	if (j < location->cgi_extensions.size() - 1) std::cout << ", ";
+			// }
+			// std::cout << "];\n";
+			// std::cout << "            cgi_path: [";
+			// for (size_t j = 0; j < location->cgi_paths.size(); ++j) {
+			// 	std::cout << location->cgi_paths[j];
+			// 	if (j < location->cgi_paths.size() - 1) std::cout << ", ";
+			// }
+			// std::cout << "];\n";
+			std::cout << "            interpreter: {\n";
+			for (std::map<std::string, std::string>::const_iterator it = location->interpreters.begin();
+				 it != location->interpreters.end(); ++it) {
+				std::cout << "            " + it->first + " " + it->second << ";\n";
 			}
-			std::cout << "];\n";
-			std::cout << "            cgi_path: [";
-			for (size_t j = 0; j < location->cgi_paths.size(); ++j) {
-				std::cout << location->cgi_paths[j];
-				if (j < location->cgi_paths.size() - 1) std::cout << ", ";
+			std::cout << "            };\n";
+			std::cout << "                error_pages {\n";
+			for (std::map<int, std::string>::const_iterator error_page = location->error_pages.begin();
+				 error_page != location->error_pages.end();
+				 ++error_page) {
+				std::cout << "            " << error_page->first << " " << error_page->second << ";\n";
 			}
-			std::cout << "];\n";
+			std::cout << "            }\n";
 			std::cout << "        }\n";
 		}
 		std::cout << "    }\n";
 		std::cout << "}\n";
 	}
+	return;
 }

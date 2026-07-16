@@ -106,7 +106,7 @@ Logger::Logger(void) : _log_level(LOG_LEVEL_NOTICE) {
 	return;
 }
 
-/*	@brief Destructor	*/
+/*	@brief Deconstructor	*/
 Logger::~Logger(void) {
 	// std::cerr << DEBUG << "[DEBUG] Logger Deconstructor called" << RESET << std::endl;
 	return;

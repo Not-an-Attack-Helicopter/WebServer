@@ -58,11 +58,11 @@ class HTTPRequest {
 
 		ParseState				parse(const std::string& raw);
 
-// DEBUG >>
+// DEBUG BEGIN
 		static unsigned long	global_count;
 		unsigned long			HR_object_id;
 		unsigned long			parses_count;
-// << DEBUG
+// DEBUG END
 
 	private:
 
@@ -113,6 +113,8 @@ class HTTPRequest {
 		// char									_buffer[128];
 
 };
+
+// #include "templates.tpp"
 
 #endif
 

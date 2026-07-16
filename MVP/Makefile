@@ -20,7 +20,7 @@ OBJS_DIR	=	./objs/
 INCS_DIR	=	./incs/
 
 SRCS		=	main.cpp Logger.cpp Parser.cpp Server.cpp Client.cpp \
-			HTTPRequest.cpp utils.cpp
+			HTTPRequest.cpp HTTPResponse.cpp Dispatcher.cpp utils.cpp
 
 OBJS		=	$(addprefix $(OBJS_DIR), $(SRCS:.cpp=.o))
 

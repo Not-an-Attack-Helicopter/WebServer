@@ -24,16 +24,16 @@
  /*  Public  */
 //~~~~~~~~~~//
 
-// DEBUG >>
+// DEBUG BEGIN
 unsigned long HTTPRequest::global_count = 0;
-// << DEBUG
+// DEBUG END
 
 /*	@brief Constructor	*/
 HTTPRequest::HTTPRequest(void)
-// DEBUG >>
+// DEBUG BEGIN
 	:	HR_object_id(++global_count),
 		parses_count(0),
-// << DEBUG
+// DEBUG END
 		_state(PS_READING_REQUEST_LINE),
 		_is_unix_style(true),
 		_bytes_read_count(0),
@@ -59,9 +59,9 @@ HTTPRequest::HTTPRequest(void)
 	return;
 }
 
-/*	@brief Destructor	*/
+/*	@brief Deconstructor	*/
 HTTPRequest::~HTTPRequest(void) {
-	log.debug("HTTPRequest Destructor called");
+	log.debug("HTTPRequest Deconstructor called");
 	return;
 }
 
@@ -148,11 +148,11 @@ void HTTPRequest::reset(void) {
 // Feed raw bytes; returns the current _state:
 ParseState HTTPRequest::parse(const std::string& raw) {
 
-// DEBUG >>
-	log.notice("\n#################################################\n");
-	log.debug("request id: " + i2a(HR_object_id) + "\tstate: " + i2a(_state) + "\tparses: " + i2a(parses_count));
+// DEBUG BEGIN
+	// log.notice("\n#################################################\n");
+	// log.debug("request id: " + i2a(HR_object_id) + "\tstate: " + i2a(_state) + "\tparses: " + i2a(parses_count));
 	++parses_count;
-// << DEBUG
+// DEBUG END
 
 	switch (_state) {
 
@@ -387,14 +387,14 @@ ParseState HTTPRequest::_parseRequestLine(const std::string& raw) {
 
 		_bytes_read_count = _buffer.size() - _old_buffer_fill_level;
 
-		log.debug("Bytes read: " + i2a(_bytes_read_count));
-		log.debug("Previous buffer fill level: " + i2a(_old_buffer_fill_level));
+		// log.debug("Bytes read: " + i2a(_bytes_read_count));
+		// log.debug("Previous buffer fill level: " + i2a(_old_buffer_fill_level));
 
 		_old_buffer_fill_level = _buffer.size();
 
-		log.debug("Current buffer fill level: " + i2a(_buffer.size()));
-		log.debug("Current data in buffer (request):\n");
-		log.notice((_buffer));
+		// log.debug("Current buffer fill level: " + i2a(_buffer.size()));
+		// log.debug("Current data in buffer (request):\n");
+		// log.notice((_buffer));
 
 		return _state;
 
@@ -406,14 +406,14 @@ ParseState HTTPRequest::_parseRequestLine(const std::string& raw) {
 
 		_bytes_read_count = _buffer.size() - _old_buffer_fill_level;
 
-		log.debug("Bytes read: " + i2a(_bytes_read_count));
-		log.debug("Previous buffer fill level: " + i2a(_old_buffer_fill_level));
+		// log.debug("Bytes read: " + i2a(_bytes_read_count));
+		// log.debug("Previous buffer fill level: " + i2a(_old_buffer_fill_level));
 
 		_old_buffer_fill_level = _buffer.size();
 
-		log.debug("Current buffer fill level: " + i2a(_buffer.size()));
-		log.debug("Current data in buffer (request):\n");
-		log.notice((_buffer));
+		// log.debug("Current buffer fill level: " + i2a(_buffer.size()));
+		// log.debug("Current data in buffer (request):\n");
+		// log.notice((_buffer));
 		// log.debug("Line: " + _buffer);
 
 		// Extract method, path, query, and version
@@ -443,14 +443,14 @@ ParseState HTTPRequest::_parseHeaders(const std::string& raw) {
 
 		_bytes_read_count = _line_end_size;
 
-		log.debug("Bytes read: " + i2a(_bytes_read_count));
-		log.debug("Previous buffer fill level: " + i2a(_old_buffer_fill_level));
+		// log.debug("Bytes read: " + i2a(_bytes_read_count));
+		// log.debug("Previous buffer fill level: " + i2a(_old_buffer_fill_level));
 
 		_old_buffer_fill_level += _line_end_size;
 
-		log.debug("Current buffer fill level: " + i2a(_buffer.size()));
-		log.debug("Current data in buffer (request):\n");
-		log.notice((_buffer));
+		// log.debug("Current buffer fill level: " + i2a(_buffer.size()));
+		// log.debug("Current data in buffer (request):\n");
+		// log.notice((_buffer));
 
 		// // return _state; DO NOT RETURN AT THIS LINE!
 
@@ -514,14 +514,14 @@ ParseState HTTPRequest::_parseHeaders(const std::string& raw) {
 
 		_bytes_read_count = _buffer.size() - _old_buffer_fill_level;
 
-		log.debug("Bytes read: " + i2a(_bytes_read_count));
-		log.debug("Previous buffer fill level: " + i2a(_old_buffer_fill_level));
+		// log.debug("Bytes read: " + i2a(_bytes_read_count));
+		// log.debug("Previous buffer fill level: " + i2a(_old_buffer_fill_level));
 
 		_old_buffer_fill_level = _buffer.size();
 
-		log.debug("Current buffer fill level: " + i2a(_buffer.size()));
-		log.debug("Current data in buffer (request):\n");
-		log.notice((_buffer));
+		// log.debug("Current buffer fill level: " + i2a(_buffer.size()));
+		// log.debug("Current data in buffer (request):\n");
+		// log.notice((_buffer));
 
 		return _state;
 
@@ -533,14 +533,14 @@ ParseState HTTPRequest::_parseHeaders(const std::string& raw) {
 
 		_bytes_read_count = _buffer.size() - _old_buffer_fill_level;
 
-		log.debug("Bytes read: " + i2a(_bytes_read_count));
-		log.debug("Previous buffer fill level: " + i2a(_old_buffer_fill_level));
+		// log.debug("Bytes read: " + i2a(_bytes_read_count));
+		// log.debug("Previous buffer fill level: " + i2a(_old_buffer_fill_level));
 
 		_old_buffer_fill_level = _buffer.size();
 
-		log.debug("Current buffer fill level: " + i2a(_buffer.size()));
-		log.debug("Current data in buffer (request):\n");
-		log.notice((_buffer));
+		// log.debug("Current buffer fill level: " + i2a(_buffer.size()));
+		// log.debug("Current data in buffer (request):\n");
+		// log.notice((_buffer));
 
 		// Parse header line
 		std::string line = _buffer.substr(_buffer.size() - _bytes_read_count);
@@ -621,7 +621,7 @@ ParseState HTTPRequest::_parseBody(const std::string& raw) {
 	_blank_line_size = _is_unix_style ? UNIX_BLANK_LINE_SIZE : WINDOWS_BLANK_LINE_SIZE;
 	_body_start_pos = _headers_end_pos + _blank_line_size;
 	_request_size = _body_start_pos + _content_length;
-// DEBUG >>
+// DEBUG BEGIN
 	log.debug("_request_line_end_pos: " + i2a(_request_line_end_pos));
 	log.debug("_line_end_size: " + i2a(_line_end_size));
 	log.debug("_headers_start_pos: " + i2a(_headers_start_pos));
@@ -632,7 +632,7 @@ ParseState HTTPRequest::_parseBody(const std::string& raw) {
 	log.debug("_content_length: " + i2a(_content_length));
 	log.debug("_request_size: " + i2a(_request_size));
 	log.debug("_buffer.size() + raw.size(): " + i2a(_buffer.size() + raw.size()));
-// DEBUG <<
+// DEBUG END
 	// Check if complete body received
 	if (_buffer.size() + raw.size() < _request_size) {
 		// _buffer.erase(_old_buffer_fill_level);
@@ -644,30 +644,30 @@ ParseState HTTPRequest::_parseBody(const std::string& raw) {
 	} else {
 
 		_buffer.append(raw);
-// DEBUG >>
-		log.debug("_buffer.size(): " + i2a(_buffer.size()));
-// DEBUG <<
+// DEBUG BEGIN
+		// log.debug("_buffer.size(): " + i2a(_buffer.size()));
+// DEBUG END
 		_bytes_read_count = _buffer.size() - _old_buffer_fill_level;
 
-		log.debug("Bytes read: " + i2a(_bytes_read_count));
-		log.debug("Previous buffer fill level: " + i2a(_old_buffer_fill_level));
+		// log.debug("Bytes read: " + i2a(_bytes_read_count));
+		// log.debug("Previous buffer fill level: " + i2a(_old_buffer_fill_level));
 
 		_old_buffer_fill_level = _buffer.size();
 
-		log.debug("Current buffer fill level: " + i2a(_buffer.size()));
-		log.debug("Current data in buffer (request):\n");
-		log.notice((_buffer));
+		// log.debug("Current buffer fill level: " + i2a(_buffer.size()));
+		// log.debug("Current data in buffer (request):\n");
+		// log.notice((_buffer));
 
 		// Store body (if valid)
 		_body = _buffer.substr(_body_start_pos, _content_length);
 
-		log.debug("Expected overflow: " + i2a(_buffer.size() - _request_size));
+		// log.debug("Expected overflow: " + i2a(_buffer.size() - _request_size));
 
-		size_t tmp = _bytes_read_count;
+		// size_t tmp = _bytes_read_count;
 		// _bytes_read_count = _bytes_read_count - (_buffer.size() - _request_size);
 		_bytes_read_count = _content_length;
 
-		log.debug("Actual overflow: " + i2a(tmp - _bytes_read_count));
+		// log.debug("Actual overflow: " + i2a(tmp - _bytes_read_count));
 		// _bytes_read_count = _bytes_read_count + _line_end_size - 1;
 		// _bytes_read_count = _content_length;
 

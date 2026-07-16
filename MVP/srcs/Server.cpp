@@ -11,6 +11,7 @@
 /* ************************************************************************** */
 
 #include "../incs/Server.hpp"
+#include "../incs/Dispatcher.hpp"
 #include "../incs/templates.hpp"
 #include "../incs/Logger.hpp"
 #include "../incs/utils.hpp"
@@ -177,7 +178,7 @@ void Server::handleIncomingEvents(void) {
 
 		case -1:
 			throw std::runtime_error("epoll_wait: " + std::string(strerror(errno)));
-// DEBUG >>
+// DEBUG BEGIN
 		case 0:
 			log.debug("Timeout: no events");
 			break;
@@ -185,7 +186,7 @@ void Server::handleIncomingEvents(void) {
 		default:
 			dumpEvents(nfds, _events);
 			warnHighEventLoad(nfds, MAX_EPOLL_EVENTS);
-// << DEBUG
+// DEBUG END
 		}
 
 		for (int n = 0; n < nfds; ++n) {
@@ -216,11 +217,11 @@ void Server::handleIncomingEvents(void) {
 			}
 
 		}
-// DEBUG >>
+// DEBUG BEGIN
 		if (_stop == true) {
 			break;
 		}
-// << DEBUG
+// DEBUG END
 		std::map<int, Client*>::iterator immediate;
 		std::map<int, Client*>::iterator it = _clients.begin();
 
@@ -231,18 +232,18 @@ void Server::handleIncomingEvents(void) {
 			// 	immediate->second->parseIncomingData();
 
 			if (immediate->second->isTimedOut()) {
-// DEBUG >>
+// DEBUG BEGIN
 				log.debug("Client fd_" + i2a(immediate->first)
 				+ " idle time: " + i2a(immediate->second->getIdleTime()) + "s");
-// << DEBUG
+// DEBUG END
 				log.warn("Client fd_" + i2a(immediate->first) + " timed out");
 
 				cleanUpClient(immediate);
-// DEBUG >>
+// DEBUG BEGIN
 				if (_clients.empty()) {
 					log.info("All clients disconnected");
 				}
-// << DEBUG
+// DEBUG END
 			}
 
 		}
@@ -262,7 +263,8 @@ void Server::acceptConnectRequest(int socket_fd, const Config* config) {
 
 	Client* c = new Client(config);
 
-	int client_fd = accept(socket_fd, c->getAddrPointer(), c->getAddrlenPointer());
+	// int client_fd = accept(socket_fd, c->getAddrPointer(), c->getAddrlenPointer());
+	int client_fd = accept(socket_fd, &c->getAddr(), &c->getAddrlen());
 	if (client_fd == -1) {
 
 		delete c;
@@ -312,40 +314,49 @@ bool Server::handleReadEvent(int fd) {
 	case 0:
 		log.info("Connection closed by client fd_" + i2a(fd));
 		cleanUpClient(it);
-// DEBUG >>
+// DEBUG BEGIN
 		if (_clients.empty()) {
 			log.info("All clients disconnected");
 		}
-// << DEBUG
+// DEBUG END
 		return true;
-// DEBUG >>
+// DEBUG BEGIN
 	case STOP:
 		log.info("Connection closed by the server");
 		_stop = true;
 		return true;
-// << DEBUG
+// DEBUG END
 	default:
-// DEBUG >>
+// DEBUG BEGIN
 		std::string buff = client.getBuffer();
+		if (static_cast<size_t>(bytes_received) >= buff.size()) {
+			bytes_received = buff.size() - 1;
+		}
 		buff.erase(bytes_received); // Remove AT LEAST this line for production
 
 		log.debug("Read " + i2a(bytes_received) + " bytes from client fd_" + i2a(fd) + ":");
 		log.notice(buff);
-		log.debug("Current data in buffer:");
-		log.notice(client.getIncomingData());
-// << DEBUG
-		// it->second->cleanIncomingData(); // TEST
-		client.parseIncomingData(); // TEST
-		// client.processRequests(); // TEST
-		// client.queueResponse(); // TEST
-		// addWriteInterest(fd);
-// DEBUG >>
-		if (!client.hasPendingData()) { // We already established that the client exists
-			std::string response = "Data Received. Ctrl+D to close the connection.\n";
-			client.queueOutgoingData(response);
+		// log.debug("Current data in buffer:");
+		// log.notice(client.getIncomingData());
+// DEBUG END
+// TEST >>
+		client.parseIncomingData();
+
+		if (client.getCurrentRequest().getState() == PS_COMPLETE) {
+
+			// Create new response object in deque container
+			client.pushResponse();
+
+			// Dispatch current request and build response
+			handler.dispatchRequest(client);
+
+			// Delete processed request from deque container
+			client.popRequest();
+
 			addWriteInterest(fd);
+
 		}
-// << DEBUG
+// << TEST
 		return false;
 
 	}
@@ -357,10 +368,23 @@ void Server::handleWriteEvent(int fd) {
 	std::map<int, Client*>::iterator it = _clients.find(fd);
 
 	if (it == _clients.end() || it->second == NULL) {
-		throw std::runtime_error("client lookup:: " + std::string(NFIND_CLIENT));
+		throw std::runtime_error("client lookup: " + std::string(NFIND_CLIENT));
 	}
 
 	Client& client = *it->second;
+
+// TEST BEGIN
+	if (client.hasPendingResponse()) {
+		client.queueOutgoingData();
+		client.popResponse();
+	}
+// TEST END
+// DEBUG BEGIN
+	if (!client.hasPendingData()) {
+		std::string message = "Data Received. Ctrl+D to close the connection.\n";
+		client.queueOutgoingData(message);
+	}
+// DEBUG END
 
 	if (client.hasPendingData()) {
 		int status = client.flushPendingData(fd);
@@ -486,9 +510,9 @@ Server::Server(void) {
 	return;
 }
 
-/*	@brief Destructor	*/
+/*	@brief Deconstructor	*/
 Server::~Server(void) {
-	log.debug("Server Destructor called");
+	log.debug("Server Deconstructor called");
 	// if (_epfd != -1 || !_sockfd.empty() || !_clients.empty()) {
 	if (_epfd != -1 || !_sockets.empty() || !_clients.empty()) {
 		cleanUpAllRessources();
@@ -522,7 +546,7 @@ void Server::forking_around(int socket_fd, int client_fd) {
 		case 0:
 			// cleanUpAllRessources();							// This is bad! Because all clients will be deleted
 			// and all interests will be wiped from all sockets!
-			// if (!_clients.empty()) {							// This is bad! The client object will be destructed.
+			// if (!_clients.empty()) {							// This is bad! The client object will be deconstructed.
 			// 	std::map<int, Client*>::iterator immediate;
 			// 	std::map<int, Client*>::iterator it = _clients.begin();
 			// 	while (it != _clients.end()) {
