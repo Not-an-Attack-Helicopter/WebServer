@@ -62,6 +62,7 @@ class HTTPRequest {
 		static unsigned long	global_count;
 		unsigned long			HR_object_id;
 		unsigned long			parses_count;
+		std::map<std::string, std::string>&	getHeaders(void);
 // DEBUG END
 
 	private:
@@ -98,6 +99,7 @@ class HTTPRequest {
 		std::map<std::string, std::string>		_headers;
 
 		size_t									_bytes_read_count;
+		size_t									_header_line_size;
 		size_t									_old_buffer_fill_level;
 		size_t									_request_line_end_pos;
 		size_t									_header_line_end_pos;

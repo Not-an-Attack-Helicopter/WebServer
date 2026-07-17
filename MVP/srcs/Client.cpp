@@ -17,7 +17,7 @@
 // #include "../incs/templates.hpp"
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <fstream>
+// #include <fstream>
 #include <cstring>
 
   //~~~~~~~~~~//
@@ -60,7 +60,7 @@ Client::~Client(void) {
 			delete _request_queue.back();
 			_request_queue.pop_back();
 		}
-	_request_queue.clear();
+		_request_queue.clear();
 	}
 
 	if (!_response_queue.empty()) {
@@ -73,7 +73,7 @@ Client::~Client(void) {
 			delete _response_queue.front();
 			_response_queue.pop_front();
 		}
-	_response_queue.clear();
+		_response_queue.clear();
 	}
 
 	return;
@@ -292,31 +292,6 @@ void Client::parseIncomingData(void) {
 
 }
 
-// void Client::processNextRequest() {
-// 	if (!_request_queue.empty()) {
-// 		HTTPResponse* response;
-// 		_response_queue.push_back(response);
-// 		_handler.handle(*_request_queue.front(), *_response_queue.back(), *_config);
-// 	}
-// }
-
-// void Client::processRequests() {
-// 	while (!_request_queue.empty()) {
-// 		HTTPRequest* request = _request_queue.front();
-// 		HTTPResponse* response = new HTTPResponse();
-// 		_handler.handle(*request, *response, *_config);
-// 		_response_queue.push_back(response);
-// 		_request_queue.erase(_request_queue.begin());
-// 		delete request;
-// 	}
-// }
-
-// void Client::sendResponse(HTTPResponse* res) {
-// 	// Write to socket...
-// 	_response_queue.erase(_response_queue.begin());
-// 	delete res;
-// }
-
 // Create new request object in deque container
 void Client::pushRequest(void) {
 
@@ -354,119 +329,145 @@ void Client::popResponse(void) {
 }
 
 // DEBUG BEGIN
-void Client::handleRequest(void) {
 
-	// log.error(_request_queue.at(_request_queue.size() - 1)->getPath());
-	if (_request_queue.back()->getPath() == "/pages/error/style.css") {
-		buildCSSResponse();
-	} else {
-		buildResponse();
-		// HTTPResponse* response = new HTTPResponse;
-		// response->setStatus(405);
-		// response->setHeader("Server", "MyServer/1.0");
-		// std::string body =	"<html><body><h1>" + i2a(response->getStatusCode()) +
-		// 					": " + response->getStatusReason() + "</h1></body></html>";
-		// response->setBody(body, "text/html");
-		// _response_queue.push_back(response);
-	}
+// void Client::processNextRequest() {
+// 	if (!_request_queue.empty()) {
+// 		HTTPResponse* response;
+// 		_response_queue.push_back(response);
+// 		_handler.handle(*_request_queue.front(), *_response_queue.back(), *_config);
+// 	}
+// }
 
-	delete _request_queue.back();
-	_request_queue.pop_back();
+// void Client::processRequests() {
+// 	while (!_request_queue.empty()) {
+// 		HTTPRequest* request = _request_queue.front();
+// 		HTTPResponse* response = new HTTPResponse();
+// 		_handler.handle(*request, *response, *_config);
+// 		_response_queue.push_back(response);
+// 		_request_queue.erase(_request_queue.begin());
+// 		delete request;
+// 	}
+// }
 
-	return;
+// void Client::sendResponse(HTTPResponse* res) {
+// 	// Write to socket...
+// 	_response_queue.erase(_response_queue.begin());
+// 	delete res;
+// }
 
-}
-
-void Client::buildCSSResponse(void) {
-
-	std::string response_file = "pages/error/style.css";
-	std::ifstream file(response_file.c_str());
-	if (!file.is_open()) {
-		throw std::runtime_error("could not open file: " + response_file);
-	}
-
-	HTTPResponse* response = new HTTPResponse;
-
-	response->setStatus(200);
-	response->setHeader("Server", "MyServer/1.0");
-
-	// std::string body;
-	// std::string line;
-	// while (std::getline(file, line)) {
-	// 	body += line + "\n";
-	// }
-
-	std::string body((std::istreambuf_iterator<char>(file)),
-					 std::istreambuf_iterator<char>());
-
-	response->setBody(body, "text/css");
-
-	_response_queue.push_back(response);
-
-	return;
-}
-
-void Client::buildResponse(void) {
-
-	std::string response_file = "pages/error/400.html";
-	std::ifstream file(response_file.c_str());
-	if (!file.is_open()) {
-		throw std::runtime_error("could not open file: " + response_file);
-	}
-
-	// Create new response object in deque container
-	HTTPResponse* response = new HTTPResponse;
-
-	response->setStatus(400);
-	response->setHeader("Server", "MyServer/1.0");
-
-	// Option 1:
-	std::string body((std::istreambuf_iterator<char>(file)),
-					 std::istreambuf_iterator<char>());
-	// How it works:
-	//  - Reads directly from the file's internal buffer without character-by-character parsing
-	//  - The constructor receives two iterators and copies data in bulk chunks
-	//  - Single allocation (or a few reallocations as the string grows)
-	//  - No intermediate buffering — data flows directly from file buffer to string buffer
-	// Time complexity: O(n) where n = file size
-	// Space complexity: O(n) for the result string
-	// Memory allocations: Typically 1–3 (depending on string growth strategy)
-
-	// Option 2:
-	// std::stringstream buffer;
-	// buffer << file.rdbuf();
-	// std::string body = buffer.str();
-	// How it works:
-	//  - file.rdbuf() returns the file's streambuf pointer
-	//  - operator<< on stringstream calls sputn(), which copies the buffer contents
-	//  - str() returns a copy of the internal string (one extra copy operation)
-	// Time complexity: O(n) + cost of one extra string copy
-	// Space complexity: O(n) for stringstream + O(n) for the result string = 2n total
-	// Memory allocations: Multiple allocations in stringstream + one copy in str()
-
-	// Extra overhead: Option 2 creates an intermediate stringstream object and copies its contents to the result string. This is less efficient than Option 1.
-
-	// Option "Stoopid":
-	// std::string body;
-	// std::string line;
-	// while (std::getline(file, line)) {
-	// 	body += line + "\n";
-	// }
-	// How it works:
-	//  - Reads line-by-line via getline()
-	//  - Each += triggers a string concatenation (potentially O(n) per iteration)
-	//  - Creates temporary line + "\n" string for each line
-	// Time complexity: O(n²) in worst case if string doesn't pre-allocate
-	// Space complexity: O(n) for result + O(m) per line for temporaries
-	// Memory allocations: Many — one per line, plus reallocations as body grows
-
-	response->setBody(body, "text/html");
-
-	_response_queue.push_back(response);
-
-	return;
-
-}
+// void Client::handleRequest(void) {
+//
+// 	// log.error(_request_queue.at(_request_queue.size() - 1)->getPath());
+// 	if (_request_queue.back()->getPath() == "/pages/error/style.css") {
+// 		buildCSSResponse();
+// 	} else {
+// 		buildResponse();
+// 		// HTTPResponse* response = new HTTPResponse;
+// 		// response->setStatus(405);
+// 		// response->setHeader("Server", "MyServer/1.0");
+// 		// std::string body =	"<html><body><h1>" + i2a(response->getStatusCode()) +
+// 		// 					": " + response->getStatusReason() + "</h1></body></html>";
+// 		// response->setBody(body, "text/html");
+// 		// _response_queue.push_back(response);
+// 	}
+//
+// 	delete _request_queue.back();
+// 	_request_queue.pop_back();
+//
+// 	return;
+//
+// }
+//
+// void Client::buildCSSResponse(void) {
+//
+// 	std::string response_file = "pages/error/style.css";
+// 	std::ifstream file(response_file.c_str());
+// 	if (!file.is_open()) {
+// 		throw std::runtime_error("could not open file: " + response_file);
+// 	}
+//
+// 	HTTPResponse* response = new HTTPResponse;
+//
+// 	response->setStatus(200);
+// 	response->setHeader("Server", "MyServer/1.0");
+//
+// 	// std::string body;
+// 	// std::string line;
+// 	// while (std::getline(file, line)) {
+// 	// 	body += line + "\n";
+// 	// }
+//
+// 	std::string body((std::istreambuf_iterator<char>(file)),
+// 					 std::istreambuf_iterator<char>());
+//
+// 	response->setBody(body, "text/css");
+//
+// 	_response_queue.push_back(response);
+//
+// 	return;
+// }
+//
+// void Client::buildResponse(void) {
+//
+// 	std::string response_file = "pages/error/400.html";
+// 	std::ifstream file(response_file.c_str());
+// 	if (!file.is_open()) {
+// 		throw std::runtime_error("could not open file: " + response_file);
+// 	}
+//
+// 	// Create new response object in deque container
+// 	HTTPResponse* response = new HTTPResponse;
+//
+// 	response->setStatus(400);
+// 	response->setHeader("Server", "MyServer/1.0");
+//
+// 	// Option 1:
+// 	std::string body((std::istreambuf_iterator<char>(file)),
+// 					 std::istreambuf_iterator<char>());
+// 	// How it works:
+// 	//  - Reads directly from the file's internal buffer without character-by-character parsing
+// 	//  - The constructor receives two iterators and copies data in bulk chunks
+// 	//  - Single allocation (or a few reallocations as the string grows)
+// 	//  - No intermediate buffering — data flows directly from file buffer to string buffer
+// 	// Time complexity: O(n) where n = file size
+// 	// Space complexity: O(n) for the result string
+// 	// Memory allocations: Typically 1–3 (depending on string growth strategy)
+//
+// 	// Option 2:
+// 	// std::stringstream buffer;
+// 	// buffer << file.rdbuf();
+// 	// std::string body = buffer.str();
+// 	// How it works:
+// 	//  - file.rdbuf() returns the file's streambuf pointer
+// 	//  - operator<< on stringstream calls sputn(), which copies the buffer contents
+// 	//  - str() returns a copy of the internal string (one extra copy operation)
+// 	// Time complexity: O(n) + cost of one extra string copy
+// 	// Space complexity: O(n) for stringstream + O(n) for the result string = 2n total
+// 	// Memory allocations: Multiple allocations in stringstream + one copy in str()
+//
+// 	// Extra overhead: Option 2 creates an intermediate stringstream object and copies its contents to the result string. This is less efficient than Option 1.
+//
+// 	// Option "Stoopid":
+// 	// std::string body;
+// 	// std::string line;
+// 	// while (std::getline(file, line)) {
+// 	// 	body += line + "\n";
+// 	// }
+// 	// How it works:
+// 	//  - Reads line-by-line via getline()
+// 	//  - Each += triggers a string concatenation (potentially O(n) per iteration)
+// 	//  - Creates temporary line + "\n" string for each line
+// 	// Time complexity: O(n²) in worst case if string doesn't pre-allocate
+// 	// Space complexity: O(n) for result + O(m) per line for temporaries
+// 	// Memory allocations: Many — one per line, plus reallocations as body grows
+//
+// 	response->setBody(body, "text/html");
+//
+// 	_response_queue.push_back(response);
+//
+// 	return;
+//
+// }
 // DEBUG END
 
 // DEBUG BEGIN
@@ -570,7 +571,7 @@ void Client::reset(void) {
 			delete _request_queue.back();
 			_request_queue.pop_back();
 		}
-	_request_queue.clear();
+		_request_queue.clear();
 	}
 
 	if (!_response_queue.empty()) {
@@ -581,8 +582,9 @@ void Client::reset(void) {
 		_response_queue.clear();
 	}
 
-	HTTPRequest* request = new HTTPRequest();
-	_request_queue.push_back(request);
+	pushRequest();
+	// HTTPRequest* request = new HTTPRequest();
+	// _request_queue.push_back(request);
 
 	return;
 

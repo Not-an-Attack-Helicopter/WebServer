@@ -20,6 +20,7 @@
 #include <sys/stat.h>	// stat
 #include <sys/wait.h>	// waitpid
 #include <dirent.h>		// opendir, readdir, closedir
+#include <cstddef>
 #include <fstream>
 
 static bool isReadable(const std::string& path) {
@@ -62,76 +63,143 @@ static bool hasCGIExtension(const Location* location,
 static std::string findIndexFile(const Location* location,
 								 const std::string& path) {
 
-	if (location->index_files.empty()) {
-		return "";
-	}
+	// if (location->index_files.empty()) {
+	// 	return "";
+	// }
 
 	for (size_t i = 0; i < location->index_files.size(); ++i) {
 
-		std::string index_file_path = path + "/" + location->index_files[i];
+		std::string index_file_path = path + location->index_files[i];
 
 		// struct stat sb;
 		// if (stat(index_file_path.c_str(), &sb) == 0 && S_ISREG(sb.st_mode)) {
 		// 	return index_file_path;
 		// }
-		if (isRegularFile(index_file_path)) {
-			return index_file_path;
-		}
+		// if (isRegularFile(index_file_path)) {
+		return index_file_path;
+		// }
 	}
+
 	return "";
+
+}
+
+static bool startsWith(const std::string& requested_path,
+					   const std::string& config_location_path,
+					   size_t requested_location_path_len,
+					   size_t config_location_path_len) {
+
+	if (config_location_path_len > requested_location_path_len) {
+		return false;
+	}
+
+	return requested_path.compare(0, config_location_path_len, config_location_path) == 0;
+
 }
 
 static const Location* matchLocation(const Config* config,
-									 const std::string& path) {
+									 const std::string& requested_location_path) {
 
-	std::string requested_location = path;
-	// log.error("requested_location = " + path);
-	size_t delim = path.find('.');
-	// log.error(i2a(delim));
-	if (delim != 0 && delim != std::string::npos) {
-		delim = path.rfind('/');
-		// log.error(i2a(delim));
-		requested_location = path.substr(0, delim + 1);
+	// Look for exact match
+	for (size_t i = 0; i < config->locations.size(); ++i) {
+		if (requested_location_path == config->locations[i].path) {
+			return &config->locations[i];
+		}
 	}
-	// log.error("requested_location = " + requested_location);
 
+	// Longest prefix match wins
 	const Location*	matched_location = NULL;
-	// size_t matched_location_path_len = matched_location->path.size();
 	size_t matched_location_path_len = 0;
 
 	for (size_t i = 0; i < config->locations.size(); ++i) {
 
 		const Location* config_location = &config->locations[i];
-		// std::string config_location_path = config->locations[i].path;
 		std::string config_location_path = config_location->path;
-		// log.error("config_location = " + config_location_path);
-		// log.error(config_location_path + " " + requested_location);
+		size_t config_location_path_len = config_location_path.length();
+		size_t requested_location_path_len = requested_location_path.length();
+		// log.error(config_location_path + " " + i2a(config_location_path_len));
+		// log.error(requested_location_path + " " + i2a(requested_location_path_len));
+		if (startsWith(requested_location_path,
+					   config_location_path,
+					   requested_location_path_len,
+					   config_location_path_len)) {
 
-		size_t j = 0;
-		while (config_location_path[j] != '\0' && requested_location[j] != '\0') {
+			// log.error("A config location matches with requested location.");
+			config_location_path_len = config_location_path.length();
+			bool is_valid_boundary = 	(config_location_path_len == requested_location_path_len ||
+										requested_location_path[config_location_path_len] == '/' ||
+										config_location_path == "/");
+			// log.error(is_valid_boundary ? "valid boundary" : "invalid boundary");
+			// log.error(i2a(config_location_path_len) + " vs " + i2a(matched_location_path_len));
 
-			if (config_location_path[j] != requested_location[j]) {
+			if (is_valid_boundary && config_location_path_len > matched_location_path_len) {
 
-				break;
+				matched_location_path_len = config_location_path_len;
+				matched_location = config_location;
+				// log.error("New match found! " + matched_location->path + " " + i2a(config_location_path_len));
 
-			} else {
-
-				// log.error("character match at pos " + i2a(j));
-				if (j + 1 > matched_location_path_len) {
-					++matched_location_path_len;
-					matched_location = config_location;
-					// matched_location = &config->locations[i];
-					// log.error("matched_location = " + matched_location->path);
-				}
 			}
-			++j;
-			log.error(i2a(j));
+
 		}
+
 	}
+
 	// if (matched_location != NULL)
-		// log.error("HERE > " + matched_location->path + " < HERE");
+	// 	log.error("HERE > " + matched_location->path + " < HERE");
 	return matched_location;
+
 }
+
+// static const Location* matchLocation(const Config* config,
+// 									 const std::string& path) {
+// 	std::string requested_location = path;
+// 	// log.error("requested_location = " + path);
+// 	size_t delim = path.find('.');
+// 	// log.error(i2a(delim));
+// 	if (delim != 0 && delim != std::string::npos) {
+// 		delim = path.rfind('/');
+// 		// log.error(i2a(delim));
+// 		requested_location = path.substr(0, delim + 1);
+// 	}
+// 	// log.error("requested_location = " + requested_location);
+//
+// 	const Location*	matched_location = NULL;
+// 	// size_t matched_location_path_len = matched_location->path.size();
+// 	size_t matched_location_path_len = 0;
+//
+// 	for (size_t i = 0; i < config->locations.size(); ++i) {
+//
+// 		const Location* config_location = &config->locations[i];
+// 		// std::string config_location_path = config->locations[i].path;
+// 		std::string config_location_path = config_location->path;
+// 		// log.error("config_location = " + config_location_path);
+// 		// log.error(config_location_path + " " + requested_location);
+//
+// 		size_t j = 0;
+// 		while (config_location_path[j] != '\0' && requested_location[j] != '\0') {
+//
+// 			if (config_location_path[j] != requested_location[j]) {
+//
+// 				break;
+//
+// 			} else {
+//
+// 				++j;
+// 				log.error("character match at pos " + i2a(j));
+// 				if (j > matched_location_path_len) {
+// 					++matched_location_path_len;
+// 					matched_location = config_location;
+// 					// matched_location = &config->locations[i];
+// 					log.error("matched_location = " + matched_location->path);
+// 				}
+// 			}
+// 			// log.error(i2a(j));
+// 		}
+// 	}
+// 	// if (matched_location != NULL)
+// 		// log.error("HERE > " + matched_location->path + " < HERE");
+// 	return matched_location;
+// }
 
 static std::string matchMethod(const Location* location,
 							   const HTTPRequest* request) {
@@ -280,9 +348,11 @@ static void serveFile(const Config* config,
 
 static void serveDirectoryListing(const Config* config,
 								  const Location* location,
+								  const HTTPRequest* request,
 								  HTTPResponse* response,
 								  const std::string& path) {
 
+	// log.error(path);
 	DIR* dir = opendir(path.c_str());
 
 	if (!dir) {
@@ -291,7 +361,7 @@ static void serveDirectoryListing(const Config* config,
 	}
 
 	// std::string body = "<html><link rel=\"stylesheet\" href=\"../css/style.css\"><body><h1>Index of " + path + "</h1><ul>";
-	std::string body = "<html><body><h1>Index of " + path + "</h1><ul>";
+	std::string body = "<html><body><h1>Index of " + request->getPath() + "</h1><ul>";
 
 	struct dirent* entry;
 	while ((entry = readdir(dir)) != NULL) {
@@ -307,6 +377,23 @@ static void serveDirectoryListing(const Config* config,
 	response->setStatus(200, "OK");
 	response->setHeader("Server", "MyServer/1.0");
 	response->setBody(body, "text/html");
+
+	return;
+
+}
+
+static void handleRedirect(const std::string& path,
+						   HTTPResponse* response) {
+
+	std::string dir_path = path + "/";
+
+	response->setStatus(301);
+	response->setHeader("Server", "MyServer/1.0");
+	response->setHeader("location", dir_path);
+
+	std::string body = "Moved Permanently. Redirecting to " + dir_path;
+	response->setBody(body, "text/plain");
+	// response->setBody(" ", "text/plain");
 
 	return;
 
@@ -329,6 +416,7 @@ static void handleRedirect(const Location* location,
 
 static void handleGet(const Config* config,
 					  const Location* location,
+					  const HTTPRequest* request,
 					  HTTPResponse* response,
 					  const std::string& path) {
 
@@ -346,7 +434,8 @@ static void handleGet(const Config* config,
 	// autoindex is on, generate directory listing
 	} else if (location->autoindex) {
 
-		serveDirectoryListing(config, location, response, path); // TEST
+		// log.error(path);
+		serveDirectoryListing(config, location, request, response, path); // TEST
 		return;
 
 	// autoindex is off, return 403
@@ -465,11 +554,15 @@ static void handleDirectory(const Config* config,
 							const std::string& path,
 							const std::string& method) {
 
+	if (path[path.size() - 1] != '/') {
+		handleRedirect(request->getPath(), response);
+		return;
+	}
 
+	// log.error(path);
 	if (method == "GET") {
 
-		// log.error("GET");
-		handleGet(config, location, response, path);
+		handleGet(config, location, request, response, path);
 		return;
 
 	} else if (method == "POST") {
@@ -574,8 +667,8 @@ void Dispatcher::dispatchRequest(Client& client) {
 	// } else {
 	// 	path = location->root + "/" + request->getPath();
 	// }
-	location->root.empty() ?
-	path = config->root + "/" + request->getPath() :
+	// location->root.empty() ?
+	// path = config->root + "/" + request->getPath() :
 	path = location->root + request->getPath();
 	// log.error(path);
 
@@ -586,6 +679,7 @@ void Dispatcher::dispatchRequest(Client& client) {
 
 	// Check if request is for a directory
 	} else if (isDirectory(path)) {
+
 		// log.error("directory detected");
 		handleDirectory(config, location, request, response, path, method); // TEST
 		return;

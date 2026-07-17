@@ -26,6 +26,10 @@
 
 // DEBUG BEGIN
 unsigned long HTTPRequest::global_count = 0;
+
+std::map<std::string, std::string>& HTTPRequest::getHeaders() {
+	return _headers;
+}
 // DEBUG END
 
 /*	@brief Constructor	*/
@@ -37,6 +41,7 @@ HTTPRequest::HTTPRequest(void)
 		_state(PS_READING_REQUEST_LINE),
 		_is_unix_style(true),
 		_bytes_read_count(0),
+		_header_line_size(0),
 		_old_buffer_fill_level(0),
 		_request_line_end_pos(0),
 		_header_line_end_pos(0),
@@ -113,15 +118,12 @@ size_t HTTPRequest::getContentLength(void) const {
 	return _content_length;
 }
 
-// std::map<std::string, std::string>& HTTPRequest::getHeaders() {
-// 	return _headers;
-// }
-
 void HTTPRequest::reset(void) {
 
 	_state = PS_READING_REQUEST_LINE;
 	_is_unix_style = true;
 	_bytes_read_count = 0;
+	_header_line_size = 0;
 	_old_buffer_fill_level = 0;
 	_request_line_end_pos = 0;
 	_header_line_end_pos = 0,
@@ -150,7 +152,7 @@ ParseState HTTPRequest::parse(const std::string& raw) {
 
 // DEBUG BEGIN
 	// log.notice("\n#################################################\n");
-	// log.debug("request id: " + i2a(HR_object_id) + "\tstate: " + i2a(_state) + "\tparses: " + i2a(parses_count));
+	log.debug("request id: " + i2a(HR_object_id) + "\tstate: " + i2a(_state) + "\tparses: " + i2a(parses_count));
 	++parses_count;
 // DEBUG END
 
@@ -200,6 +202,7 @@ HTTPRequest::HTTPRequest(const HTTPRequest& other)
 		_body(other._body),
 		_headers(other._headers),
 		_bytes_read_count(other._bytes_read_count),
+		_header_line_size(other._header_line_size),
 		_old_buffer_fill_level(other._old_buffer_fill_level),
 		_request_line_end_pos(other._request_line_end_pos),
 		_header_line_end_pos(other._header_line_end_pos),
@@ -232,6 +235,7 @@ HTTPRequest& HTTPRequest::operator = (const HTTPRequest& other) {
 		_body = other._body;
 		_headers = other._headers;
 		_bytes_read_count = other._bytes_read_count;
+		_bytes_read_count = other._header_line_size;
 		_old_buffer_fill_level = other._old_buffer_fill_level;
 		_request_line_end_pos = other._request_line_end_pos;
 		_header_line_end_pos = other._header_line_end_pos;
@@ -320,6 +324,8 @@ bool HTTPRequest::_extractTokens(const std::string& line) {
 }
 
 bool HTTPRequest::_parseHeaderLine(const std::string& line) {
+
+	_header_line_size = 0;
 
 	// Find separator ':'
 	size_t colon_pos = line.find(':');
@@ -472,7 +478,7 @@ ParseState HTTPRequest::_parseHeaders(const std::string& raw) {
 		// (should not occur: appended line break right before check)
 		} else if (_headers_end_pos == std::string::npos) {
 
-			// log.debug("no empty line in buffer\t\tyet");
+			// log.debug("no empty line in buffer \t\t yet");
 			return _state;
 
 		// Detected empty line: end of header lines
@@ -513,8 +519,10 @@ ParseState HTTPRequest::_parseHeaders(const std::string& raw) {
 		_buffer.append(raw);
 
 		_bytes_read_count = _buffer.size() - _old_buffer_fill_level;
+		_header_line_size += _bytes_read_count;
 
 		// log.debug("Bytes read: " + i2a(_bytes_read_count));
+		// log.debug("Line length: " + i2a(_header_line_size));
 		// log.debug("Previous buffer fill level: " + i2a(_old_buffer_fill_level));
 
 		_old_buffer_fill_level = _buffer.size();
@@ -532,8 +540,10 @@ ParseState HTTPRequest::_parseHeaders(const std::string& raw) {
 		// // _buffer.append(LF); DO NOT APPEND LINE FEED!
 
 		_bytes_read_count = _buffer.size() - _old_buffer_fill_level;
+		_header_line_size += _bytes_read_count;
 
 		// log.debug("Bytes read: " + i2a(_bytes_read_count));
+		// log.debug("Line length: " + i2a(_header_line_size));
 		// log.debug("Previous buffer fill level: " + i2a(_old_buffer_fill_level));
 
 		_old_buffer_fill_level = _buffer.size();
@@ -543,7 +553,9 @@ ParseState HTTPRequest::_parseHeaders(const std::string& raw) {
 		// log.notice((_buffer));
 
 		// Parse header line
-		std::string line = _buffer.substr(_buffer.size() - _bytes_read_count);
+		// std::string line = _buffer.substr(_buffer.size() - _bytes_read_count);
+		std::string line = _buffer.substr(_buffer.size() - _header_line_size);
+		// log.error(line + i2a(_header_line_size));
 		if (!_parseHeaderLine(line)) {
 			log.error("error while parsing header line");
 			_state = PS_ERROR;
@@ -633,20 +645,16 @@ ParseState HTTPRequest::_parseBody(const std::string& raw) {
 	log.debug("_request_size: " + i2a(_request_size));
 	log.debug("_buffer.size() + raw.size(): " + i2a(_buffer.size() + raw.size()));
 // DEBUG END
+
 	// Check if complete body received
-	if (_buffer.size() + raw.size() < _request_size) {
-		// _buffer.erase(_old_buffer_fill_level);
-		_bytes_read_count = 0;
-		_state = PS_READING_BODY;
-		return _state;  // not enough data for body: wait for more
-
-	// Accumulated enough data for body: proceed
-	} else {
-
-		_buffer.append(raw);
+	_buffer.append(raw);
 // DEBUG BEGIN
-		// log.debug("_buffer.size(): " + i2a(_buffer.size()));
+	// log.debug("_buffer.size(): " + i2a(_buffer.size()));
 // DEBUG END
+
+	// Check if complete body received
+	if (_buffer.size() < _request_size) {
+
 		_bytes_read_count = _buffer.size() - _old_buffer_fill_level;
 
 		// log.debug("Bytes read: " + i2a(_bytes_read_count));
@@ -658,18 +666,18 @@ ParseState HTTPRequest::_parseBody(const std::string& raw) {
 		// log.debug("Current data in buffer (request):\n");
 		// log.notice((_buffer));
 
-		// Store body (if valid)
+		_state = PS_READING_BODY;
+		return _state;  // not enough data for body: wait for more
+
+	} else {
+
 		_body = _buffer.substr(_body_start_pos, _content_length);
 
-		// log.debug("Expected overflow: " + i2a(_buffer.size() - _request_size));
+		_bytes_read_count = _request_size - _old_buffer_fill_level;
 
-		// size_t tmp = _bytes_read_count;
-		// _bytes_read_count = _bytes_read_count - (_buffer.size() - _request_size);
-		_bytes_read_count = _content_length;
+		log.debug("Expected overflow: " + i2a(_buffer.size() - _request_size));
 
-		// log.debug("Actual overflow: " + i2a(tmp - _bytes_read_count));
-		// _bytes_read_count = _bytes_read_count + _line_end_size - 1;
-		// _bytes_read_count = _content_length;
+		log.debug("Actual overfloow: " + i2a((_buffer.size() - _old_buffer_fill_level) - _bytes_read_count));
 
 		_state = PS_COMPLETE;
 		return _state;
@@ -678,6 +686,51 @@ ParseState HTTPRequest::_parseBody(const std::string& raw) {
 
 }
 
+
+// 	// Check if complete body received
+// 	if (_buffer.size() + raw.size() < _request_size) {
+// 		// _buffer.erase(_old_buffer_fill_level);
+// 		_bytes_read_count = 0;
+// 		_state = PS_READING_BODY;
+// 		return _state;  // not enough data for body: wait for more
+//
+// 	// Accumulated enough data for body: proceed
+// 	} else {
+//
+// 		_buffer.append(raw);
+// // DEBUG BEGIN
+// 		// log.debug("_buffer.size(): " + i2a(_buffer.size()));
+// // DEBUG END
+// 		_bytes_read_count = _buffer.size() - _old_buffer_fill_level;
+//
+// 		// log.debug("Bytes read: " + i2a(_bytes_read_count));
+// 		// log.debug("Previous buffer fill level: " + i2a(_old_buffer_fill_level));
+//
+// 		_old_buffer_fill_level = _buffer.size();
+//
+// 		// log.debug("Current buffer fill level: " + i2a(_buffer.size()));
+// 		// log.debug("Current data in buffer (request):\n");
+// 		// log.notice((_buffer));
+//
+// 		// Store body (if valid)
+// 		_body = _buffer.substr(_body_start_pos, _content_length);
+//
+// 		// log.debug("Expected overflow: " + i2a(_buffer.size() - _request_size));
+//
+// 		// size_t tmp = _bytes_read_count;
+// 		// _bytes_read_count = _bytes_read_count - (_buffer.size() - _request_size);
+// 		_bytes_read_count = _content_length;
+//
+// 		// log.debug("Actual overflow: " + i2a(tmp - _bytes_read_count));
+// 		// _bytes_read_count = _bytes_read_count + _line_end_size - 1;
+// 		// _bytes_read_count = _content_length;
+//
+// 		_state = PS_COMPLETE;
+// 		return _state;
+//
+// 	}
+//
+// }
 
 // size_t HTTPRequest::_findHeadersEnd(const std::string raw) {
 //

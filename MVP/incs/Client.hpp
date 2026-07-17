@@ -68,9 +68,9 @@ class Client {
 		void						pushResponse(void);
 		void						popRequest(void);
 		void						popResponse(void);
-		void						handleRequest(void); // TEST
-		void						buildCSSResponse(void); // TEST
-		void						buildResponse(void); // TEST
+		// // void						handleRequest(void); // TEST
+		// // void						buildCSSResponse(void); // TEST
+		// // void						buildResponse(void); // TEST
 
 // DEBUG BEGIN
 		void						queueOutgoingData(const std::string& message);

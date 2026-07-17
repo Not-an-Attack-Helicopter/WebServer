@@ -10,8 +10,8 @@
 /*                                                                            */
 /* ************************************************************************** */
 
-#ifndef TEMPLATES_TPP
-#define TEMPLATES_TPP
+#ifndef TEMPLATES_HPP
+#define TEMPLATES_HPP
 
 #include <string>
 #include <sstream>

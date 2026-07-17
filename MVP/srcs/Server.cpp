@@ -330,7 +330,7 @@ bool Server::handleReadEvent(int fd) {
 // DEBUG BEGIN
 		std::string buff = client.getBuffer();
 		if (static_cast<size_t>(bytes_received) >= buff.size()) {
-			bytes_received = buff.size() - 1;
+			bytes_received = buff.size();
 		}
 		buff.erase(bytes_received); // Remove AT LEAST this line for production
 

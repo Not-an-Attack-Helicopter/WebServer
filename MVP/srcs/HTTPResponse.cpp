@@ -10,9 +10,10 @@
 /*                                                                            */
 /* ************************************************************************** */
 
+#include "../incs/HTTPResponse.hpp"
+#include "../incs/Logger.hpp"
 // #include <cstdint>
 #include <sstream>
-#include "../incs/HTTPResponse.hpp"
 
   //~~~~~~~~~~//
  /*  Public  */
@@ -23,11 +24,13 @@ HTTPResponse::HTTPResponse(void)
 	:	_status_code(200),
 		_status_reason("OK"),
 		_body("") {
+	log.debug("HTTPResponse Constructor called");
 	return;
 }
 
 /*	@brief Deconstructor	*/
 HTTPResponse::~HTTPResponse(void) {
+	log.debug("HTTPResponse Deconstructor called");
 	return;
 }
 

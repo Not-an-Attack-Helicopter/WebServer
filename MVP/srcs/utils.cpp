@@ -100,9 +100,10 @@ void dumpRequest(HTTPRequest* request) {
 	log.debug("Query:\t\t" + request->getQuery());
 	log.debug("Version:\t" + request->getVersion());
 
+	// Print all headers
 	// std::map<std::string, std::string>::iterator it = request->getHeaders().begin();
 	// while (it != request->getHeaders().end()) {
-	// 	log.debug(it->first + ":\t\t\t" + it->second);
+	// 	log.debug(it->first + ":\t" + it->second);
 	// 	++it;
 	// }
 
@@ -190,10 +191,11 @@ bool isRegularFile(const std::string& path) {
 
 	// log.error(path);
 	struct stat sb;
-	int status = stat(path.c_str(), &sb);
+	if (stat(path.c_str(), &sb) != 0) {
+	// int status = stat(path.c_str(), &sb);
 	// log.error(i2a(status));
-	if (status != 0) {
-		// log.error("cassé");
+	// if (status != 0) {
+		log.error("FILE cassé");
 		return false;
 	}
 
@@ -210,11 +212,11 @@ bool isDirectory(const std::string& path) {
 
 	// log.error(path);
 	struct stat sb;
-	// if (stat(path.c_str(), &sb) != 0) {
-	int status = stat(path.c_str(), &sb);
+	if (stat(path.c_str(), &sb) != 0) {
+	// int status = stat(path.c_str(), &sb);
 	// log.error(i2a(status));
-	if (status != 0) {
-		// log.error("cassé");
+	// if (status != 0) {
+		log.error("DIR cassé");
 		return false;
 	}
 
