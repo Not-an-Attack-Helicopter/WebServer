@@ -15,19 +15,21 @@
 
 #include <sys/socket.h>
 #include <string>
-#include <vector>
+// #include <vector>
+#include <deque>
 #include <ctime>
 // #include <cstddef>
-#include "types.hpp"
+// #include "types.hpp"
+#include "Config.hpp"
 #include "HTTPRequest.hpp"
-// #include "HTTPResponse.hpp"
-// #include "RequestHandler.hpp"
+#include "HTTPResponse.hpp"
+// #include "Dispatcher.hpp"
 
-// DEBUG
+// DEBUG BEGIN
 enum AdminCommand {
 	STOP = 2000
 };
-// DEBUG
+// DEBUG END
 
 // class HTTPResponse;
 
@@ -37,35 +39,49 @@ class Client {
 		Client(const Config* config);
 		~Client(void);
 
-// DEBUG
-		unsigned short				getHostPort(void) const;
+// DEBUG BEGIN
+		unsigned short int			getHostPort(void) const;
 		const std::string			getHostAddress(void) const;
 		const std::string			getBuffer(void) const;
 		const std::string&			getIncomingData(void) const;
-// DEBUG
+		// const std::string&			getOutgoingData(void) const;
+// DEBUG END
+		// sockaddr*					getAddrPointer(void) const;
+		sockaddr&					getAddr(void);
 
-		sockaddr*					getAddrPointer(void) const;
+		// socklen_t*					getAddrlenPointer(void) const;
+		socklen_t&					getAddrlen(void);
 
-		socklen_t*					getAddrlenPointer(void) const;
+		// const Config*				getConfigPointer(void) const;
+		const Config&				getConfig(void) const;
+		const HTTPRequest&			getCurrentRequest(void) const;
+		HTTPResponse&				getCurrentResponse(void);
 
-		const Config*				getConfigPointer(void) const;
-
-		ssize_t						queueIncomingData(int fd);
-		// void						cleanIncomingData(void);
-		void						parseIncomingData(void);
-
-		// void						processNextRequest(void);
-		// void						processRequests(void);
-		// void						sendResponse(HTTPResponse* res);
-
-		void						queueOutgoingData(const std::string& message);
+		// bool						hasPendingRequest(void) const;
+		bool						hasPendingResponse(void) const;
 		bool						hasPendingData(void) const;
-		ssize_t						flushPendingData(int fd);
+
+		ssize_t						queueIncomingData(int fd); // receive
+		void						parseIncomingData(void); // build request
+
+		void						pushRequest(void);
+		void						pushResponse(void);
+		void						popRequest(void);
+		void						popResponse(void);
+		// // void						handleRequest(void); // TEST
+		// // void						buildCSSResponse(void); // TEST
+		// // void						buildResponse(void); // TEST
+
+// DEBUG BEGIN
+		void						queueOutgoingData(const std::string& message);
+// DEBUG END
+		void						queueOutgoingData(void); // prepare
+		ssize_t						flushPendingData(int fd); // send
 
 		bool						isTimedOut(void) const;
-// DEBUG
+// DEBUG BEGIN
 		double						getIdleTime(void) const;
-// DEBUG
+// DEBUG END
 		void						reset(void);
 
 
@@ -86,14 +102,16 @@ class Client {
 		std::string						_incoming_data;
 		std::string						_outgoing_data;
 
-		// RequestHandler					_handler;
-		// RequestHandler& _handler; // Shared stateless handler
+		// Dispatcher					_handler;
+		// Dispatcher& _handler; // Shared stateless handler
 
-		std::vector<HTTPRequest*>		_request_queue; // FIFO queue of parsed requests
-		// std::vector<HTTPResponse*>		_response_queue; // FIFO queue of responses to send
+		std::deque<HTTPRequest*>		_request_queue; // FIFO queue of parsed requests
+		std::deque<HTTPResponse*>		_response_queue; // FIFO queue of responses to send
 
 		time_t							_last_event;
 };
+
+// #include "templates.tpp"
 
 #endif
 

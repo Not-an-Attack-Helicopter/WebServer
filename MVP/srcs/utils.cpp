@@ -3,7 +3,7 @@
 /*                                                        :::      ::::::::   */
 /*   utils.cpp                                          :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: sholz + bstorck <marvin@42.fr>                     +#+  +:+       +#+        */
+/*   By: sholz, bstorck <marvin@42.fr>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/30 18:36:42 by bstorck           #+#    #+#             */
 /*   Updated: 2026/06/30 18:36:43 by bstorck          ###   ########.fr       */
@@ -12,16 +12,17 @@
 
 #include "../incs/utils.hpp"
 #include "../incs/Logger.hpp"
+#include "../incs/templates.hpp"
 #include "../incs/HTTPRequest.hpp"
-#include <algorithm>
-#include <cstring>
+#include <sys/stat.h>	// stat
+#include <unistd.h>
 #include <iostream>
-#include <sstream>
+#include <climits>		// for USHRT_MAX, INT_MIN, INT_MAX
+#include <cstring>
 #include <cstdlib>
-#include <cctype>
 #include <cstdio>
 
-// DEBUG >>
+// DEBUG BEGIN
 void warnHighEventLoad(int nfds, int max_capacity) {
 	int utilization = (nfds * 100) / max_capacity;
 	if (utilization >= 95) {
@@ -56,19 +57,30 @@ void dumpEvents(int nfds, epoll_event* events) {
 
 void dumpClientConfig(const Client* client) {
 
-	size_t i;;
-	const Config& c = *client->getConfigPointer();
+	size_t j;
+	size_t k;
+	const Config& c = client->getConfig();
 	const std::vector<std::string> n = c.server_names;
-	const std::vector<LocationConfig> l = c.locations;
+	const std::vector<Location> l = c.locations;
+	const std::vector<std::string> i = c.index_files;
 
-	log.info(c.host + " " + i2a(c.port) + " " + c.root + " " + c.index);
-	i = -1;
-	while (++i < n.size()) {
-		log.info(n[i]);
+	log.info(c.host + " " + i2a(c.port) + " " + c.root + " ");
+	j = -1;
+	while (++j < i.size()) {
+		log.info(i[j]);
 	}
-	i = -1;
-	while (++i < l.size()) {
-		log.info(l[i].path + " " + l[i].root + " " + l[i].index + " " + l[i].redirect + " " + i2a(l[i].autoindex) + " " + l[i].upload_dir);
+	j = -1;
+	while (++j < n.size()) {
+		log.info(n[j]);
+	}
+	j = -1;
+	k = -1;
+	while (++j < l.size()) {
+		log.info(l[j].path + " " + l[j].root + " ");
+		while (++k < l[j].index_files.size()) {
+			log.info(l[j].index_files[j] + " ");
+		}
+		log.info(l[j].redirect + " " + i2a(l[j].autoindex) + " " + l[j].upload_dir);
 	}
 }
 
@@ -88,9 +100,10 @@ void dumpRequest(HTTPRequest* request) {
 	log.debug("Query:\t\t" + request->getQuery());
 	log.debug("Version:\t" + request->getVersion());
 
+	// Print all headers
 	// std::map<std::string, std::string>::iterator it = request->getHeaders().begin();
 	// while (it != request->getHeaders().end()) {
-	// 	log.debug(it->first + ":\t\t\t" + it->second);
+	// 	log.debug(it->first + ":\t" + it->second);
 	// 	++it;
 	// }
 
@@ -110,153 +123,58 @@ void dumpRequest(HTTPRequest* request) {
 
 	log.debug("Body:\t\t" + request->getBody());
 }
-// << DEBUG
+// DEBUG END
 
-bool valid_ip(const std::string& ip)
-{
-	std::istringstream iss(ip);
-	std::string token;
-	int count = 0;
-	while (std::getline(iss, token, '.'))
-	{
-		if (token.empty() || token.size() > 3)
-			return false;
-		for (size_t i = 0; i < token.size(); ++i)
-		{
-			if (!std::isdigit(static_cast<unsigned char>(token[i])))
-				return false;
-		}
-		int num = std::atoi(token.c_str());
-		if (num < 0 || num > 255)
-			return false;
-		count++;
+unsigned short stringToUnsignedShort(const std::string& str) {
+
+	char* endptr;
+	unsigned long tmp = std::strtoul(str.c_str(), &endptr, 10);
+
+	if (*endptr != '\0') {
+		throw std::runtime_error("type conversion failed: " + str);
 	}
-	return count == 4;
-}
 
-bool valid_port(const std::string& port_str)
-{
-	if (port_str.empty() || port_str.size() > 5)
-		return false;
-	for (size_t i = 0; i < port_str.size(); ++i)
-	{
-		if (!std::isdigit(static_cast<unsigned char>(port_str[i])))
-			return false;
+	if (tmp > USHRT_MAX) {
+		throw std::out_of_range("type conversion failed (value out of range for unsigned short): " + str);
 	}
-	int port = std::atoi(port_str.c_str());
-	return port > 0 && port <= 65535;
+
+	return static_cast<unsigned short>(tmp);
+
 }
 
-bool is_address_already_used(const std::vector<Config>& config, const std::string& host, int port)
-{
-	for (size_t i = 0; i < config.size(); ++i)
-	{
-		if (config[i].port == port && config[i].host == host)
-			return true;
+size_t stringToSize(const std::string& str) {
+
+	char* endptr;
+	unsigned long tmp = std::strtoul(str.c_str(), &endptr, 10);
+
+	if (*endptr != '\0') {
+		throw std::runtime_error("type conversion failed: " + str);
 	}
-	return false;
-}
-/*
-bool valid_config_line(const std::string& line)
-{
-    // List of valid keywords
-    const char* kw[] = {
-        "location", "listen", "host", "server_name", "root", "index", "error_page", "client_max_body_size", "}"
-    };
-    std::vector<std::string> valid_keywords(kw, kw + 9);
+	return static_cast<size_t>(tmp);
 
-    if (line.empty())
-        return true;
-    if (line[0] == '#')
-        return false;
-    if (line[line.size() - 1] != ';')
-        return false;
-
-    std::string stripped = line.substr(0, line.size() - 1);
-
-    size_t space_pos = stripped.find(' ');
-    if (space_pos == std::string::npos)
-        return false;
-
-    std::string key = stripped.substr(0, space_pos);
-    std::string value = stripped.substr(space_pos + 1);
-
-    if (std::find(valid_keywords.begin(), valid_keywords.end(), key) == valid_keywords.end())
-        return false;
-
-    if (value.empty())
-        return false;
-
-    return true;
-}*/
-
-bool is_valid_method(const std::string& method)
-{
-	const std::string valid_methods[] = {"GET", "POST", "PUT", "HEAD", "DELETE"};
-	const size_t s = sizeof(valid_methods) / sizeof(valid_methods[0]);
-	return (std::find(valid_methods, valid_methods + s, method) != valid_methods + s);
 }
 
-bool is_valid_body_size(const int size)
-{
-	return size >= 0;
+int stringToInt(const std::string& str) {
+
+	if (str.empty()) {
+		throw std::runtime_error("type conversion failed: cannot convert empty string to int");
+	}
+
+	char* endptr;
+	long tmp = std::strtol(str.c_str(), &endptr, 10);
+
+	if (*endptr != '\0') {
+		throw std::runtime_error("type conversion failed (invalid characters): " + str);
+	}
+
+	if (tmp < INT_MIN || tmp > INT_MAX) {
+		throw std::out_of_range("type conversion failed (value out of range for int): " + str);
+	}
+
+	return static_cast<int>(tmp);
 }
 
-bool is_valid_error_code(const int code)
-{
-	return code >= 400 && code < 600;
-}
-
-// std::string i2a(short input) {
-// 	std::stringstream convert;
-// 	convert << input;
-// 	return (convert.str());
-// }
-
-std::string i2a(unsigned short input) {
-	std::stringstream convert;
-	convert << input;
-	return (convert.str());
-}
-
-std::string i2a(int input) {
-	std::stringstream convert;
-	convert << input;
-	return (convert.str());
-}
-
-// std::string i2a(const int input) {
-// 	std::stringstream convert;
-// 	convert << input;
-// 	return (convert.str());
-// }
-
-// std::string i2a(unsigned int input) {
-// 	std::stringstream convert;
-// 	convert << input;
-// 	return (convert.str());
-// }
-
-std::string i2a(long input) {
-	std::stringstream convert;
-	convert << input;
-	return (convert.str());
-}
-
-std::string i2a(unsigned long input) {
-	std::stringstream convert;
-	convert << input;
-	return (convert.str());
-}
-
-std::string i2a(double input) {
-	std::stringstream convert;
-	convert << input;
-	return (convert.str());
-}
-
-std::string trim(const std::string& str)
-{
+std::string trim(const std::string& str) {
 	size_t first = str.find_first_not_of(" \t\r\n");
 	size_t last = str.find_last_not_of(" \t\r\n");
 	if (first == std::string::npos || last == std::string::npos)
@@ -264,72 +182,137 @@ std::string trim(const std::string& str)
 	return str.substr(first, last - first + 1);
 }
 
-std::string get_content_type(const std::string& path)
-{
-	size_t dot = path.rfind('.');
-	if (dot == std::string::npos || dot == path.size() - 1)
-		return "application/octet-stream";
-	std::string ext = path.substr(dot);
-	if (ext == ".html" || ext == ".htm")
-		return "text/html";
-	else if (ext == ".css")
-		return "text/css";
-	else if (ext == ".js")
-		return "application/javascript";
-	else if (ext == ".jpg" || ext == ".jpeg")
-		return "image/jpeg";
-	else if (ext == ".png")
-		return "image/png";
-	else if (ext == ".gif")
-		return "image/gif";
-	else if (ext == ".py" || ext == ".sh")
-		return "text/x-script";
-	else
-		return "application/octet-stream";
+bool isRegularFile(const std::string& path) {
+
+	// if (access(path.c_str(), F_OK) == -1) {
+	// 	// return false;
+	// 	log.error("F_KO");
+	// }
+
+	// log.error(path);
+	struct stat sb;
+	if (stat(path.c_str(), &sb) != 0) {
+	// int status = stat(path.c_str(), &sb);
+	// log.error(i2a(status));
+	// if (status != 0) {
+		log.error("FILE cassé");
+		return false;
+	}
+
+	return S_ISREG(sb.st_mode);
+
 }
 
-void print_conf(const std::vector<Config>& config) {
+bool isDirectory(const std::string& path) {
+
+	// if (access(path.c_str(), F_OK) == -1) {
+	// 	// return false;
+	// 	log.error("F_KO");
+	// }
+
+	// log.error(path);
+	struct stat sb;
+	if (stat(path.c_str(), &sb) != 0) {
+	// int status = stat(path.c_str(), &sb);
+	// log.error(i2a(status));
+	// if (status != 0) {
+		log.error("DIR cassé");
+		return false;
+	}
+
+	return S_ISDIR(sb.st_mode);
+
+}
+
+// bool isReadable(const std::string& path) {
+//
+// 	if (!isRegularFile(path)) {
+// 		return false;
+// 	}
+//
+// 	return access(path.c_str(), R_OK) == 0;
+//
+// }
+
+// bool isValidErrorCode(const int code) {
+//
+// 	return code >= 400 && code < 600;
+//
+// }
+
+void dumpConfigs(const std::vector<Config>& config) {
 	for (std::vector<Config>::const_iterator server = config.begin(); server != config.end(); ++server) {
 		std::cout << "server {\n";
 		std::cout << "    host: " << server->host << ";\n";
 		std::cout << "    port: " << server->port << ";\n";
+		std::cout << "    server_names: [";
+		for (size_t j = 0; j < server->server_names.size(); ++j) {
+			std::cout << server->server_names[j];
+			if (j < server->server_names.size() - 1) std::cout << ", ";
+		}
+		std::cout << "];\n";
 		std::cout << "    root: " << server->root << ";\n";
-		std::cout << "    index: " << server->index << ";\n";
-		std::cout << "    client_max_body_size: " << server->client_max_body_size << ";\n";
+		std::cout << "    index_files: [";
+		for (size_t j = 0; j < server->index_files.size(); ++j) {
+			std::cout << server->index_files[j];
+			if (j < server->index_files.size() - 1) std::cout << ", ";
+		}
+		std::cout << "];\n";
 		std::cout << "    error_pages {\n";
 		for (std::map<int, std::string>::const_iterator error_page = server->error_pages.begin(); error_page != server->error_pages.end(); ++error_page) {
 			std::cout << "        " << error_page->first << " " << error_page->second << ";\n";
 		}
 		std::cout << "    }\n";
+		std::cout << "    client_max_body_size: " << server->client_max_body_size << ";\n";
 		std::cout << "    locations {\n";
-		for (std::vector<LocationConfig>::const_iterator location = server->locations.begin(); location != server->locations.end(); ++location) {
+		for (std::vector<Location>::const_iterator location = server->locations.begin(); location != server->locations.end(); ++location) {
 			std::cout << "        location " << location->path << " {\n";
+			std::cout << "            root: " << location->root << ";\n";
+			std::cout << "            redirect: " << location->redirect << ";\n";
 			std::cout << "            methods: [";
 			for (size_t i = 0; i < location->methods.size(); ++i) {
 				std::cout << location->methods[i];
 				if (i < location->methods.size() - 1) std::cout << ", ";
 			}
 			std::cout << "];\n";
-			std::cout << "            root: " << location->root << ";\n";
-			std::cout << "            index: " << location->index << ";\n";
-			std::cout << "            redirect: " << location->redirect << ";\n";
 			std::cout << "            autoindex: " << (location->autoindex ? "on" : "off") << ";\n";
+			// std::cout << "            index: " << location->index << ";\n";
+			std::cout << "            index files: [";
+			for (size_t j = 0; j < location->index_files.size(); ++j) {
+				std::cout << location->index_files[j];
+					if (j < location->index_files.size() - 1) std::cout << ", ";
+			}
+			std::cout << "];\n";
 			std::cout << "            upload_dir: " << location->upload_dir << ";\n";
-			std::cout << "            cgi_extension: [";
-			for (size_t j = 0; j < location->cgi_extension.size(); ++j) {
-				std::cout << location->cgi_extension[j];
-				if (j < location->cgi_extension.size() - 1) std::cout << ", ";
+			// std::cout << "            cgi_extension: [";
+			// for (size_t j = 0; j < location->cgi_extensions.size(); ++j) {
+			// 	std::cout << location->cgi_extensions[j];
+			// 	if (j < location->cgi_extensions.size() - 1) std::cout << ", ";
+			// }
+			// std::cout << "];\n";
+			// std::cout << "            cgi_path: [";
+			// for (size_t j = 0; j < location->cgi_paths.size(); ++j) {
+			// 	std::cout << location->cgi_paths[j];
+			// 	if (j < location->cgi_paths.size() - 1) std::cout << ", ";
+			// }
+			// std::cout << "];\n";
+			std::cout << "            interpreter: {\n";
+			for (std::map<std::string, std::string>::const_iterator it = location->interpreters.begin();
+				 it != location->interpreters.end(); ++it) {
+				std::cout << "            " + it->first + " " + it->second << ";\n";
 			}
-			std::cout << "];\n";
-			std::cout << "            cgi_path: [";
-			for (size_t j = 0; j < location->cgi_path.size(); ++j) {
-				std::cout << location->cgi_path[j];
-				if (j < location->cgi_path.size() - 1) std::cout << ", ";
+			std::cout << "            };\n";
+			std::cout << "                error_pages {\n";
+			for (std::map<int, std::string>::const_iterator error_page = location->error_pages.begin();
+				 error_page != location->error_pages.end();
+				 ++error_page) {
+				std::cout << "            " << error_page->first << " " << error_page->second << ";\n";
 			}
-			std::cout << "];\n";
+			std::cout << "            }\n";
 			std::cout << "        }\n";
 		}
 		std::cout << "    }\n";
 		std::cout << "}\n";
 	}
+	return;
 }

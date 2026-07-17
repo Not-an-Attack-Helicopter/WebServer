@@ -22,7 +22,7 @@
 #include <vector>
 #include <map>
 #include "Client.hpp"
-#include "types.hpp"
+// #include "types.hpp"
 
 # define INVALID_ADDR "No valid address string was provided for the specified \
 address family."
@@ -40,7 +40,7 @@ class Server {
 		void							prepareEPollInstance(void);
 		void							prepareListeningPort(const Config& config);
 		void							handleIncomingEvents(void);
-		void							acceptConnectRequest(std::map<int, const Config*>::iterator it);
+		void							acceptConnectRequest(int fd, const Config* config);
 		bool							handleReadEvent(int fd);
 		void							handleWriteEvent(int fd);
 		void							cleanUpAllRessources(void);
@@ -72,6 +72,8 @@ class Server {
 // TEST
 
 };
+
+// #include "templates.tpp"
 
 #endif
 
