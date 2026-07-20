@@ -70,7 +70,12 @@ void Server::setReadInterest(int fd) {
 void Server::addWriteInterest(int fd) {
 
 	epoll_event e;
-	e.events = EPOLLIN | EPOLLOUT;
+	std::map<int, Client*>::iterator it = _clients.find(fd);
+	if (it != _clients.end() && it->second->shouldCloseAfterResponse()) {
+		e.events = EPOLLOUT;
+	} else {
+		e.events = EPOLLIN | EPOLLOUT;
+	}
 	e.data.fd = fd;
 
 	int status = epoll_ctl(_epfd, EPOLL_CTL_MOD, fd, &e);
@@ -328,21 +333,18 @@ bool Server::handleReadEvent(int fd) {
 // DEBUG END
 	default:
 // DEBUG BEGIN
-		std::string buff = client.getBuffer();
-		if (static_cast<size_t>(bytes_received) >= buff.size()) {
-			bytes_received = buff.size();
-		}
-		buff.erase(bytes_received); // Remove AT LEAST this line for production
-
-		log.debug("Read " + i2a(bytes_received) + " bytes from client fd_" + i2a(fd) + ":");
-		log.notice(buff);
+		log.debug("Read " + i2a(bytes_received) + " bytes from client fd_" + i2a(fd));
 		// log.debug("Current data in buffer:");
 		// log.notice(client.getIncomingData());
 // DEBUG END
 // TEST >>
 		client.parseIncomingData();
 
-		if (client.getCurrentRequest().getState() == PS_COMPLETE) {
+		if (client.hasPendingResponse()) {
+
+			addWriteInterest(fd);
+
+		} else if (client.getCurrentRequest().getState() == PS_COMPLETE) {
 
 			// Create new response object in deque container
 			client.pushResponse();
@@ -372,6 +374,7 @@ void Server::handleWriteEvent(int fd) {
 	}
 
 	Client& client = *it->second;
+	bool close_after_response = client.shouldCloseAfterResponse();
 
 // TEST BEGIN
 	if (client.hasPendingResponse()) {
@@ -380,7 +383,7 @@ void Server::handleWriteEvent(int fd) {
 	}
 // TEST END
 // DEBUG BEGIN
-	if (!client.hasPendingData()) {
+	if (!close_after_response && !client.hasPendingData()) {
 		std::string message = "Data Received. Ctrl+D to close the connection.\n";
 		client.queueOutgoingData(message);
 	}
@@ -394,6 +397,9 @@ void Server::handleWriteEvent(int fd) {
 	}
 	if (!client.hasPendingData()) {
 		removeWriteInterest(fd);
+		if (close_after_response) {
+			cleanUpClient(it);
+		}
 	}
 
 	return;

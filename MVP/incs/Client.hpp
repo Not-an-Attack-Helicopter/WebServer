@@ -60,6 +60,7 @@ class Client {
 		// bool						hasPendingRequest(void) const;
 		bool						hasPendingResponse(void) const;
 		bool						hasPendingData(void) const;
+		bool						shouldCloseAfterResponse(void) const;
 
 		ssize_t						queueIncomingData(int fd); // receive
 		void						parseIncomingData(void); // build request
@@ -109,6 +110,7 @@ class Client {
 		std::deque<HTTPResponse*>		_response_queue; // FIFO queue of responses to send
 
 		time_t							_last_event;
+		bool								_close_after_response;
 };
 
 // #include "templates.tpp"

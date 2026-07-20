@@ -22,6 +22,7 @@
 #include <dirent.h>		// opendir, readdir, closedir
 #include <cstddef>
 #include <fstream>
+#include <sstream>
 
 static bool isReadable(const std::string& path) {
 
@@ -451,7 +452,8 @@ static void handleGet(const Config* config,
 static void handlePost(const Config* config,
 					   const Location* location,
 					   const HTTPRequest* request,
-					   HTTPResponse* response) {
+					   HTTPResponse* response,
+					   const std::string& requested_path) {
 
 	// // if (request.getMethod() != "POST") {
 	// // 	_applyErrorPage(client, &location, 405);
@@ -464,28 +466,93 @@ static void handlePost(const Config* config,
 	// const HTTPRequest* request = &client.getCurrentRequest();
 	// HTTPResponse* response = &client.getCurrentResponse();
 
-	if (request->getBody().empty()) {
+	if (request->getBody().size() > config->client_max_body_size) {
+		response->setStatus(413, "Payload Too Large");
+		response->setHeader("Server", "MyServer/1.0");
+		return;
+	}
+
+	if (request->getPath().find("..") != std::string::npos) {
 		serveErrorPage(config, location, response, 400);
 		return;
 	}
 
-	if (request->getBody().size() > config->client_max_body_size) {
-		response->setStatus(413, "Payload Too Large");
-		return;
+	std::string upload_dir = location->upload_dir;
+	if (upload_dir.empty()) {
+		if (isDirectory(requested_path)) {
+			upload_dir = requested_path;
+		} else {
+			size_t slash = requested_path.rfind('/');
+			upload_dir = requested_path.substr(0, slash);
+		}
 	}
 
-	// struct stat sb;
-	std::string upload_dir = location->upload_dir.empty() ? location->root : location->upload_dir;
-
-	// // if (stat(upload_dir.c_str(), &sb) == -1 || !S_ISDIR(sb.st_mode)) {
-	// // 	_applyErrorPage(client, &location, 403);
-	// // }
-	if (!isWritable(upload_dir)) {
+	if (!isDirectory(upload_dir) || !isWritable(upload_dir)) {
 		serveErrorPage(config, location, response, 403);
 		return;
 	}
 
-	std::string out_path = upload_dir + "/upload.bin";
+	std::string body = request->getBody();
+	size_t slash = request->getPath().rfind('/');
+	std::string original_name = request->getPath().substr(slash + 1);
+	if (original_name.empty()) {
+		original_name = "upload";
+	}
+
+	if (request->hasHeader("content-type") &&
+		request->getHeader("content-type").find("multipart/form-data") != std::string::npos) {
+		std::string content_type = request->getHeader("content-type");
+		size_t boundary_pos = content_type.find("boundary=");
+		size_t filename_pos = body.find("filename=\"");
+		size_t body_start = body.find("\r\n\r\n");
+		if (boundary_pos == std::string::npos || filename_pos == std::string::npos ||
+			body_start == std::string::npos) {
+			serveErrorPage(config, location, response, 400);
+			return;
+		}
+
+		std::string boundary = content_type.substr(boundary_pos + 9);
+		if (!boundary.empty() && boundary[0] == '"') {
+			boundary = boundary.substr(1, boundary.size() - 2);
+		}
+		std::string delimiter = "--" + boundary;
+		size_t filename_end = body.find('"', filename_pos + 10);
+		size_t content_end = body.find("\r\n" + delimiter, body_start + 4);
+		if (filename_end == std::string::npos || content_end == std::string::npos) {
+			serveErrorPage(config, location, response, 400);
+			return;
+		}
+
+		original_name = body.substr(filename_pos + 10, filename_end - filename_pos - 10);
+		size_t name_slash = original_name.find_last_of("/\\");
+		if (name_slash != std::string::npos) {
+			original_name = original_name.substr(name_slash + 1);
+		}
+		body = body.substr(body_start + 4, content_end - body_start - 4);
+	}
+
+	size_t dot = original_name.rfind('.');
+	std::string base_name = dot == std::string::npos ? original_name : original_name.substr(0, dot);
+	std::string extension = dot == std::string::npos ? "" : original_name.substr(dot);
+	if (base_name.empty()) {
+		base_name = "upload";
+	}
+
+	std::string filename;
+	std::string out_path;
+	unsigned int counter = 0;
+	do {
+		std::ostringstream name;
+		name << base_name << "_upload_" << counter++ << extension;
+		filename = name.str();
+		out_path = upload_dir + "/" + filename;
+	} while (isRegularFile(out_path) && counter < 10000);
+
+	if (isRegularFile(out_path)) {
+		serveErrorPage(config, location, response, 500);
+		return;
+	}
+
 	std::ofstream out(out_path.c_str(), std::ios::binary);
 
 	if (!out.is_open()) {
@@ -493,11 +560,19 @@ static void handlePost(const Config* config,
 		return;
 	}
 
-	out << request->getBody();
+	out.write(body.data(), body.size());
+	if (!out.good()) {
+		out.close();
+		serveErrorPage(config, location, response, 500);
+		return;
+	}
 	out.close();
 
-	response->setStatus(201, "Created");
+	size_t uri_slash = request->getPath().rfind('/');
+	std::string uploaded_uri = request->getPath().substr(0, uri_slash + 1) + filename;
 	response->setHeader("Server", "MyServer/1.0");
+	response->setHeader("Location", uploaded_uri);
+	response->setStatus(201, "Created");
 	response->setBody("Uploaded\n", "text/plain");
 
 	return;
@@ -568,7 +643,7 @@ static void handleDirectory(const Config* config,
 
 	} else if (method == "POST") {
 
-		handlePost(config, location, request, response); // TEST
+		handlePost(config, location, request, response, path); // TEST
 		return;
 
 	} else {
@@ -678,6 +753,12 @@ void Dispatcher::dispatchRequest(Client& client) {
 		// _executeCGI(location, path, request, response); // TODO
 		return;
 
+	// POST creates a new upload even when the requested resource does not exist yet
+	} else if (method == "POST") {
+
+		handlePost(config, location, request, response, path);
+		return;
+
 	// Check if request is for a directory
 	} else if (isDirectory(path)) {
 
@@ -690,8 +771,6 @@ void Dispatcher::dispatchRequest(Client& client) {
 		// log.error("regular file detected");
 		if (method == "DELETE") {
 			handleDelete(config, location, response, path);
-		} else if (method == "POST") {
-			handlePost(config, location, request, response);
 		} else {
 			serveFile(config, location, response, path);
 		}

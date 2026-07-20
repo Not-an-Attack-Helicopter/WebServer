@@ -28,7 +28,8 @@
 Client::Client(const Config* config)
 	:	_addrlen(sizeof(_addr)),
 		_config(config),
-		_last_event(std::time(NULL)) {
+		_last_event(std::time(NULL)),
+		_close_after_response(false) {
 
 	log.debug("Client Constructor called");
 
@@ -162,6 +163,10 @@ bool Client::hasPendingData(void) const {
 	return !_outgoing_data.empty();
 }
 
+bool Client::shouldCloseAfterResponse(void) const {
+	return _close_after_response;
+}
+
 ssize_t Client::queueIncomingData(int fd) {
 
 	ssize_t n = recv(fd, _buffer, sizeof(_buffer) - 1, 0);
@@ -242,6 +247,17 @@ void Client::parseIncomingData(void) {
 
 			// log.info("HTTP request incomplete: awaiting more data");
 			// dumpRequest(_request_queue.back());
+			if (_request_queue.back()->getContentLength() > _config->client_max_body_size) {
+				pushResponse();
+				_response_queue.back()->setStatus(413, "Payload Too Large");
+				_response_queue.back()->setHeader("Server", "MyServer/1.0");
+				_response_queue.back()->setHeader("Connection", "close");
+				_response_queue.back()->setBody("Payload Too Large\n", "text/plain");
+				_close_after_response = true;
+				_incoming_data.clear();
+				_request_queue.back()->reset();
+				break;
+			}
 
 			_incoming_data.erase(0, _request_queue.back()->getBytesRead());
 
