@@ -291,12 +291,16 @@ void Client::parseIncomingData(void) {
 			log.error("HTTP request parser returned error");
 			dumpRequest(_request_queue.back());
 
-			_incoming_data.erase(0, _request_queue.back()->getBytesRead());
+			// Reply immediately on parse errors so clients do not hang waiting for a response.
+			pushResponse();
+			_response_queue.back()->setStatus(400, "Bad Request");
+			_response_queue.back()->setHeader("Server", "MyServer/1.0");
+			_response_queue.back()->setHeader("Connection", "close");
+			_response_queue.back()->setBody("Bad Request\n", "text/plain");
+			_close_after_response = true;
 
-			log.debug("Current data in buffer (client):\n");
-			log.notice(_incoming_data);
-
-			_request_queue.back()->reset(); // reset last request object in vector container
+			_incoming_data.clear();
+			_request_queue.back()->reset(); // reset last request object in deque container
 
 			break;
 

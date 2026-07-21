@@ -23,7 +23,8 @@
 HTTPResponse::HTTPResponse(void)
 	:	_status_code(200),
 		_status_reason("OK"),
-		_body("") {
+		_body(""),
+		_suppress_body(false) {
 	log.debug("HTTPResponse Constructor called");
 	return;
 }
@@ -78,6 +79,10 @@ void HTTPResponse::setHeader(const std::string& key, const std::string& value) {
 	_headers[key] = value;
 }
 
+void HTTPResponse::setSuppressBody(bool suppress) {
+	_suppress_body = suppress;
+}
+
 
 // Produce the raw HTTP/1.1 string ready to write to the socket
 std::string HTTPResponse::serialize(void) const {
@@ -98,8 +103,10 @@ std::string HTTPResponse::serialize(void) const {
 		}
 	}
 
-	if (!_body.empty()) {
+	if (!_suppress_body && !_body.empty()) {
 		response += "\r\n" + _body;
+	} else {
+		response += "\r\n";
 	}
 
 	return response;
@@ -111,6 +118,7 @@ void HTTPResponse::reset(void) {
 	_status_reason = "OK";
 	_headers.clear();
 	_body.clear();
+	_suppress_body = false;
 }
 
   //~~~~~~~~~~~//
@@ -121,7 +129,8 @@ void HTTPResponse::reset(void) {
 HTTPResponse::HTTPResponse(const HTTPResponse& other)
 	:	_status_code(other._status_code),
 		_status_reason(other._status_reason),
-		_body(other._body) {
+		_body(other._body),
+		_suppress_body(other._suppress_body) {
 	_headers = other._headers;
 	return;
 }
@@ -132,6 +141,7 @@ HTTPResponse& HTTPResponse::operator = (const HTTPResponse& other) {
 		_status_code = other._status_code;
 		_status_reason = other._status_reason;
 		_body = other._body;
+		_suppress_body = other._suppress_body;
 		_headers = other._headers;
 	}
 	return *this;

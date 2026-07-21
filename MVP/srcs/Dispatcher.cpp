@@ -442,7 +442,7 @@ static void handleGet(const Config* config,
 	// autoindex is off, return 403
 	} else {
 
-		serveErrorPage(config, location, response, 403);
+		serveErrorPage(config, location, response, 404);
 		return;
 
 	}
@@ -736,7 +736,7 @@ void Dispatcher::dispatchRequest(Client& client) {
 		return;
 	}
 
-	// Create absolute path from root
+	// Create absolute path from the matched location root.
 	std::string path;
 	// if (location->root.empty()) {
 	// 	path = config->root + "/" + request->getPath();
@@ -746,6 +746,12 @@ void Dispatcher::dispatchRequest(Client& client) {
 	// location->root.empty() ?
 	// path = config->root + "/" + request->getPath() :
 	path = location->root + request->getPath();
+	if (location->path == "/") {
+		path = location->root + request->getPath();
+	} else {
+		std::string suffix = request->getPath().substr(location->path.size());
+		path = location->root + suffix;
+	}
 	// log.error(path);
 
 	// Match CGI extensions
@@ -778,10 +784,10 @@ void Dispatcher::dispatchRequest(Client& client) {
 
 	// If error occurred, check `error_page` directive
 	} else {
-		// int code = 500;
+		// int code = 404;
 		// serveErrorPage(config, location, response, code);
 		// return;
-		status = 500;
+		status = 404;
 	}
 
 	if (status >= 400) {

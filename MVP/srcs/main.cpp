@@ -24,6 +24,10 @@ int main(int argc, char** argv) {
 	std::string config_file;
 	std::string av[argc];
 
+	if (argc > 4 || argc < 2) {
+		log.notice("Usage: " + std::string(argv[0]) + " [-v] <config_file>");
+		return 0;
+	}
 	for (int i = 0; i <= argc; ++i) {
 		if (argv[i] != NULL) av[i] = argv[i];
 	}

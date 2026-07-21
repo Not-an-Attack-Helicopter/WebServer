@@ -293,7 +293,7 @@ bool HTTPRequest::_extractTokens(const std::string& line) {
 	}
 
 	// Validate method
-	if (method != "GET" && method != "DELETE" && method != "POST") {
+	if (method != "GET" && method != "HEAD" && method != "DELETE" && method != "POST") {
 		log.error("bad method");
 		return false;
 	}
@@ -374,9 +374,11 @@ bool HTTPRequest::_extractContentLength(void) {
 }
 
 ParseState HTTPRequest::_parseRequestLine(const std::string& raw) {
+	std::string current_line = _buffer + raw;
+	size_t carried_size = _buffer.size();
 
 	// Find where request line ends
-	_request_line_end_pos = _findRequestLineEnd(raw);
+	_request_line_end_pos = _findRequestLineEnd(current_line);
 
 	// Calculate headers start position based on line ending style ("\n" or "\r\n")
 	_line_end_size = _is_unix_style ? UNIX_LINE_END_SIZE : WINDOWS_LINE_END_SIZE;
@@ -406,11 +408,12 @@ ParseState HTTPRequest::_parseRequestLine(const std::string& raw) {
 
 	// Line feed detected (end of request line): procced with line parsing
 	} else {
+		size_t consumed_from_raw = _request_line_end_pos + _line_end_size - carried_size;
 
-		_buffer.append(raw, 0, _request_line_end_pos + _line_end_size);
+		_buffer.append(raw, 0, consumed_from_raw);
 		// // _buffer.append(LF); DO NOT APPEND LINE FEED!
 
-		_bytes_read_count = _buffer.size() - _old_buffer_fill_level;
+		_bytes_read_count = consumed_from_raw;
 
 		// log.debug("Bytes read: " + i2a(_bytes_read_count));
 		// log.debug("Previous buffer fill level: " + i2a(_old_buffer_fill_level));
@@ -436,23 +439,30 @@ ParseState HTTPRequest::_parseRequestLine(const std::string& raw) {
 }
 
 ParseState HTTPRequest::_parseHeaders(const std::string& raw) {
+	std::string carried_line;
+	if (_header_line_size > 0 && _buffer.size() >= _header_line_size) {
+		carried_line = _buffer.substr(_buffer.size() - _header_line_size);
+	}
+	std::string current_line = carried_line + raw;
+	size_t carried_size = carried_line.size();
 
 	// Check for line break
 	_is_unix_style ?
-		_header_line_end_pos = raw.find(LF) :
-		_header_line_end_pos = raw.find(CRLF);
+		_header_line_end_pos = current_line.find(LF) :
+		_header_line_end_pos = current_line.find(CRLF);
 
 	// Detected line break at 0 pos (empty line): append and proceed with validity checks
 	if (_header_line_end_pos == 0) {
+		size_t consumed_from_raw = _line_end_size - carried_size;
 
-		_buffer.append(raw, 0, _line_end_size);
+		_buffer.append(raw, 0, consumed_from_raw);
 
-		_bytes_read_count = _line_end_size;
+		_bytes_read_count = consumed_from_raw;
 
 		// log.debug("Bytes read: " + i2a(_bytes_read_count));
 		// log.debug("Previous buffer fill level: " + i2a(_old_buffer_fill_level));
 
-		_old_buffer_fill_level += _line_end_size;
+		_old_buffer_fill_level = _buffer.size();
 
 		// log.debug("Current buffer fill level: " + i2a(_buffer.size()));
 		// log.debug("Current data in buffer (request):\n");
@@ -495,16 +505,22 @@ ParseState HTTPRequest::_parseHeaders(const std::string& raw) {
 				return _state;
 			}
 
-			// GET and DELETE are not designed to carry request bodies
-			if (_method == "GET" || _method == "DELETE") {
+			// GET, HEAD and DELETE are not designed to carry request bodies
+			if (_method == "GET" || _method == "HEAD" || _method == "DELETE") {
 				_state = PS_COMPLETE;
 				return _state;
 			}
 
 			// Extract Content-Length value (mandatory for POST)
 			if (!_extractContentLength()) {
-				log.error("no content-length header found");
-				_state = PS_ERROR;
+				_content_length = 0;
+				_state = PS_COMPLETE;
+				return _state;
+			}
+
+			// A zero-length body is already complete; do not wait for more bytes.
+			if (_content_length == 0) {
+				_state = PS_COMPLETE;
 				return _state;
 			}
 
@@ -518,7 +534,7 @@ ParseState HTTPRequest::_parseHeaders(const std::string& raw) {
 
 		_buffer.append(raw);
 
-		_bytes_read_count = _buffer.size() - _old_buffer_fill_level;
+		_bytes_read_count = raw.size();
 		_header_line_size += _bytes_read_count;
 
 		// log.debug("Bytes read: " + i2a(_bytes_read_count));
@@ -535,12 +551,13 @@ ParseState HTTPRequest::_parseHeaders(const std::string& raw) {
 
 	// Data detected: proceed with line parsing
 	} else {
+		size_t consumed_from_raw = _header_line_end_pos + _line_end_size - carried_size;
 
-		_buffer.append(raw, 0, _header_line_end_pos + _line_end_size);
+		_buffer.append(raw, 0, consumed_from_raw);
 		// // _buffer.append(LF); DO NOT APPEND LINE FEED!
 
-		_bytes_read_count = _buffer.size() - _old_buffer_fill_level;
-		_header_line_size += _bytes_read_count;
+		_bytes_read_count = consumed_from_raw;
+		_header_line_size = carried_size + consumed_from_raw;
 
 		// log.debug("Bytes read: " + i2a(_bytes_read_count));
 		// log.debug("Line length: " + i2a(_header_line_size));

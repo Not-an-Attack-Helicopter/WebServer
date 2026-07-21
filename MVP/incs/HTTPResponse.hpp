@@ -38,6 +38,7 @@ class HTTPResponse {
 		// const std::map<std::string, std::string>&	getHeaders(void) const;
 		void										setHeader(const std::string& key,
 															const std::string& value);
+		void									setSuppressBody(bool suppress);
 
 		// Produce the raw HTTP/1.1 string ready to write to the socket
 		std::string									serialize(void) const;
@@ -53,6 +54,7 @@ class HTTPResponse {
 		int											_status_code;
 		std::string									_status_reason;
 		std::string									_body;
+		bool									_suppress_body;
 		std::map<std::string, std::string>			_headers;
 
 };
