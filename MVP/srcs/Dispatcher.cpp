@@ -466,7 +466,7 @@ static void handlePost(const Config* config,
 	// const HTTPRequest* request = &client.getCurrentRequest();
 	// HTTPResponse* response = &client.getCurrentResponse();
 
-	if (request->getBody().size() > config->client_max_body_size) {
+	if (request->getContentLength() > config->client_max_body_size) {
 		response->setStatus(413, "Payload Too Large");
 		response->setHeader("Server", "MyServer/1.0");
 		return;
@@ -493,6 +493,16 @@ static void handlePost(const Config* config,
 	}
 
 	std::string body = request->getBody();
+	if (!request->getBodyPath().empty()) {
+		std::ifstream file(request->getBodyPath().c_str(), std::ios::binary);
+		if (!file.is_open()) {
+			serveErrorPage(config, location, response, 500);
+			return;
+		}
+		std::ostringstream oss;
+		oss << file.rdbuf();
+		body = oss.str();
+	}
 	size_t slash = request->getPath().rfind('/');
 	std::string original_name = request->getPath().substr(slash + 1);
 	if (original_name.empty()) {

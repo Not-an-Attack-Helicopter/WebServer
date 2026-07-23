@@ -122,6 +122,8 @@ void dumpRequest(HTTPRequest* request) {
 		// log.debug("Content-Length:\t" + i2a(request->getContentLength()) + "\n");
 
 	log.debug("Body:\t\t" + request->getBody());
+	if (!request->getBodyPath().empty())
+		log.debug("Body file:\t" + request->getBodyPath());
 }
 // DEBUG END
 

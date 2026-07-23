@@ -16,6 +16,7 @@
 #include <cstddef>
 #include <string>
 #include <map>
+#include <fstream>
 
 #define HT "\t"
 #define LF "\n"
@@ -50,6 +51,7 @@ class HTTPRequest {
 		bool					hasHeader(const std::string& key) const;
 		const std::string&		getHeader(const std::string& key) const;
 		const std::string&		getBody(void) const;
+		const std::string&		getBodyPath(void) const;
 
 		size_t					getBytesRead(void);
 		size_t					getContentLength(void) const;
@@ -84,6 +86,7 @@ class HTTPRequest {
 		static const size_t						UNIX_BLANK_LINE_SIZE = 2;
 		static const size_t 					WINDOWS_LINE_END_SIZE = 2;
 		static const size_t						WINDOWS_BLANK_LINE_SIZE = 4;
+		static const size_t						BODY_STREAM_THRESHOLD = 1048576;
 
 		ParseState								_state;
 
@@ -95,6 +98,7 @@ class HTTPRequest {
 		std::string								_query;
 		std::string								_version;
 		std::string								_body;
+		std::string								_body_path;
 
 		std::map<std::string, std::string>		_headers;
 
@@ -111,6 +115,7 @@ class HTTPRequest {
 		size_t									_body_start_pos;
 		size_t									_content_length;
 		size_t									_request_size;
+		size_t									_body_bytes_received;
 
 		// char									_buffer[128];
 

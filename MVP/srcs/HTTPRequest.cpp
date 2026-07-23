@@ -19,6 +19,7 @@
 #include <cctype>
 #include <cstddef>
 #include <cstdlib>
+#include <cerrno>
 
   //~~~~~~~~~~//
  /*  Public  */
@@ -52,7 +53,8 @@ HTTPRequest::HTTPRequest(void)
 		_headers_size(0),
 		_body_start_pos(0),
 		_content_length(0),
-		_request_size(0) {
+		_request_size(0),
+		_body_bytes_received(0) {
 	log.debug("HTTPRequest Constructor called");
 	_buffer.clear();
 	_method.clear();
@@ -67,6 +69,9 @@ HTTPRequest::HTTPRequest(void)
 /*	@brief Deconstructor	*/
 HTTPRequest::~HTTPRequest(void) {
 	log.debug("HTTPRequest Deconstructor called");
+	if (!_body_path.empty()) {
+	 	std::remove(_body_path.c_str());
+	  }
 	return;
 }
 
@@ -110,6 +115,10 @@ const std::string& HTTPRequest::getBody(void) const{
 	return _body;
 };
 
+const std::string& HTTPRequest::getBodyPath(void) const{
+	return _body_path;
+};
+
 size_t HTTPRequest::getBytesRead(void) {
 	return _bytes_read_count;
 }
@@ -135,12 +144,17 @@ void HTTPRequest::reset(void) {
 	_body_start_pos = 0;
 	_content_length = 0;
 	_request_size = 0;
+	_body_bytes_received = 0;
 	_buffer.clear();
 	_method.clear();
 	_path.clear();
 	_query.clear();
 	_version.clear();
 	_body.clear();
+	if (!_body_path.empty()) {
+	 	std::remove(_body_path.c_str());
+	 	_body_path.clear();
+	 }
 	_headers.clear();
 
 	return;
@@ -662,6 +676,47 @@ ParseState HTTPRequest::_parseBody(const std::string& raw) {
 	log.debug("_request_size: " + i2a(_request_size));
 	log.debug("_buffer.size() + raw.size(): " + i2a(_buffer.size() + raw.size()));
 // DEBUG END
+
+	// ---------- Hybrid body path ----------
+	// Bodies > 1 MB are streamed to a temp file to avoid large memory allocations.
+	if (_content_length > BODY_STREAM_THRESHOLD) {
+
+		// Open temp file on first body chunk
+		if (_body_path.empty()) {
+			static unsigned long counter = 0;
+			std::ostringstream oss;
+			oss << "/tmp/webserv-TMP-" << ++counter;
+			_body_path = oss.str();
+		}
+
+		// Write only the bytes needed to finish the body
+		size_t remaining = _content_length - _body_bytes_received;
+		_bytes_read_count = raw.size() < remaining ? raw.size() : remaining;
+
+		std::ofstream file(_body_path.c_str(),
+			std::ios::binary | std::ios::app);
+		if (!file.is_open()) {
+			_state = PS_ERROR;
+			return _state;
+		}
+		file.write(raw.data(), _bytes_read_count);
+		if (!file.good()) {
+			_state = PS_ERROR;
+			return _state;
+		}
+		file.close();
+
+		_body_bytes_received += _bytes_read_count;
+
+		if (_body_bytes_received == _content_length) {
+			_body.clear();
+			_state = PS_COMPLETE;
+		}
+		return _state;
+
+	}
+
+	// ---------- Small-body string path (unchanged) ----------
 
 	// Check if complete body received
 	_buffer.append(raw);
