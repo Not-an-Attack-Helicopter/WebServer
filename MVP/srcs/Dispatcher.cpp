@@ -621,6 +621,11 @@ static void handleDelete(const Config* config,
 		serveErrorPage(config, location, response, 404);
 		return;
 	}
+	// Refuse to delete directories — only regular files may be deleted
+	if (isDirectory(path)) {
+		serveErrorPage(config, location, response, 403);
+		return;
+	}
 	if (std::remove(path.c_str()) == -1) {
 		serveErrorPage(config, location, response, 500);
 		return;
@@ -658,7 +663,8 @@ static void handleDirectory(const Config* config,
 
 	} else {
 
-		handleDelete(config, location, response, path); // TEST
+		// DELETE (or any other method) on a directory → 403 Forbidden
+		serveErrorPage(config, location, response, 403);
 		return;
 
 	}
