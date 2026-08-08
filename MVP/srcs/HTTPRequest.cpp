@@ -11,21 +11,81 @@
 /* ************************************************************************** */
 
 #include "../incs/HTTPRequest.hpp"
-#include "../incs/templates.hpp"
+// #include "../incs/constexpr.hpp"
+// #include "../incs/templates.hpp"
 #include "../incs/Logger.hpp"
-#include "../incs/utils.hpp"
-#include <sstream>
+// #include "../incs/Config.hpp"
+// #include "../incs/utils.hpp"
+// #include <sstream>
 #include <cstring>
-#include <cctype>
+// #include <cctype>
 #include <cstddef>
 #include <cstdlib>
+
+// #include <iostream>
+
+// struct Method {
+// 	HTTPRequest::Method method;
+// 	const std::string name;
+// };
+//
+// static const Method VALID_METHODS[HTTPRequest::METHOD_COUNT] = {
+// 	{HTTPRequest::GET, "GET"},
+// 	{HTTPRequest::POST, "POST"},
+// 	{HTTPRequest::DELETE, "DELETE"}
+// };
+
+// static const std::string VALID_METHODS[HTTPRequest::METHOD_COUNT] = {"GET", "POST", "DELETE"};
+//
+// static bool validateMethodOrder() {
+// 	if (VALID_METHODS[HTTPRequest::GET] != "GET") return false;
+// 	if (VALID_METHODS[HTTPRequest::POST] != "POST") return false;
+// 	if (VALID_METHODS[HTTPRequest::DELETE] != "DELETE") return false;
+// 	return true;
+// }
+
+// static const std::pair<Method, const char*> VALID_METHODS[METHOD_COUNT] = {
+//
+// 	std::make_pair(GET, "GET"),
+// 	std::make_pair(POST, "POST"),
+// 	std::make_pair(DELETE, "DELETE")
+//
+// };
+
+// static bool matchMethod(const std::string& name, Method& method) {
+//
+// 	for (size_t i = 0; i < arraySize(VALID_METHODS); ++i) {
+// 		// if (VALID_METHODS[i] == name) {
+// 			// method = static_cast<HTTPRequest::Method>(i);
+// 		// if (VALID_METHODS[i].name == name) {
+// 		// 	method = VALID_METHODS[i].method;
+// 		if (VALID_METHODS[i].second == name) {
+// 			method = VALID_METHODS[i].first;
+// 			return true;
+// 		}
+// 	}
+// 	return false;
+//
+// }
 
   //~~~~~~~~~~//
  /*  Public  */
 //~~~~~~~~~~//
 
 // DEBUG BEGIN
-unsigned long HTTPRequest::global_count = 0;
+// unsigned long HTTPRequest::global_count = 0;
+
+const std::string HTTPRequest::getMethodName(void) const {
+
+	static const std::string valid_methods[METHOD_COUNT] = {"GET", "POST", "DELETE"};
+	size_t method = static_cast<size_t>(_method);
+	if (method < METHOD_COUNT) {
+		return valid_methods[method];
+	}
+	log.warn("HTTP Request: No method found");
+	return "N/A";
+
+}
 
 std::map<std::string, std::string>& HTTPRequest::getHeaders() {
 	return _headers;
@@ -33,29 +93,36 @@ std::map<std::string, std::string>& HTTPRequest::getHeaders() {
 // DEBUG END
 
 /*	@brief Constructor	*/
-HTTPRequest::HTTPRequest(void)
+HTTPRequest::HTTPRequest(void) {
 // DEBUG BEGIN
-	:	HR_object_id(++global_count),
-		parses_count(0),
+	// :	HR_object_id(++global_count),
+	// 	parses_count(0) {
 // DEBUG END
-		_state(PS_READING_REQUEST_LINE),
-		_is_unix_style(true),
-		_bytes_read_count(0),
-		_header_line_size(0),
-		_old_buffer_fill_level(0),
-		_request_line_end_pos(0),
-		_header_line_end_pos(0),
-		_line_end_size(0),
-		_blank_line_size(0),
-		_headers_start_pos(0),
-		_headers_end_pos(0),
-		_headers_size(0),
-		_body_start_pos(0),
-		_content_length(0),
-		_request_size(0) {
+	// :	parse_state(READING_REQUEST_LINE),
+	// 	// _is_unix_style(true),
+	// 	line_ending(IS_LF),
+	// 	bytes_read_count(0),
+	// 	header_line_size(0),
+	// 	old_buffer_fill_level(0),
+	// 	request_line_end_pos(0),
+	// 	header_line_end_pos(0),
+	// 	line_end_size(0),
+	// 	blank_line_size(0),
+	// 	headers_start_pos(0),
+	// 	headers_end_pos(0),
+	// 	headers_size(0),
+	// 	body_start_pos(0),
+	// 	content_length(0),
+	// 	request_size(0) {
 	log.debug("HTTPRequest Constructor called");
-	_buffer.clear();
-	_method.clear();
+	// buffer.clear();
+	std::memset(static_cast<void*>(&parsing), 0, sizeof(parsing));
+	// std::memset(static_cast<void*>(&body), 0, sizeof(body));
+	body.temp.clear();
+	body.file.close();
+	body.sink = DISK;
+	body.size = 0;
+	_method = METHOD_COUNT;
 	_path.clear();
 	_query.clear();
 	_version.clear();
@@ -71,15 +138,15 @@ HTTPRequest::~HTTPRequest(void) {
 }
 
 //getters
-ParseState HTTPRequest::getState(void) const {
-	return _state;
-}
+// HTTPRequest::ParseState HTTPRequest::getState(void) const {
+// 	return parse_state;
+// }
 
-bool HTTPRequest::getStyle(void) const {
-	return _is_unix_style;
-}
+// bool HTTPRequest::getStyle(void) const {
+// 	return _is_unix_style;
+// }
 
-const std::string& HTTPRequest::getMethod(void) const {
+const Method& HTTPRequest::getMethod(void) const {
 	return _method;
 }
 
@@ -110,33 +177,89 @@ const std::string& HTTPRequest::getBody(void) const{
 	return _body;
 };
 
-size_t HTTPRequest::getBytesRead(void) {
-	return _bytes_read_count;
+// size_t HTTPRequest::getBytesRead(void) {
+// 	return bytes_read_count;
+// }
+
+// size_t HTTPRequest::getContentLength(void) const {
+// 	return content_length;
+// }
+
+// void HTTPRequest::setState(const ParseState& parse_state) {
+// 	parse_state = parse_state;
+// }
+
+void HTTPRequest::setMethod(const Method& method) {
+	_method = method;
 }
 
-size_t HTTPRequest::getContentLength(void) const {
-	return _content_length;
+void HTTPRequest::setPath(const std::string& path) {
+	_path = path;
+}
+
+void HTTPRequest::setQuery(const std::string& query) {
+	_query = query;
+}
+
+void HTTPRequest::setVersion(const std::string& version) {
+	_version = version;
+}
+
+void HTTPRequest::setHeader(const std::string& key, const std::string& value) {
+	// std::pair header = std::make_pair(key, value);
+	// _headers.insert(header);
+	_headers[key] = value;
+}
+
+void HTTPRequest::setBody(const std::string& body) {
+	_body = body;
+}
+
+// void HTTPRequest::setBytesRead(size_t bytes_read_count) {
+// 	bytes_read_count = bytes_read_count;
+// }
+
+bool HTTPRequest::extractContentLength(void) {
+
+	std::string value = getHeader("content-length");
+	if (value.empty())
+		return false; // non-existent or empty value
+
+	char* endptr;
+	parsing.content_length = static_cast<size_t>(strtoul(value.c_str(), &endptr, 10));
+	if (std::strcmp(endptr, value.c_str()) == 0 || *endptr != '\0')
+		return false; // malformed content-length header
+
+	return true;
+
 }
 
 void HTTPRequest::reset(void) {
 
-	_state = PS_READING_REQUEST_LINE;
-	_is_unix_style = true;
-	_bytes_read_count = 0;
-	_header_line_size = 0;
-	_old_buffer_fill_level = 0;
-	_request_line_end_pos = 0;
-	_header_line_end_pos = 0,
-	_line_end_size = 0;
-	_blank_line_size = 0;
-	_headers_start_pos = 0;
-	_headers_end_pos = 0;
-	_headers_size = 0;
-	_body_start_pos = 0;
-	_content_length = 0;
-	_request_size = 0;
-	_buffer.clear();
-	_method.clear();
+	// parse_state = READING_REQUEST_LINE;
+	// // _is_unix_style = true;
+	// line_ending = IS_LF;
+	// bytes_read_count = 0;
+	// header_line_size = 0;
+	// old_buffer_fill_level = 0;
+	// request_line_end_pos = 0;
+	// header_line_end_pos = 0,
+	// line_end_size = 0;
+	// blank_line_size = 0;
+	// headers_start_pos = 0;
+	// headers_end_pos = 0;
+	// headers_size = 0;
+	// body_start_pos = 0;
+	// content_length = 0;
+	// request_size = 0;
+	// buffer.clear();
+	std::memset(static_cast<void*>(&parsing), 0, sizeof(parsing));
+	// std::memset(static_cast<void*>(&body), 0, sizeof(body));
+	body.temp.clear();
+	body.file.close();
+	body.sink = DISK;
+	body.size = 0;
+	_method = METHOD_COUNT;
 	_path.clear();
 	_query.clear();
 	_version.clear();
@@ -147,43 +270,45 @@ void HTTPRequest::reset(void) {
 
 }
 
-// Feed raw bytes; returns the current _state:
-ParseState HTTPRequest::parse(const std::string& raw) {
-
-// DEBUG BEGIN
-	// log.notice("\n#################################################\n");
-	log.debug("request id: " + i2a(HR_object_id) + "\tstate: " + i2a(_state) + "\tparses: " + i2a(parses_count));
-	++parses_count;
-// DEBUG END
-
-	switch (_state) {
-
-	case PS_READING_REQUEST_LINE:
-
-		return _parseRequestLine(raw);
-
-	case PS_READING_HEADERS:
-
-		return _parseHeaders(raw);
-
-	case PS_READING_BODY:
-
-		return _parseBody(raw);
-
-	case PS_COMPLETE:
-
-		return _state;
-
-	case PS_ERROR:
-
-		reset();
-		return _state;
-
-	}
-
-	return _state;
-
-}
+// Feed raw bytes; returns the current parse_state:
+// HTTPRequest::ParseState HTTPRequest::parse(const std::string& raw) {
+//
+// // DEBUG BEGIN
+// 	// log.notice("\n#################################################\n");
+// 	// log.debug("request id: " + i2a(HR_object_id) + "\tstate: " + i2a(parse_state) + "\tparses: " + i2a(parses_count));
+// 	// ++parses_count;
+// // DEBUG END
+//
+// 	switch (parse_state) {
+//
+// 	case READING_REQUEST_LINE:
+//
+// 		return _parseRequestLine(raw);
+//
+// 	case READING_HEADERS:
+//
+// 		return _parseHeaders(raw);
+//
+// 	case READING_BODY:
+//
+// 		return _parseBody(raw);
+//
+// 	case COMPLETE:
+//
+// 		return parse_state;
+//
+// 	case ERROR:
+//
+// 		reset();
+// 		return parse_state;
+//
+// 	default:
+//
+// 		return parse_state;
+//
+// 	}
+//
+// }
 
   //~~~~~~~~~~~//
  /*  Private  */
@@ -191,542 +316,118 @@ ParseState HTTPRequest::parse(const std::string& raw) {
 
 /*	@brief Copy Constructor	*/
 HTTPRequest::HTTPRequest(const HTTPRequest& other)
-	:	HR_object_id(other.HR_object_id),
-		parses_count(other.parses_count),
-		_state(other._state),
-		_is_unix_style(other._is_unix_style),
+	// :	HR_object_id(other.HR_object_id),
+	// 	parses_count(other.parses_count),
+	// :	parse_state(other.parse_state),
+	// 	line_ending(other.line_ending),
+	// 	// _is_unix_style(other._is_unix_style),
+	// 	bytes_read_count(other.bytes_read_count),
+	// 	header_line_size(other.header_line_size),
+	// 	old_buffer_fill_level(other.old_buffer_fill_level),
+	// 	request_line_end_pos(other.request_line_end_pos),
+	// 	header_line_end_pos(other.header_line_end_pos),
+	// 	line_end_size(other.line_end_size),
+	// 	blank_line_size(other.blank_line_size),
+	// 	headers_start_pos(other.headers_start_pos),
+	// 	headers_end_pos(other.headers_end_pos),
+	// 	headers_size(other.headers_size),
+	// 	body_start_pos(other.body_start_pos),
+	// 	content_length(other.content_length),
+	// 	request_size(other.request_size),
+	:	parsing(other.parsing),
+		// body(other.body),
 		_method(other._method),
 		_path(other._path),
 		_query(other._query),
 		_version(other._version),
-		_body(other._body),
 		_headers(other._headers),
-		_bytes_read_count(other._bytes_read_count),
-		_header_line_size(other._header_line_size),
-		_old_buffer_fill_level(other._old_buffer_fill_level),
-		_request_line_end_pos(other._request_line_end_pos),
-		_header_line_end_pos(other._header_line_end_pos),
-		_line_end_size(other._line_end_size),
-		_blank_line_size(other._blank_line_size),
-		_headers_start_pos(other._headers_start_pos),
-		_headers_end_pos(other._headers_end_pos),
-		_headers_size(other._headers_size),
-		_body_start_pos(other._body_start_pos),
-		_content_length(other._content_length),
-		_request_size(other._request_size) {
+		_body(other._body) {
 	log.debug("HTTPRequest Copy Constructor called");
-	ssize_t i = -1;
-	while (other._buffer[++i])
-		_buffer[i] = other._buffer[i];
+	// ssize_t i = -1;
+	// while (other.buffer[++i])
+	// 	buffer[i] = other.buffer[i];
 	return;
 }
 
 /*	@brief Copy Assignment Operator	*/
 HTTPRequest& HTTPRequest::operator = (const HTTPRequest& other) {
 	if (this != &other) {
-		HR_object_id = other.HR_object_id;
-		parses_count = other.parses_count;
-		_state = other._state;
-		_is_unix_style = other._is_unix_style;
+		// HR_object_id = other.HR_object_id;
+		// parses_count = other.parses_count;
+		// parse_state = other.parse_state;
+		// line_ending = other.line_ending;
+		// // _is_unix_style = other._is_unix_style;
+		// bytes_read_count = other.bytes_read_count;
+		// header_line_size = other.header_line_size;
+		// old_buffer_fill_level = other.old_buffer_fill_level;
+		// request_line_end_pos = other.request_line_end_pos;
+		// header_line_end_pos = other.header_line_end_pos;
+		// line_end_size = other.line_end_size;
+		// blank_line_size = other.blank_line_size;
+		// headers_start_pos = other.headers_start_pos;
+		// headers_end_pos = other.headers_end_pos;
+		// headers_size = other.headers_size;
+		// body_start_pos = other.body_start_pos;
+		// content_length = other.content_length;
+		// request_size = other.request_size;
+		parsing = other.parsing;
+		// body = other.body;
 		_method = other._method;
 		_path = other._path;
 		_query = other._query;
 		_version = other._version;
 		_body = other._body;
 		_headers = other._headers;
-		_bytes_read_count = other._bytes_read_count;
-		_bytes_read_count = other._header_line_size;
-		_old_buffer_fill_level = other._old_buffer_fill_level;
-		_request_line_end_pos = other._request_line_end_pos;
-		_header_line_end_pos = other._header_line_end_pos;
-		_line_end_size = other._line_end_size;
-		_blank_line_size = other._blank_line_size;
-		_headers_start_pos = other._headers_start_pos;
-		_headers_end_pos = other._headers_end_pos;
-		_headers_size = other._headers_size;
-		_body_start_pos = other._body_start_pos;
-		_content_length = other._content_length;
-		_request_size = other._request_size;
 	}
 	log.debug("HTTPRequest Copy Assignment Operator called");
-	ssize_t i = -1;
-	while (other._buffer[++i])
-		_buffer[i] = other._buffer[i];
+	// ssize_t i = -1;
+	// while (other.buffer[++i])
+	// 	buffer[i] = other.buffer[i];
 	return *this;
 }
 
 // parsers
-size_t HTTPRequest::_findRequestLineEnd(const std::string& raw) {
-
-	size_t unix_end = raw.find(LF);
-	size_t windows_end = raw.find(CRLF);
-
-	// Both not found: incomplete data
-	if (unix_end == std::string::npos && windows_end == std::string::npos)
-		return std::string::npos;
-
-	// Determine which style to use
-	if (unix_end < windows_end) // true if unix style (win = npos) / false if windows style
-		return unix_end;
-
-	_is_unix_style = false;
-	return windows_end;
-
-}
-
-bool HTTPRequest::_extractTokens(const std::string& line) {
-
-	// Transform to stream
-	std::stringstream ss(line);
-	if (ss.fail())
-		return false;
-
-	// Validate number of tokens
-	std::string method, uri, version, extra;
-	if (!(ss >> method >> uri >> version)) {
-		log.error("too few");
-		return false; // too few tokens in request line
-	}
-	if (ss >> extra) {
-		log.error("too many");
-		return false; // too many tokens in request line
-	}
-
-	// Validate method
-	if (method != "GET" && method != "DELETE" && method != "POST") {
-		log.error("bad method");
-		return false;
-	}
-	_method = method;
-
-	// Validate URI
-	if (uri.empty() || uri[0] != '/')
-		return false;
-
-	// Split URI into path and query
-	size_t query_start_pos = uri.find('?');
-	if (query_start_pos != std::string::npos) {
-		_path = uri.substr(0, query_start_pos);
-		_query = uri.substr(query_start_pos + 1);
-	} else {
-		_path = uri;
-		_query.clear();
-	}
-
-	 // Validate HTTP version
-	version = trim(version); // strip trailing \r
-	if (version != "HTTP/1.1" && version != "HTTP/1.0")
-		return false;
-	_version = version;
-
-	return true;
-
-}
-
-bool HTTPRequest::_parseHeaderLine(const std::string& line) {
-
-	_header_line_size = 0;
-
-	// Find separator ':'
-	size_t colon_pos = line.find(':');
-	if (colon_pos == 0) {
-		log.error("no key provided");
-		return false;
-	}
-	if (colon_pos == std::string::npos) {
-		log.error("colon not found");
-		return false;
-	}
-
-	std::string key = line.substr(0, colon_pos);
-	std::string value = line.substr(colon_pos + 1);
-
-	// Trim whitespaces from key
-	key = trim(key);
-	if (key.empty()) {
-		log.error("empty key");
-		return false; // Key is required by header
-	}
-
-	// Trim whitespaces from value + Lowercase key for case-insensitive lookup
-	value = trim(value);
-	for (std::string::iterator it = key.begin(); it != key.end(); ++it)
-		*it = std::tolower(static_cast<unsigned char>(*it));
-	_headers[key] = value;
-
-	return true;
-
-}
-
-bool HTTPRequest::_extractContentLength(void) {
-
-	std::string value = getHeader("content-length");
-	if (value.empty())
-		return false; // Non-existent or empty value
-
-	char* endptr;
-	_content_length = static_cast<size_t>(strtoul(value.c_str(), &endptr, 10));
-	if (std::strcmp(endptr, value.c_str()) == 0 || *endptr != '\0')
-		return false; // Malformed Content-Length Header
-
-	return true;
-
-}
-
-ParseState HTTPRequest::_parseRequestLine(const std::string& raw) {
-
-	// Find where request line ends
-	_request_line_end_pos = _findRequestLineEnd(raw);
-
-	// Calculate headers start position based on line ending style ("\n" or "\r\n")
-	_line_end_size = _is_unix_style ? UNIX_LINE_END_SIZE : WINDOWS_LINE_END_SIZE;
-
-	// Detected empty line (before start of request line): not copied into _buffer
-	if (_request_line_end_pos == 0) {
-		_bytes_read_count = _line_end_size; // set byte count to _line_end_size to drop from data
-		return _state;
-
-	// No line feed detected (Data only): wait for more data
-	} else if (_request_line_end_pos == std::string::npos) {
-
-		_buffer.append(raw);
-
-		_bytes_read_count = _buffer.size() - _old_buffer_fill_level;
-
-		// log.debug("Bytes read: " + i2a(_bytes_read_count));
-		// log.debug("Previous buffer fill level: " + i2a(_old_buffer_fill_level));
-
-		_old_buffer_fill_level = _buffer.size();
-
-		// log.debug("Current buffer fill level: " + i2a(_buffer.size()));
-		// log.debug("Current data in buffer (request):\n");
-		// log.notice((_buffer));
-
-		return _state;
-
-	// Line feed detected (end of request line): procced with line parsing
-	} else {
-
-		_buffer.append(raw, 0, _request_line_end_pos + _line_end_size);
-		// // _buffer.append(LF); DO NOT APPEND LINE FEED!
-
-		_bytes_read_count = _buffer.size() - _old_buffer_fill_level;
-
-		// log.debug("Bytes read: " + i2a(_bytes_read_count));
-		// log.debug("Previous buffer fill level: " + i2a(_old_buffer_fill_level));
-
-		_old_buffer_fill_level = _buffer.size();
-
-		// log.debug("Current buffer fill level: " + i2a(_buffer.size()));
-		// log.debug("Current data in buffer (request):\n");
-		// log.notice((_buffer));
-		// log.debug("Line: " + _buffer);
-
-		// Extract method, path, query, and version
-		if (!_extractTokens(_buffer)) {
-			log.error("error while parsing request line");
-			_state = PS_ERROR;
-			return _state;
-		}
-
-		_state = PS_READING_HEADERS;
-		return _state;
-	}
-
-}
-
-ParseState HTTPRequest::_parseHeaders(const std::string& raw) {
-
-	// Check for line break
-	_is_unix_style ?
-		_header_line_end_pos = raw.find(LF) :
-		_header_line_end_pos = raw.find(CRLF);
-
-	// Detected line break at 0 pos (empty line): append and proceed with validity checks
-	if (_header_line_end_pos == 0) {
-
-		_buffer.append(raw, 0, _line_end_size);
-
-		_bytes_read_count = _line_end_size;
-
-		// log.debug("Bytes read: " + i2a(_bytes_read_count));
-		// log.debug("Previous buffer fill level: " + i2a(_old_buffer_fill_level));
-
-		_old_buffer_fill_level += _line_end_size;
-
-		// log.debug("Current buffer fill level: " + i2a(_buffer.size()));
-		// log.debug("Current data in buffer (request):\n");
-		// log.notice((_buffer));
-
-		// // return _state; DO NOT RETURN AT THIS LINE!
-
-		// After detecting empty line, check buffer for end of headers
-		_is_unix_style ?
-			_headers_end_pos = _buffer.find(LF LF) :
-			_headers_end_pos = _buffer.find(CRLF CRLF);
-
-		// Detected empty line (before start of request line): invalid request
-		// (should never happen)
-		if (_headers_end_pos == 0) {
-
-			log.error("unexpected empty line");
-			_bytes_read_count = 0;
-			_state = PS_ERROR;
-			return _state;
-
-		// No empty line detected: expecting more header lines
-		// (should not occur: appended line break right before check)
-		} else if (_headers_end_pos == std::string::npos) {
-
-			// log.debug("no empty line in buffer \t\t yet");
-			return _state;
-
-		// Detected empty line: end of header lines
-		} else {
-
-			// Calculate cumulative size of header lines
-			_headers_start_pos = _request_line_end_pos + _line_end_size;
-			_headers_size = _headers_end_pos - _headers_start_pos + _line_end_size;
-
-			// Check for Host Header (mandatory for GET, POST, DELETE)
-			if (!hasHeader("host") || getHeader("host").empty()) {
-				log.error("no host header found");
-				_state = PS_ERROR;
-				return _state;
-			}
-
-			// GET and DELETE are not designed to carry request bodies
-			if (_method == "GET" || _method == "DELETE") {
-				_state = PS_COMPLETE;
-				return _state;
-			}
-
-			// Extract Content-Length value (mandatory for POST)
-			if (!_extractContentLength()) {
-				log.error("no content-length header found");
-				_state = PS_ERROR;
-				return _state;
-			}
-
-			_state = PS_READING_BODY;
-			return _state;
-
-		}
-
-	// No line break: wait for more data
-	} else if (_header_line_end_pos == std::string::npos) {
-
-		_buffer.append(raw);
-
-		_bytes_read_count = _buffer.size() - _old_buffer_fill_level;
-		_header_line_size += _bytes_read_count;
-
-		// log.debug("Bytes read: " + i2a(_bytes_read_count));
-		// log.debug("Line length: " + i2a(_header_line_size));
-		// log.debug("Previous buffer fill level: " + i2a(_old_buffer_fill_level));
-
-		_old_buffer_fill_level = _buffer.size();
-
-		// log.debug("Current buffer fill level: " + i2a(_buffer.size()));
-		// log.debug("Current data in buffer (request):\n");
-		// log.notice((_buffer));
-
-		return _state;
-
-	// Data detected: proceed with line parsing
-	} else {
-
-		_buffer.append(raw, 0, _header_line_end_pos + _line_end_size);
-		// // _buffer.append(LF); DO NOT APPEND LINE FEED!
-
-		_bytes_read_count = _buffer.size() - _old_buffer_fill_level;
-		_header_line_size += _bytes_read_count;
-
-		// log.debug("Bytes read: " + i2a(_bytes_read_count));
-		// log.debug("Line length: " + i2a(_header_line_size));
-		// log.debug("Previous buffer fill level: " + i2a(_old_buffer_fill_level));
-
-		_old_buffer_fill_level = _buffer.size();
-
-		// log.debug("Current buffer fill level: " + i2a(_buffer.size()));
-		// log.debug("Current data in buffer (request):\n");
-		// log.notice((_buffer));
-
-		// Parse header line
-		// std::string line = _buffer.substr(_buffer.size() - _bytes_read_count);
-		std::string line = _buffer.substr(_buffer.size() - _header_line_size);
-		// log.error(line + i2a(_header_line_size));
-		if (!_parseHeaderLine(line)) {
-			log.error("error while parsing header line");
-			_state = PS_ERROR;
-			return _state;
-		}
-
-		return _state;
-
-	}
-
-	// // After detecting empty line, check buffer for end of headers
-	// _is_unix_style ?
-	// 	_headers_end_pos = _buffer.find(LF LF) :
-	// 	_headers_end_pos = _buffer.find(CRLF CRLF);
- //
-	// // Detected empty line (before start of request line): invalid request
-	// // (should never happen)
-	// if (_headers_end_pos == 0) {
- //
-	// 	log.error("unexpected empty line");
-	// 	_bytes_read_count = 0;
-	// 	_state = PS_ERROR;
-	// 	return _state;
- //
-	// // No empty line detected: expecting more header lines
-	// // (should not occur: return after line parsing)
-	// } else if (_headers_end_pos == std::string::npos) {
- //
-	// 	// log.debug("no empty line in buffer\t\tyet");
-	// 	return _state;
- //
-	// // Detected empty line: end of header lines
-	// } else {
- //
-	// 	// Calculate cumulative size of header lines
-	// 	_headers_start_pos = _request_line_end_pos + _line_end_size;
-	// 	_headers_size = _headers_end_pos - _headers_start_pos + 1;
- //
-	// 	// log.debug("_request_line_end_pos: " + i2a(_request_line_end_pos));
-	// 	// log.debug("_line_end_size: " + i2a(_line_end_size));
-	// 	// log.debug("_headers_start_pos: " + i2a(_headers_start_pos));
-	// 	// log.debug("_headers_end_pos: " + i2a(_headers_end_pos));
-	// 	// log.debug("_headers_size: " + i2a(_headers_size));
- //
-	// 	// Check for Host Header (mandatory for GET, POST, DELETE)
-	// 	if (!hasHeader("host") || getHeader("host").empty()) {
-	// 		log.error("no host header found");
-	// 		_state = PS_ERROR;
-	// 		return _state;
-	// 	}
- //
-	// 	// GET and DELETE are not designed to carry request bodies
-	// 	if (_method == "GET" || _method == "DELETE") {
-	// 		_state = PS_COMPLETE;
-	// 		return _state;
-	// 	}
- //
-	// 	// Extract Content-Length value (mandatory for POST)
-	// 	if (!_extractContentLength()) {
-	// 		log.error("no content-length header found");
-	// 		_state = PS_ERROR;
-	// 		return _state;
-	// 	}
- //
-	// 	_state = PS_READING_BODY;
-	// 	return _state;
- //
-	// }
-
-}
-
-ParseState HTTPRequest::_parseBody(const std::string& raw) {
-
-	// Calculate body start position based on line ending style ("\n\n" or "\r\n\r\n")
-	_blank_line_size = _is_unix_style ? UNIX_BLANK_LINE_SIZE : WINDOWS_BLANK_LINE_SIZE;
-	_body_start_pos = _headers_end_pos + _blank_line_size;
-	_request_size = _body_start_pos + _content_length;
-// DEBUG BEGIN
-	log.debug("_request_line_end_pos: " + i2a(_request_line_end_pos));
-	log.debug("_line_end_size: " + i2a(_line_end_size));
-	log.debug("_headers_start_pos: " + i2a(_headers_start_pos));
-	log.debug("_headers_end_pos: " + i2a(_headers_end_pos));
-	log.debug("_headers_size: " + i2a(_headers_size));
-	log.debug("_blank_line_size: " + i2a(_blank_line_size));
-	log.debug("_body_start_pos: " + i2a(_body_start_pos));
-	log.debug("_content_length: " + i2a(_content_length));
-	log.debug("_request_size: " + i2a(_request_size));
-	log.debug("_buffer.size() + raw.size(): " + i2a(_buffer.size() + raw.size()));
-// DEBUG END
-
-	// Check if complete body received
-	_buffer.append(raw);
-// DEBUG BEGIN
-	// log.debug("_buffer.size(): " + i2a(_buffer.size()));
-// DEBUG END
-
-	// Check if complete body received
-	if (_buffer.size() < _request_size) {
-
-		_bytes_read_count = _buffer.size() - _old_buffer_fill_level;
-
-		// log.debug("Bytes read: " + i2a(_bytes_read_count));
-		// log.debug("Previous buffer fill level: " + i2a(_old_buffer_fill_level));
-
-		_old_buffer_fill_level = _buffer.size();
-
-		// log.debug("Current buffer fill level: " + i2a(_buffer.size()));
-		// log.debug("Current data in buffer (request):\n");
-		// log.notice((_buffer));
-
-		_state = PS_READING_BODY;
-		return _state;  // not enough data for body: wait for more
-
-	} else {
-
-		_body = _buffer.substr(_body_start_pos, _content_length);
-
-		_bytes_read_count = _request_size - _old_buffer_fill_level;
-
-		log.debug("Expected overflow: " + i2a(_buffer.size() - _request_size));
-
-		log.debug("Actual overfloow: " + i2a((_buffer.size() - _old_buffer_fill_level) - _bytes_read_count));
-
-		_state = PS_COMPLETE;
-		return _state;
-
-	}
-
-}
-
 
 // 	// Check if complete body received
-// 	if (_buffer.size() + raw.size() < _request_size) {
-// 		// _buffer.erase(_old_buffer_fill_level);
-// 		_bytes_read_count = 0;
-// 		_state = PS_READING_BODY;
-// 		return _state;  // not enough data for body: wait for more
+// 	if (buffer.size() + raw.size() < request_size) {
+// 		// buffer.erase(old_buffer_fill_level);
+// 		bytes_read_count = 0;
+// 		parse_state = READING_BODY;
+// 		return parse_state;  // not enough data for body: wait for more
 //
 // 	// Accumulated enough data for body: proceed
 // 	} else {
 //
-// 		_buffer.append(raw);
+// 		buffer.append(raw);
 // // DEBUG BEGIN
-// 		// log.debug("_buffer.size(): " + i2a(_buffer.size()));
+// 		// log.debug("buffer.size(): " + i2a(buffer.size()));
 // // DEBUG END
-// 		_bytes_read_count = _buffer.size() - _old_buffer_fill_level;
+// 		bytes_read_count = buffer.size() - old_buffer_fill_level;
 //
-// 		// log.debug("Bytes read: " + i2a(_bytes_read_count));
-// 		// log.debug("Previous buffer fill level: " + i2a(_old_buffer_fill_level));
+// 		// log.debug("Bytes read: " + i2a(bytes_read_count));
+// 		// log.debug("Previous buffer fill level: " + i2a(old_buffer_fill_level));
 //
-// 		_old_buffer_fill_level = _buffer.size();
+// 		old_buffer_fill_level = buffer.size();
 //
-// 		// log.debug("Current buffer fill level: " + i2a(_buffer.size()));
+// 		// log.debug("Current buffer fill level: " + i2a(buffer.size()));
 // 		// log.debug("Current data in buffer (request):\n");
-// 		// log.notice((_buffer));
+// 		// log.notice((buffer));
 //
 // 		// Store body (if valid)
-// 		_body = _buffer.substr(_body_start_pos, _content_length);
+// 		_body = buffer.substr(body_start_pos, content_length);
 //
-// 		// log.debug("Expected overflow: " + i2a(_buffer.size() - _request_size));
+// 		// log.debug("Expected overflow: " + i2a(buffer.size() - request_size));
 //
-// 		// size_t tmp = _bytes_read_count;
-// 		// _bytes_read_count = _bytes_read_count - (_buffer.size() - _request_size);
-// 		_bytes_read_count = _content_length;
+// 		// size_t tmp = bytes_read_count;
+// 		// bytes_read_count = bytes_read_count - (buffer.size() - request_size);
+// 		bytes_read_count = content_length;
 //
-// 		// log.debug("Actual overflow: " + i2a(tmp - _bytes_read_count));
-// 		// _bytes_read_count = _bytes_read_count + _line_end_size - 1;
-// 		// _bytes_read_count = _content_length;
+// 		// log.debug("Actual overflow: " + i2a(tmp - bytes_read_count));
+// 		// bytes_read_count = bytes_read_count + line_end_size - 1;
+// 		// bytes_read_count = content_length;
 //
-// 		_state = PS_COMPLETE;
-// 		return _state;
+// 		parse_state = COMPLETE;
+// 		return parse_state;
 //
 // 	}
 //
@@ -735,24 +436,24 @@ ParseState HTTPRequest::_parseBody(const std::string& raw) {
 // size_t HTTPRequest::_findHeadersEnd(const std::string raw) {
 //
 // 	if (_is_unix_style)
-// 		return raw.find(LF LF);
+// 		return raw.find(LF ::LF);
 // 	else
-// 		return raw.find(CRLF CRLF);
+// 		return raw.find(CRLF ::CRLF);
 //
 // }
 
 // bool HTTPRequest::_parseHeaders(const std::string raw) {
 //
-// 	// log.warn("_headers_start_pos: " + i2a(_headers_start_pos));
-// 	// log.warn("_headers_size: " + i2a(_headers_size));
-// 	// log.warn("buffer size: " + i2a(_buffer.size()));
-// 	// log.warn("<substr: " + _buffer);
-// 	// std::string substr = _buffer.substr(_headers_start_pos, _headers_size);
+// 	// log.warn("headers_start_pos: " + i2a(headers_start_pos));
+// 	// log.warn("headers_size: " + i2a(headers_size));
+// 	// log.warn("buffer size: " + i2a(buffer.size()));
+// 	// log.warn("<substr: " + buffer);
+// 	// std::string substr = buffer.substr(headers_start_pos, headers_size);
 // 	// log.warn("substr>: " + substr);
 // 	// log.warn("substr size: " + i2a(substr.size()));
-// 	// std::istringstream ss(_buffer.substr(_headers_start_pos, _headers_size));
+// 	// std::istringstream ss(buffer.substr(headers_start_pos, headers_size));
 //
-// 	std::string substr = raw.substr(_headers_start_pos, _headers_size);
+// 	std::string substr = raw.substr(headers_start_pos, headers_size);
 // 	std::istringstream ss(substr);
 // 	if (ss.fail())
 // 		return false;
@@ -763,7 +464,7 @@ ParseState HTTPRequest::_parseBody(const std::string& raw) {
 // 		// Strip trailing \r
 // 		line = trim(line);
 // 		if (line.empty())
-// 			break; // Empty line signals end of headers
+// 			break; // empty line signals end of headers
 //
 // 		if (!_parseHeaderLine(line))
 // 			return false;
@@ -776,11 +477,11 @@ ParseState HTTPRequest::_parseBody(const std::string& raw) {
 
 // ++parses_count;
 // log.error("request id: " + i2a(HR_object_id) + " number of parses: " + i2a(parses_count));
-// log.error("state: " + i2a(_state));
-// if (_state == PS_COMPLETE)
-// 	return _state;
+// log.error("state: " + i2a(parse_state));
+// if (parse_state == COMPLETE)
+// 	return parse_state;
 
-// if (_state == PS_ERROR)
+// if (parse_state == ERROR)
 // 	reset();
 
 // reset();
@@ -819,24 +520,24 @@ ParseState HTTPRequest::_parseBody(const std::string& raw) {
 // 	// __attribute__ ((fallthrough));
 // // case std::string::npos:
 // if (request_line_end_pos == std::string::npos) {
-// 	_state = PS_READING_REQUEST_LINE;
-// 	return _state; // Incomplete; wait for more data
+// 	parse_state = READING_REQUEST_LINE;
+// 	return parse_state; // Incomplete; wait for more data
 // // 	// __attribute__ ((fallthrough));
 // }
 // // default:
-// // 	Parse request line
+// // Parse request line
 // _parsed_bytes_count += request_line_end_pos;
 // std::string line = raw.substr(0, request_line_end_pos);
 // log.warn("line: " + line);
 // if (!_parseRequestLine(line)) {
 // 	log.error("error while parsing request line");
-// 	_state = PS_ERROR;
-// 	return _state;
+// 	parse_state = ERROR;
+// 	return parse_state;
 // }
 // // }
 
 // bool HTTPRequest::_parseBody(const std::string& raw, size_t body_start_pos) {
-// 	_body = raw.substr(body_start_pos, _content_length);
+// 	_body = raw.substr(body_start_pos, content_length);
 // 	return true;
 // }
 
@@ -880,23 +581,23 @@ ParseState HTTPRequest::_parseBody(const std::string& raw) {
 
 // Check for Content-Length Header (mandatory for POST)
 // if (!hasHeader("content-length") || getHeader("content-length").empty()) {
-// 	_state = PS_ERROR;
-// 	return _state;
+// 	parse_state = ERROR;
+// 	return parse_state;
 // }
 
 // // Get pointer to Content-Length Header
 // std::map<std::string, std::string>::iterator it = _headers.find("content-length");
 // if (it == _headers.end()) { // should never happen because of previous check
-// 	_state = PS_ERROR;
-// 	return _state;
+// 	parse_state = ERROR;
+// 	return parse_state;
 // }
 
 // // Extract Content-Length value
 // char* endptr;
 // size_t content_length = static_cast<size_t>(strtoul(it->second.c_str(), &endptr, 10));
 // if (std::strcmp(endptr, it->second.c_str()) == 0 || *endptr != '\0') {
-// 	_state = PS_ERROR;
-// 	return _state;
+// 	parse_state = ERROR;
+// 	return parse_state;
 // }
 
 // // Determine which style to use (prefer Windows if both exist, but Windows comes first)
@@ -914,8 +615,8 @@ ParseState HTTPRequest::_parseBody(const std::string& raw) {
 // }
 
 // int HTTPRequest::parse(const std::string& raw) {
-// 	if (_state == PS_COMPLETE || _state == PS_ERROR)
-// 		return _state;
+// 	if (parse_state == COMPLETE || parse_state == ERROR)
+// 		return parse_state;
 //
 // 	size_t header_end_pos = std::string::npos;
 // 	size_t unix_line_end_pos = raw.find("\n\n"); // Unix style
@@ -926,17 +627,17 @@ ParseState HTTPRequest::_parseBody(const std::string& raw) {
 // 		std::istringstream ss(raw);
 // 		std::string line;
 // 		if (!std::getline(ss, line) || !_parseRequestLine(line)) {
-// 			_state = PS_ERROR;
-// 			return _state;
+// 			parse_state = ERROR;
+// 			return parse_state;
 // 		}
 // 		while (std::getline(ss, line) && line != "\r") {
 // 			if (!_parseHeaderLine(line)) {
-// 				_state = PS_ERROR;
-// 				return _state;
+// 				parse_state = ERROR;
+// 				return parse_state;
 // 			}
 // 		}
-// 		_state = PS_READING_HEADERS;
-// 		return _state;
+// 		parse_state = READING_HEADERS;
+// 		return parse_state;
 // 	} else if (unix_line_end_pos == std::string::npos) {
 // 		_is_unix_style = false;
 // 		header_end_pos = slop_line_end_pos;
@@ -948,23 +649,23 @@ ParseState HTTPRequest::_parseBody(const std::string& raw) {
 // 	std::istringstream ss(raw.substr(0, header_end_pos));
 // 	std::string line;
 // 	if (!std::getline(ss, line) || !_parseRequestLine(line)) {
-// 		_state = PS_ERROR;
-// 		return _state;
+// 		parse_state = ERROR;
+// 		return parse_state;
 // 	}
 // 	while (std::getline(ss, line) && line != "\r") {
 // 		if (!_parseHeaderLine(line)) {
-// 			_state = PS_ERROR;
-// 			return _state;
+// 			parse_state = ERROR;
+// 			return parse_state;
 // 		}
 // 	}
 //
 // 	if (!_parseBody(raw, header_end_pos)) {
-// 		_state = PS_ERROR;
-// 		return _state;
+// 		parse_state = ERROR;
+// 		return parse_state;
 // 	}
-// 	_state = PS_COMPLETE;
+// 	parse_state = COMPLETE;
 // 	// _complete = true;
-// 	return _state;
+// 	return parse_state;
 // }
 
 // bool HTTPRequest::_parseRequestLine(const std::string& line) {
@@ -980,7 +681,43 @@ ParseState HTTPRequest::_parseBody(const std::string& raw) {
 // 		return false;
 // 	if (uri.empty() || uri[0] != '/')
 // 		return false;
-// 	_method = method;
+// // 	_method = method;
+// if (method != "GET" && method != "DELETE" && method != "POST") {
+// 	log.error("bad method");
+// 	return false;
+// }
+// if (method == "GET") {
+// 	_method = GET;
+// } else if (method == "POST") {
+// 	_method = POST;
+// } else {
+// 	_method = DELETE;
+// }
+// switch (method.length()) {
+// case 3:
+// 	_method = GET;
+// 	break;
+// case 4:
+// 	_method = POST;
+// 	break;
+// case 6:
+// 	_method = DELETE;
+// 	break;
+// }
+// const std::string valid_methods[3] = {"GET", "POST", "DELETE"};
+// bool found = false;
+// for (size_t i = 0; i < arraySize(valid_methods); ++i) {
+// 	if (valid_methods[i] == method) {
+// 		_method = static_cast<Method>(i);
+// 		found = true;
+// 		break;
+// 	}
+// }
+// // if (i >= arraySize(valid_methods)) {
+// if (!found) {
+// 	log.error("bad method");
+// 	return false;
+// }
 // 	_uri = uri;
 // 	_version = version;
 // 	size_t query_pos = uri.find('?');
@@ -1032,36 +769,36 @@ ParseState HTTPRequest::_parseBody(const std::string& raw) {
 // 		return true; // no body (e.g. GET) is valid
 // 	}
 // 	char* endptr;
-// 	_content_length = static_cast<size_t>(strtoul(it->second.c_str(), &endptr, 10));
+// 	content_length = static_cast<size_t>(strtoul(it->second.c_str(), &endptr, 10));
 // if (std::strcmp(endptr, it->second.c_str()) == 0 || *endptr != '\0')
 // 	return false; // malformed Content-Length
 // 	size_t offset = _is_unix_style ? UNIX_STYLE : SLOP_STYLE;
-// 	if (raw.size() < header_end_pos + offset + _content_length)
+// 	if (raw.size() < header_end_pos + offset + content_length)
 // 		return false; // not enough data received yet
-// 	_body = raw.substr(header_end_pos + offset, _content_length);
+// 	_body = raw.substr(header_end_pos + offset, content_length);
 // 	return true;
 // }
 
 // bool HTTPRequest::isComplete(void) const { return _complete; }
 // bool HTTPRequest::parse(const std::string& raw) {
-// 	if (_state == PS_COMPLETE || _state == PS_ERROR)
-// 		return _state == PS_COMPLETE;
+// 	if (parse_state == COMPLETE || parse_state == ERROR)
+// 		return parse_state == COMPLETE;
 //
 // 	size_t header_end_pos = raw.find("\r\n\r\n");
 // 	if (header_end_pos == std::string::npos) {
 // 		std::istringstream ss(raw);
 // 		std::string line;
 // 		if (!std::getline(ss, line) || !_parseRequestLine(line)) {
-// 			_state = PS_ERROR;
+// 			parse_state = ERROR;
 // 			return false;
 // 		}
 // 		while (std::getline(ss, line) && line != "\r") {
 // 			if (!_parseHeaderLine(line)) {
-// 				_state = PS_ERROR;
+// 				parse_state = ERROR;
 // 				return false;
 // 			}
 // 		}
-// 		_state = PS_READING_HEADERS;
+// 		parse_state = READING_HEADERS;
 // 		return false;
 // 	}
 
@@ -1069,21 +806,32 @@ ParseState HTTPRequest::_parseBody(const std::string& raw) {
 // 	std::istringstream ss(raw.substr(0, header_end_pos));
 // 	std::string line;
 // 	if (!std::getline(ss, line) || !_parseRequestLine(line)) {
-// 		_state = PS_ERROR;
+// 		parse_state = ERROR;
 // 		return false;
 // 	}
 // 	while (std::getline(ss, line) && line != "\r") {
 // 		if (!_parseHeaderLine(line)) {
-// 			_state = PS_ERROR;
+// 			parse_state = ERROR;
 // 			return false;
 // 		}
 // 	}
 
 // 	if (!_parseBody(raw, header_end_pos)) {
-// 		_state = PS_ERROR;
+// 		parse_state = ERROR;
 // 		return false;
 // 	}
-// 	_state = PS_COMPLETE;
+// 	parse_state = COMPLETE;
 // 	_complete = true;
 // 	return true;
+// }
+
+// const std::string HTTPRequest::getMethodName(void) const {
+// // return VALID_METHODS[static_cast<size_t>(_method)];
+// // return VALID_METHODS[static_cast<size_t>(_method)].name;
+// for (size_t i = 0; i < static_cast<size_t>(METHOD_COUNT); ++i) {
+// 	if (VALID_METHODS[i].first == _method) {
+// 		return VALID_METHODS[i].second;
+// 	}
+// }
+// throw std::runtime_error("Method not defined");
 // }

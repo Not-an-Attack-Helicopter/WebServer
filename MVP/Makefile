@@ -13,14 +13,15 @@
 NAME		=	webserv
 
 CXX			=	c++
-CXXFLAGS	=	-Werror -Wextra -Wall -std=c++98
+CXXFLAGS	=	-Werror -Wextra -Wall -g -std=c++98
 
 SRCS_DIR	=	./srcs/
 OBJS_DIR	=	./objs/
 INCS_DIR	=	./incs/
 
 SRCS		=	main.cpp Logger.cpp Parser.cpp Server.cpp Client.cpp \
-			HTTPRequest.cpp HTTPResponse.cpp Dispatcher.cpp utils.cpp
+			HTTPRequest.cpp HTTPResponse.cpp Dispatcher.cpp \
+			Config.cpp utils.cpp
 
 OBJS		=	$(addprefix $(OBJS_DIR), $(SRCS:.cpp=.o))
 

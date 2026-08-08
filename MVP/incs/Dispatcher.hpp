@@ -18,24 +18,30 @@
 // #include "Config.hpp"
 #include "Client.hpp"
 // #include "utils.hpp"
-// #include "types.hpp"
 
-#define handler Dispatcher::instance()
+#define dispatcher Dispatcher::instance()
 
 class Dispatcher {
 
-	public:
+public:
 
-		static Dispatcher&			instance(void);
+	static Dispatcher&					instance(void);
 
-		void						dispatchRequest(Client& client);
+	void								handleRequest(Client& client);
 
-	private:
+	static const Config::Location*		matchLocation(const std::vector<Config::Location>& locations,
+													  const std::string& requested_location_path);
 
-		Dispatcher(void);
-		~Dispatcher(void);
-		Dispatcher(const Dispatcher& other);
-		Dispatcher& operator = (const Dispatcher& other);
+	typedef std::map<std::string, std::string> content_type_map;
+
+	static content_type_map				initContentTypeMap(void);
+
+private:
+
+	Dispatcher(void);
+	~Dispatcher(void);
+	Dispatcher(const Dispatcher& other);
+	Dispatcher& operator = (const Dispatcher& other);
 
 };
 

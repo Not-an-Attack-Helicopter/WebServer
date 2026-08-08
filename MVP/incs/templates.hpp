@@ -17,14 +17,14 @@
 #include <sstream>
 
 template<typename T>
-std::string i2a(T input) {
+std::string i2a(const T input) {
 	std::stringstream convert;
 	convert << input;
 	return convert.str();
 }
 
-template<typename T, int N>
-int arraySize(T (&)[N]) {
+template<typename T, size_t N>
+inline size_t arraySize(const T (&)[N]) {
 	return N;
 }
 

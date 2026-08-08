@@ -15,14 +15,13 @@
 
 #define server Server::instance()
 
+#include "Client.hpp"
 #include <netinet/in.h>
 #include <sys/epoll.h>
 #include <netdb.h>
 // #include <string>
 #include <vector>
 #include <map>
-#include "Client.hpp"
-// #include "types.hpp"
 
 # define INVALID_ADDR "No valid address string was provided for the specified \
 address family."
@@ -31,21 +30,21 @@ address family."
 class Server {
 
 	public:
-		static Server&					instance(void);
+		static Server&							instance(void);
 
-		void							setNonblockFlag(int fd);
-		void							setReadInterest(int fd);
-		void							addWriteInterest(int fd);
-		void							removeWriteInterest(int fd);
-		void							prepareEPollInstance(void);
-		void							prepareListeningPort(const Config& config);
-		void							handleIncomingEvents(void);
-		void							acceptConnectRequest(int fd, const Config* config);
-		bool							handleReadEvent(int fd);
-		void							handleWriteEvent(int fd);
-		void							cleanUpAllRessources(void);
-		void							cleanUpClient(std::map<int, Client*>::iterator it);
-		void							cleanUpSocket(std::map<int, const Config*>::iterator it);
+		void									setNonblockFlag(int fd);
+		void									setReadInterest(int fd);
+		void									addWriteInterest(int fd);
+		void									removeWriteInterest(int fd);
+		void									prepareEPollInstance(void);
+		void									prepareListeningPort(const Config::Socket& config);
+		void									handleIncomingEvents(void);
+		void									acceptConnectRequest(int fd, const Config::Socket* config);
+		bool									handleReadEvent(int fd);
+		void									handleWriteEvent(int fd);
+		void									cleanUpAllRessources(void);
+		void									cleanUpClient(std::map<int, Client*>::iterator it);
+		void									cleanUpSocket(std::map<int, const Config::Socket*>::iterator it);
 
 	private:
 		Server(void);
@@ -53,22 +52,26 @@ class Server {
 		Server(const Server& other);
 		Server& operator = (const Server& other);
 
-		static const int				MAX_EPOLL_EVENTS = 64; // 64 - 512
-		static const int				EPOLL_WAIT_TIMEOUT_MS = 5000; // 100 – 5000
+		static const int						MAX_EPOLL_EVENTS = 64; // 64 - 512
+		static const int						EPOLL_WAIT_TIMEOUT_MS = 5000; // 100 – 5000
 
-		bool							_stop;
+// DEBUG BEGIN
+		bool									_stop;
+		ssize_t									_total_read;
+		ssize_t									_total_sent;
+// DEBUG END
 
-		int								_epfd;
+		int										_epfd;
 
-		std::vector<sockaddr_in>		_addr;
+		std::vector<sockaddr_in>				_addr;
 
-		epoll_event						_events[MAX_EPOLL_EVENTS];
+		epoll_event								_events[MAX_EPOLL_EVENTS];
 
-		std::map<int, const Config*>	_sockets;
-		std::map<int, Client*>			_clients;
+		std::map<int, const Config::Socket*>	_sockets;
+		std::map<int, Client*>					_clients;
 
 // TEST
-		void							forking_around(int socket_fd, int client_fd);
+		void									forking_around(int socket_fd, int client_fd);
 // TEST
 
 };

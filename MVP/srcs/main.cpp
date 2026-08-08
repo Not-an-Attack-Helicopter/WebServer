@@ -50,11 +50,11 @@ int main(int argc, char** argv) {
 	case 3:
 
 		if (av[1] == "-q" || av[1] == "--quiet") {
-			log.setLevel(LOG_LEVEL_OFF);
+			log.setLevel(Logger::LEVEL_OFF);
 			config_file = av[2];
 
 		} else if (av[2] == "-q" || av[2] == "--quiet") {
-			log.setLevel(LOG_LEVEL_OFF);
+			log.setLevel(Logger::LEVEL_OFF);
 			config_file = av[1];
 
 		} else if (av[1] == "-l" || av[1] == "--log-level") {
@@ -72,7 +72,7 @@ int main(int argc, char** argv) {
 	case 2:
 
 		if (av[1] == "-q" || av[1] == "--quiet") {
-			log.setLevel(LOG_LEVEL_OFF);
+			log.setLevel(Logger::LEVEL_OFF);
 			// log.info("Using Default Configuration");
 			config_file = "configs/default.conf";
 
@@ -98,21 +98,21 @@ int main(int argc, char** argv) {
 	log.info("Using configuration file: " + config_file);
 
 	// Parse phase: parse through config file and extract server setup
-	size_t numSockets = 0;
+	size_t sockets_count = 0;
 
 	try {
 
-		parser.scan(config_file);
+		parse.configFile(config_file);
 		log.debug("Parsing configuration file: " + config_file);
 
-		numSockets = parser.getNumConfigs();
-		if (numSockets == 0) {
+		sockets_count = configs.size();
+		if (sockets_count == 0) {
 			log.error("no configuration provided");
 			return 1;
 		}
 
-		if (log.getLevel() <= LOG_LEVEL_INFO) {
-			dumpConfigs(parser.getAllConfigs());
+		if (log.getLevel() <= Logger::LEVEL_INFO) {
+			dumpConfigs(configs.get());
 		}
 
 	} catch (std::exception& e) {
@@ -134,13 +134,13 @@ int main(int argc, char** argv) {
 
 	}
 
-	for (size_t i = 0; i < numSockets; ++i) {
+	for (size_t i = 0; i < sockets_count; ++i) {
 
 		try {
 			// std::string address = parser.getConfig(i).host;
 			// unsigned short port = parser.getConfig(i).port;
 			// server.prepareListeningPort(address, port);
-			server.prepareListeningPort(parser.getConfig(i));
+			server.prepareListeningPort(configs.get(i));
 
 		} catch (const std::exception& e) {
 			log.error(e.what());

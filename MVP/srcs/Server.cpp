@@ -109,17 +109,17 @@ void Server::prepareEPollInstance(void) {
 
 }
 
-void Server::prepareListeningPort(const Config& config) {
+void Server::prepareListeningPort(const Config::Socket& soc) {
 
 	int opt = 1;
 	int result = 0;
 	sockaddr_in sa;
 
 	std::memset(&sa, 0, sizeof(sa));
-	sa.sin_port = htons(config.port);
+	sa.sin_port = htons(soc.port);
 	sa.sin_family = AF_INET;
 
-	result = inet_pton(sa.sin_family, config.host.c_str(), &sa.sin_addr);
+	result = inet_pton(sa.sin_family, soc.address.c_str(), &sa.sin_addr);
 	if (result == -1) {
 		throw std::runtime_error("inet_pton: " + std::string(strerror(errno)));
 	}
@@ -134,14 +134,14 @@ void Server::prepareListeningPort(const Config& config) {
 		throw std::runtime_error("socket: " + std::string(strerror(errno)));
 	}
 
-	_sockets[result] = &config;
+	_sockets[result] = &soc;
 
 	result = setsockopt(_sockets.rbegin()->first, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 	if (result == -1) {
 		throw std::runtime_error("setsockopt: " + std::string(strerror(errno)));
 	}
 
-	log.debug("Created server socket fd_" + i2a(_sockets.rbegin()->first));
+	log.debug("Created server socket fd_" + i2a(_sockets.rbegin()->first) + "(listen_fd)");
 
 	result = bind(_sockets.rbegin()->first, (sockaddr*)&_addr.back(), sizeof(_addr.back()));
 	if (result == -1) {
@@ -160,7 +160,7 @@ void Server::prepareListeningPort(const Config& config) {
 
 	setReadInterest(_sockets.rbegin()->first);
 
-	log.debug("Now listening on the socket");
+	log.debug("Now listening on listen_fd fd_" + i2a(_sockets.rbegin()->first));
 
 	return;
 
@@ -193,23 +193,24 @@ void Server::handleIncomingEvents(void) {
 			int fd = _events[n].data.fd;
 			epoll_event ev = _events[n];
 			uint32_t events = ev.events;
-			bool isSocket = false;
-			bool isClosed = false;
-			std::map<int, const Config*>::iterator it = _sockets.begin();
+			bool isListenSocket = false;
+			bool writingBlocked = false;
+			// bool isReadyForWrite = true;
+			std::map<int, const Config::Socket*>::iterator it = _sockets.begin();
 
 			while (it != _sockets.end()) {
 				if (fd == it->first && events & EPOLLIN) {
-					isSocket = true;
+					isListenSocket = true;
 					break;
 				}
 				++it;
 			}
 
-			if (!isSocket) {
+			if (!isListenSocket) {
 
 				if (events & EPOLLIN)
-					isClosed = handleReadEvent(fd);
-				if (!isClosed && events & EPOLLOUT)
+					writingBlocked = handleReadEvent(fd);
+				if (!writingBlocked && events & EPOLLOUT)
 					handleWriteEvent(fd);
 
 			} else {
@@ -254,22 +255,24 @@ void Server::handleIncomingEvents(void) {
 
 }
 
-void Server::acceptConnectRequest(int socket_fd, const Config* config) {
+void Server::acceptConnectRequest(int listen_fd, const Config::Socket* socket) {
 
-	// int socket_fd = it->first;
+	// int listen_fd = it->first;
 	// const Config* config= it->second;
 
-	log.info("New connection on socket fd_" + i2a(socket_fd));
+	log.info("New connection on socket fd_" + i2a(listen_fd));
 
-	Client* c = new Client(config);
+	Client* c = new Client(socket);
 
-	// int client_fd = accept(socket_fd, c->getAddrPointer(), c->getAddrlenPointer());
-	int client_fd = accept(socket_fd, &c->getAddr(), &c->getAddrlen());
+	// int client_fd = accept(listen_fd, c->getAddrPointer(), c->getAddrlenPointer());
+	int client_fd = accept(listen_fd, &c->getAddr(), &c->getAddrlen());
 	if (client_fd == -1) {
+
+		int err_no = errno;
 
 		delete c;
 
-		if (errno == EAGAIN || errno == EWOULDBLOCK) {
+		if (err_no == EAGAIN || err_no == EWOULDBLOCK) {
 			return;
 		} else {
 			throw std::runtime_error("accept: " + std::string(strerror(errno)));
@@ -287,7 +290,7 @@ void Server::acceptConnectRequest(int socket_fd, const Config* config) {
 	// dumpClientConfig(c);
 
 // TEST We don't care about potential DoS attack vectors here
-	// forking_around(socket_fd, client_fd);
+	// forking_around(listen_fd, client_fd);
 // TEST
 
 	return;
@@ -308,9 +311,16 @@ bool Server::handleReadEvent(int fd) {
 
 	switch (bytes_received) {
 
+// DEBUG BEGIN
+	case Client::STOP:
+		log.info("Connection closed by the server");
+		_stop = true;
+		return true;
+// DEBUG END
 	case -1:
-		throw std::runtime_error("recv: " + std::string(strerror(errno)));
-
+		// throw std::runtime_error("recv: " + std::string(strerror(errno)));
+		log.warn("recv: " + std::string(strerror(errno)));
+		return true;
 	case 0:
 		log.info("Connection closed by client fd_" + i2a(fd));
 		cleanUpClient(it);
@@ -320,19 +330,13 @@ bool Server::handleReadEvent(int fd) {
 		}
 // DEBUG END
 		return true;
-// DEBUG BEGIN
-	case STOP:
-		log.info("Connection closed by the server");
-		_stop = true;
-		return true;
-// DEBUG END
 	default:
 // DEBUG BEGIN
 		std::string buff = client.getBuffer();
 		if (static_cast<size_t>(bytes_received) >= buff.size()) {
 			bytes_received = buff.size();
 		}
-		buff.erase(bytes_received); // Remove AT LEAST this line for production
+		buff.erase(bytes_received); // remove AT LEAST this line for production
 
 		log.debug("Read " + i2a(bytes_received) + " bytes from client fd_" + i2a(fd) + ":");
 		log.notice(buff);
@@ -342,15 +346,18 @@ bool Server::handleReadEvent(int fd) {
 // TEST >>
 		client.parseIncomingData();
 
-		if (client.getCurrentRequest().getState() == PS_COMPLETE) {
+		if (client.getCurrentRequest().parsing.state == HTTPRequest::COMPLETE ||
+			client.getCurrentRequest().parsing.state == HTTPRequest::ERROR) {
 
 			// Create new response object in deque container
+			// client.push<HTTPResponse>();
 			client.pushResponse();
 
 			// Dispatch current request and build response
-			handler.dispatchRequest(client);
+			dispatcher.handleRequest(client);
 
 			// Delete processed request from deque container
+			// client.pop<HTTPRequest>();
 			client.popRequest();
 
 			addWriteInterest(fd);
@@ -376,27 +383,56 @@ void Server::handleWriteEvent(int fd) {
 // TEST BEGIN
 	if (client.hasPendingResponse()) {
 		client.queueOutgoingData();
+		// client.pop<HTTPResponse>();
 		client.popResponse();
 	}
 // TEST END
 // DEBUG BEGIN
-	if (!client.hasPendingData()) {
-		std::string message = "Data Received. Ctrl+D to close the connection.\n";
-		client.queueOutgoingData(message);
-	}
+	// if (!client.hasPendingData) {
+	// 	std::string message = "Data Received. Ctrl+D to close the connection.\n";
+	// 	client.queueOutgoingData(message);
+	// }
 // DEBUG END
-
 	if (client.hasPendingData()) {
-		int status = client.flushPendingData(fd);
-		if (status == -1) {
-			throw std::runtime_error("send: " + std::string(strerror(errno)));
-		}
+
+		// ssize_t bytes_sent = 0;
+		// const Client::OutgoingData* outgoing_data = client.getOutgoingData();
+		// const Client::State client_state = client.getClientState();
+		// switch (client_state) {
+		// case Client::SENDING_HEADERS:
+		// 	bytes_sent = client.flushPendingData(fd, outgoing_data->headers);
+		// 	break;
+		// case Client::SENDING_BODY:
+		// 	bytes_sent = client.flushPendingData(fd, outgoing_data->body);
+		// 	break;
+		// case Client::SENDING_FILE:
+		// 	bytes_sent = client.flushPendingData(fd, outgoing_data->file);
+		// 	break;
+		// case Client::IDLE:
+		// 	client.setBytesRead(0);
+		// 	break;
+		// }
+		client.flushPendingData(fd);
+		// log.error("bytes_sent: " + i2a(status));
+		// if (bytes_sent == -1) {
+		// 	// throw std::runtime_error("send: " + std::string(strerror(errno)));
+		// 	log.error("send: " + std::string(strerror(errno)));
+		// }
+		// if (bytes_sent == 0) {
+		// 	log.warn("send: 0 bytes sent");
+		// }
 	}
 	if (!client.hasPendingData()) {
-		removeWriteInterest(fd);
+		// log.error("No more pending data!");
+		if (client.getState() != Client::ERROR && client.keepAlive == true) {
+			removeWriteInterest(fd);
+		} else {
+			cleanUpClient(it);
+		}
 	}
 
 	return;
+
 }
 
 void Server::cleanUpAllRessources(void) {
@@ -417,8 +453,8 @@ void Server::cleanUpAllRessources(void) {
 
 	if (!_sockets.empty()) {
 
-		std::map<int, const Config*>::iterator immediate;
-		std::map<int, const Config*>::iterator it = _sockets.begin();
+		std::map<int, const Config::Socket*>::iterator immediate;
+		std::map<int, const Config::Socket*>::iterator it = _sockets.begin();
 
 		while (it != _sockets.end()) {
 			immediate = it;
@@ -478,7 +514,7 @@ void Server::cleanUpClient(std::map<int, Client*>::iterator it) {
 
 }
 
-void Server::cleanUpSocket(std::map<int, const Config*>::iterator it) {
+void Server::cleanUpSocket(std::map<int, const Config::Socket*>::iterator it) {
 
 	if (_epfd != -1) {
 		log.debug("Removing fd " + i2a(it->first) + " (socket) from epoll instance");
@@ -529,13 +565,14 @@ Server::Server(const Server& other) {
 
 /*	@brief Copy Assignment Operator	*/
 Server& Server::operator = (const Server& other) {
-	log.debug("Server Copy Assignment Operator called");
-	if (this != &other) {}
+	if (this != &other) {
+		log.debug("Server Copy Assignment Operator called");
+	}
 	return *this;
 }
 
 // TEST
-void Server::forking_around(int socket_fd, int client_fd) {
+void Server::forking_around(int listen_fd, int client_fd) {
 	pid_t pid = fork();
 	// const char* argv[] = {"echo", "Hello from the child process!", NULL};
 	const char* argv[] = {"/home/ben/NotAnAttackHelicopter/MVP/observ", NULL};
@@ -565,10 +602,11 @@ void Server::forking_around(int socket_fd, int client_fd) {
 			}
 			// _sockfd.clear();
 			_addr.clear();
-			// epoll_ctl(_epfd, EPOLL_CTL_DEL, socket_fd, NULL);	// This is potentially bad, because in the case
-			// // of disconnecting before sending 'STOP' it will
-			// // not be possible to reconnect!
-			close(socket_fd);
+			// epoll_ctl(_epfd, EPOLL_CTL_DEL, listen_fd, NULL);
+			// This is potentially bad, because in the case
+			// of disconnecting before sending 'STOP' it will
+			// not be possible to reconnect!
+			close(listen_fd);
 			close(client_fd);
 			close(_epfd);
 			// if (execvp(argv[0], (char* const*)argv) == -1) {
@@ -580,7 +618,8 @@ void Server::forking_around(int socket_fd, int client_fd) {
 				_exit(EXIT_FAILURE);
 			}
 			_exit(EXIT_SUCCESS);
-			break; // Because above "statement may fall through". - The Compiler. Who has no clue, this is bog wash.
+			break;
+			// Because above "statement may fall through". - The Compiler, having no clue; it's bog wash.
 		default:
 			// std::cout << "Hello from the parent process!" << std::endl;
 			while (waitpid(-1, NULL, WNOHANG) > 0) {}

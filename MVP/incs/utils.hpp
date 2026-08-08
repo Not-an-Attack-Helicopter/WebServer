@@ -13,12 +13,11 @@
 #ifndef UTILS_HPP
 #define UTILS_HPP
 
-// #include "webserver.hpp"
-// #include "types.hpp"
-#include "Client.hpp"
 #include "HTTPRequest.hpp"
-#include <sys/epoll.h>
+#include "Client.hpp"
 #include <string>
+# include <cstddef>
+#include <sys/epoll.h>
 // #include <vector>
 
 // DEBUG
@@ -39,6 +38,6 @@ bool			isDirectory(const std::string& path);
 // bool			isReadable(const std::string& path);
 // bool			isValidErrorCode(const int code);
 
-void			dumpConfigs(const std::vector<Config>& config);
+void			dumpConfigs(const std::vector<Config::Socket>& config);
 
 #endif

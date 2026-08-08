@@ -21,6 +21,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <cstdio>
+#include <vector>
 
 // DEBUG BEGIN
 void warnHighEventLoad(int nfds, int max_capacity) {
@@ -57,45 +58,40 @@ void dumpEvents(int nfds, epoll_event* events) {
 
 void dumpClientConfig(const Client* client) {
 
-	size_t j;
-	size_t k;
-	const Config& c = client->getConfig();
-	const std::vector<std::string> n = c.server_names;
-	const std::vector<Location> l = c.locations;
-	const std::vector<std::string> i = c.index_files;
-
-	log.info(c.host + " " + i2a(c.port) + " " + c.root + " ");
-	j = -1;
-	while (++j < i.size()) {
-		log.info(i[j]);
-	}
-	j = -1;
-	while (++j < n.size()) {
-		log.info(n[j]);
-	}
-	j = -1;
-	k = -1;
-	while (++j < l.size()) {
-		log.info(l[j].path + " " + l[j].root + " ");
-		while (++k < l[j].index_files.size()) {
-			log.info(l[j].index_files[j] + " ");
+	const Config::Socket& soc = client->getConfig();
+	log.info(soc.address + " " + i2a(soc.port));
+	for (size_t i = 0; i < soc.domains.size(); ++i) {
+		for (size_t j = 0; j < soc.domains[i].names.size(); ++j) {
+			log.info(soc.domains[i].names[j]);
 		}
-		log.info(l[j].redirect + " " + i2a(l[j].autoindex) + " " + l[j].upload_dir);
+		log.info(soc.domains[i].root);
+		for (size_t j = 0; j < soc.domains[i].index_files.size(); ++j) {
+			log.info(soc.domains[i].index_files[j]);
+		}
+		for (size_t j = 0; j < soc.domains[i].locations.size(); ++j) {
+			log.info(soc.domains[i].locations[j].path);
+			log.info(soc.domains[i].locations[j].root);
+			// log.info(soc.domains[i].locations[j].redirect);
+			// log.info(soc.domains[i].locations[j].upload_dir);
+			for (size_t k = 0; k < soc.domains[i].locations[j].index_files.size(); ++k) {
+				log.info(soc.domains[i].locations[j].index_files[k]);
+			}
+		}
 	}
 }
 
 void dumpRequest(HTTPRequest* request) {
-	std::string state;
-	switch(request->getState()) {
-		case PS_READING_REQUEST_LINE: state = "reading request line"; break;
-		case PS_READING_HEADERS: state = "reading headers"; break;
-		case PS_READING_BODY: state = "reading body"; break;
-		case PS_COMPLETE: state = "complete"; break;
-		case PS_ERROR: state = "error"; break;
+	std::string parsing_state;
+	switch(request->parsing.state) {
+		case HTTPRequest::READING_REQUEST_LINE: parsing_state = "reading request line"; break;
+		case HTTPRequest::READING_HEADERS: parsing_state = "reading headers"; break;
+		case HTTPRequest::READING_BODY: parsing_state = "reading body"; break;
+		case HTTPRequest::COMPLETE: parsing_state = "complete"; break;
+		case HTTPRequest::ERROR: parsing_state = "error"; break;
 	}
-	log.debug("State:\t\t" + state + " (" + i2a(request->getState()) + ")");
+	log.debug("State:\t\t" + parsing_state + " (" + i2a(request->parsing.state) + ")");
 	// log.debug("State:\t\t" + i2a(request.getState()));
-	log.debug("Method:\t\t" + request->getMethod());
+	log.debug("Method:\t\t" + request->getMethodName());
 	log.debug("Path:\t\t" + request->getPath());
 	log.debug("Query:\t\t" + request->getQuery());
 	log.debug("Version:\t" + request->getVersion());
@@ -190,36 +186,25 @@ bool isRegularFile(const std::string& path) {
 	// }
 
 	// log.error(path);
-	struct stat sb;
-	if (stat(path.c_str(), &sb) != 0) {
+	// struct stat sb;
+	// if (stat(path.c_str(), &sb) != 0) {
 	// int status = stat(path.c_str(), &sb);
 	// log.error(i2a(status));
 	// if (status != 0) {
-		log.error("FILE cassé");
-		return false;
-	}
+	// 	// log.error("FILE cassé");
+	// 	return false;
+	// }
 
+	struct stat sb;
+	if (stat(path.c_str(), &sb) != 0) return false;
 	return S_ISREG(sb.st_mode);
 
 }
 
 bool isDirectory(const std::string& path) {
 
-	// if (access(path.c_str(), F_OK) == -1) {
-	// 	// return false;
-	// 	log.error("F_KO");
-	// }
-
-	// log.error(path);
 	struct stat sb;
-	if (stat(path.c_str(), &sb) != 0) {
-	// int status = stat(path.c_str(), &sb);
-	// log.error(i2a(status));
-	// if (status != 0) {
-		log.error("DIR cassé");
-		return false;
-	}
-
+	if (stat(path.c_str(), &sb) != 0) return false;
 	return S_ISDIR(sb.st_mode);
 
 }
@@ -240,78 +225,94 @@ bool isDirectory(const std::string& path) {
 //
 // }
 
-void dumpConfigs(const std::vector<Config>& config) {
-	for (std::vector<Config>::const_iterator server = config.begin(); server != config.end(); ++server) {
-		std::cout << "server {\n";
-		std::cout << "    host: " << server->host << ";\n";
-		std::cout << "    port: " << server->port << ";\n";
-		std::cout << "    server_names: [";
-		for (size_t j = 0; j < server->server_names.size(); ++j) {
-			std::cout << server->server_names[j];
-			if (j < server->server_names.size() - 1) std::cout << ", ";
-		}
-		std::cout << "];\n";
-		std::cout << "    root: " << server->root << ";\n";
-		std::cout << "    index_files: [";
-		for (size_t j = 0; j < server->index_files.size(); ++j) {
-			std::cout << server->index_files[j];
-			if (j < server->index_files.size() - 1) std::cout << ", ";
-		}
-		std::cout << "];\n";
-		std::cout << "    error_pages {\n";
-		for (std::map<int, std::string>::const_iterator error_page = server->error_pages.begin(); error_page != server->error_pages.end(); ++error_page) {
-			std::cout << "        " << error_page->first << " " << error_page->second << ";\n";
-		}
-		std::cout << "    }\n";
-		std::cout << "    client_max_body_size: " << server->client_max_body_size << ";\n";
-		std::cout << "    locations {\n";
-		for (std::vector<Location>::const_iterator location = server->locations.begin(); location != server->locations.end(); ++location) {
-			std::cout << "        location " << location->path << " {\n";
-			std::cout << "            root: " << location->root << ";\n";
-			std::cout << "            redirect: " << location->redirect << ";\n";
-			std::cout << "            methods: [";
-			for (size_t i = 0; i < location->methods.size(); ++i) {
-				std::cout << location->methods[i];
-				if (i < location->methods.size() - 1) std::cout << ", ";
+// for (std::vector<Config::Socket>::const_iterator soc_it = sockets.begin(); soc_it != sockets.end(); ++soc_it) {
+// for (std::vector<Config::Domain>::const_iterator dom_it = soc_it->domains.begin(); dom_it != soc_it->domains.end(); ++dom_it) {
+// for (std::vector<Config::Location>::const_iterator location = server->locations.begin(); location != server->locations.end(); ++location) {
+
+void dumpConfigs(const std::vector<Config::Socket>& sockets) {
+	for (size_t i = 0; i < sockets.size(); ++i) {
+		std::cout << "socket {\n";
+		std::cout << "\thost: " << sockets[i].address << ";\n";
+		std::cout << "\tport: " << sockets[i].port << ";\n";
+		for (size_t j = 0; j < sockets[i].domains.size(); ++j) {
+			std::cout << "\tdomain {\n";
+			std::cout << "\t\tnames: [";
+			for (size_t k = 0; k < sockets[i].domains[j].names.size(); ++k) {
+				std::cout << sockets[i].domains[j].names[k];
+				if (k < sockets[i].domains[j].names.size() - 1) std::cout << ", ";
 			}
 			std::cout << "];\n";
-			std::cout << "            autoindex: " << (location->autoindex ? "on" : "off") << ";\n";
-			// std::cout << "            index: " << location->index << ";\n";
-			std::cout << "            index files: [";
-			for (size_t j = 0; j < location->index_files.size(); ++j) {
-				std::cout << location->index_files[j];
-					if (j < location->index_files.size() - 1) std::cout << ", ";
+			std::cout << "\t\troot: " << sockets[i].domains[j].root << ";\n";
+			std::cout << "\t\tindex_files: [";
+			for (size_t k = 0; k < sockets[i].domains[j].index_files.size(); ++k) {
+				std::cout << sockets[i].domains[j].index_files[k];
+				if (k < sockets[i].domains[j].index_files.size() - 1) std::cout << ", ";
 			}
 			std::cout << "];\n";
-			std::cout << "            upload_dir: " << location->upload_dir << ";\n";
-			// std::cout << "            cgi_extension: [";
-			// for (size_t j = 0; j < location->cgi_extensions.size(); ++j) {
-			// 	std::cout << location->cgi_extensions[j];
-			// 	if (j < location->cgi_extensions.size() - 1) std::cout << ", ";
-			// }
-			// std::cout << "];\n";
-			// std::cout << "            cgi_path: [";
-			// for (size_t j = 0; j < location->cgi_paths.size(); ++j) {
-			// 	std::cout << location->cgi_paths[j];
-			// 	if (j < location->cgi_paths.size() - 1) std::cout << ", ";
-			// }
-			// std::cout << "];\n";
-			std::cout << "            interpreter: {\n";
-			for (std::map<std::string, std::string>::const_iterator it = location->interpreters.begin();
-				 it != location->interpreters.end(); ++it) {
-				std::cout << "            " + it->first + " " + it->second << ";\n";
+			std::cout << "\t\terror_pages {\n";
+			for (std::map<int, std::string>::const_iterator error_page = sockets[i].domains[j].error_pages.begin();
+				 error_page != sockets[i].domains[j].error_pages.end(); ++error_page) {
+				std::cout << "\t\t\t" << error_page->first << " " << error_page->second << ";\n";
 			}
-			std::cout << "            };\n";
-			std::cout << "                error_pages {\n";
-			for (std::map<int, std::string>::const_iterator error_page = location->error_pages.begin();
-				 error_page != location->error_pages.end();
-				 ++error_page) {
-				std::cout << "            " << error_page->first << " " << error_page->second << ";\n";
+			std::cout << "\t\t}\n";
+			std::cout << "\t\tclient_max_body_size: " << sockets[i].domains[j].client_max_body_size << ";\n";
+			for (size_t k = 0; k < sockets[i].domains[j].locations.size(); ++k) {
+				std::cout << "\t\tlocation {\n";
+				std::cout << "\t\t\tpath " << sockets[i].domains[j].locations[k].path << ";\n";
+				std::cout << "\t\t\troot: " << sockets[i].domains[j].locations[k].root << ";\n";
+				std::cout << "\t\t\talias: " << sockets[i].domains[j].locations[k].alias << ";\n";
+				std::cout << "\t\t\tredirect: " << sockets[i].domains[j].locations[k].redirect << ";\n";
+				std::cout << "\t\t\tmethods: [";
+				for (size_t l = 0; l < sockets[i].domains[j].locations[k].methods.size(); ++l) {
+					std::string method;
+					switch(sockets[i].domains[j].locations[k].methods[l]) {
+						case GET: method = "GET"; break;
+						case POST: method = "POST"; break;
+						case DELETE: method = "DELETE"; break;
+						default: method = "N/A"; break;
+					}
+					std::cout << method;
+					if (l < sockets[i].domains[j].locations[k].methods.size() - 1) std::cout << ", ";
+				}
+				std::cout << "];\n";
+				std::cout << "\t\t\tautoindex: " << (sockets[i].domains[j].locations[k].autoindex ? "on" : "off") << ";\n";
+				std::cout << "\t\t\tindex files: [";
+				for (size_t l = 0; l < sockets[i].domains[j].locations[k].index_files.size(); ++l) {
+					std::cout << sockets[i].domains[j].locations[k].index_files[l];
+						if (l < sockets[i].domains[j].locations[k].index_files.size() - 1) std::cout << ", ";
+				}
+				std::cout << "];\n";
+				std::cout << "\t\t\terror_pages {\n";
+				for (std::map<int, std::string>::const_iterator error_page = sockets[i].domains[j].locations[k].error_pages.begin();
+					 error_page != sockets[i].domains[j].locations[k].error_pages.end(); ++error_page) {
+					std::cout << "\t\t\t\t" << error_page->first << " " << error_page->second << ";\n";
+				}
+				std::cout << "\t\t\t}\n";
+				std::cout << "\t\t\tupload_dir: " << sockets[i].domains[j].locations[k].upload_dir << ";\n";
+				// std::cout << "\t\t\tcgi_extension: [";
+				// for (size_t l = 0; l < sockets[i].domains[j].locations[k].cgi_extensions.size(); ++l) {
+				// 	std::cout << sockets[i].domains[j].locations[k].cgi_extensions[l];
+				// 	if (l < sockets[i].domains[j].locations[k].cgi_extensions.size() - 1) std::cout << ", ";
+				// }
+				// std::cout << "];\n";
+				// std::cout << "\t\t\tcgi_path: [";
+				// for (size_t l = 0; l < sockets[i].domains[j].locations[k].cgi_paths.size(); ++l) {
+				// 	std::cout << sockets[i].domains[j].locations[k].cgi_paths[l];
+				// 	if (j < location->cgi_paths.size() - 1) std::cout << ", ";
+				// }
+				// std::cout << "];\n";
+				std::cout << "\t\t\tinterpreters: {\n";
+				for (std::map<std::string, std::string>::const_iterator it = sockets[i].domains[j].locations[k].interpreters.begin();
+					 it != sockets[i].domains[j].locations[k].interpreters.end(); ++it) {
+					std::cout << "\t\t\t\t" + it->first + " " + it->second << ";\n";
+				}
+				std::cout << "\t\t\t};\n";
+				std::cout << "\t\t}\n";
+				// if (k < sockets[i].domains[j].locations.size() - 1) std::cout << "\t\tlocation {\n";
 			}
-			std::cout << "            }\n";
-			std::cout << "        }\n";
+			std::cout << "\t}\n";
+			// if (j < sockets[i].domains.size() - 1) std::cout << "\tdomain {\n";
 		}
-		std::cout << "    }\n";
 		std::cout << "}\n";
 	}
 	return;

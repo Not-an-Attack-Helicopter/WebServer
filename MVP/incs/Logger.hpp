@@ -15,7 +15,9 @@
 
 #include <string>
 
+// Logging shorthand — pragmatic exception to macro avoidance
 #define log Logger::instance()
+
 #define COLOR_DEBUG "\e[3;94m"
 #define COLOR_INFO "\e[93m"
 #define COLOR_WARNING "\e[33m"
@@ -23,27 +25,27 @@
 #define COLOR_NOTICE "\x1b[97m"
 #define COLOR_RESET "\e[0m"
 
-enum LogLevel {
-	LOG_LEVEL_DEBUG,
-	LOG_LEVEL_INFO,
-	LOG_LEVEL_WARNING,
-	LOG_LEVEL_ERROR,
-	LOG_LEVEL_NOTICE,
-	LOG_LEVEL_OFF
-};
-
 class Logger {
 
 	public:
 		static Logger&		instance(void);
 
-		void				setLevel(LogLevel lvl);
+		enum Level {
+			LEVEL_DEBUG,
+			LEVEL_INFO,
+			LEVEL_WARNING,
+			LEVEL_ERROR,
+			LEVEL_NOTICE,
+			LEVEL_OFF
+		};
+
+		void				setLevel(Level lvl);
 		void				setLevel(const std::string& name);
 
-		LogLevel			getLevel(void) const;
+		Level				getLevel(void) const;
 
-		const char*			getLevelName(LogLevel lvl) const;
-		const char*			getLevelColor(LogLevel lvl) const;
+		const char*			getLevelName(Level lvl) const;
+		const char*			getLevelColor(Level lvl) const;
 
 		void				debug(const std::string& msg);
 		void				info(const std::string& msg);
@@ -57,9 +59,9 @@ class Logger {
 		Logger(const Logger&);
 		Logger& operator=(const Logger&);
 
-		void				_logMessage(LogLevel lvl, const std::string& msg);
+		void				_logMessage(Level lvl, const std::string& msg);
 
-		LogLevel			_log_level;
+		Level				_log_level;
 
 };
 
