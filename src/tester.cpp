@@ -2,6 +2,7 @@
 #include "HTTPRequest.hpp"
 #include "HTTPResponse.hpp"
 #include "types.hpp"
+#include "cgi.hpp"
 
 // --------------------------------------------------------------------------
 // Minimal test harness
@@ -251,6 +252,24 @@ int main()
     test_response_content_length();
     test_response_reset();
     test_response_empty_body();
+
+    // CGI test
+    {
+        print_section("CGI - basic header/body parse");
+        std::vector<std::string> args;
+        // run /bin/sh -c 'printf "Status: 201\r\nContent-Type: text/plain\r\n\r\nHello CGI"'
+        args.push_back("sh");
+        args.push_back("-c");
+        args.push_back("printf \"Status: 201\\r\\nContent-Type: text/plain\\r\\n\\r\\nHello CGI\\n\"");
+        std::map<std::string,std::string> env;
+        env["REQUEST_METHOD"] = "GET";
+        CGIResult cres = run_cgi("/bin/sh", args, env, "");
+        ASSERT(cres.exit_code != -1, "CGI executed (exit_code set)");
+        ASSERT(cres.headers.find("content-type") != cres.headers.end(), "Content-Type header parsed");
+        ASSERT(cres.headers["content-type"] == "text/plain", "Content-Type value correct");
+        ASSERT(cres.status == 201, "Status header parsed as 201");
+        ASSERT(cres.body.find("Hello CGI") != std::string::npos, "Body contains Hello CGI");
+    }
 
     // Summary
     std::cout << "\n----------------------------------------\n";
