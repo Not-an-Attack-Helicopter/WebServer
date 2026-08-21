@@ -28,6 +28,15 @@ int main() {
     ASSERT(res.status == 201, "Status header parsed as 201");
     ASSERT(res.body.find("Hello CGI") != std::string::npos, "Body contains Hello CGI");
 
+    std::vector<std::string> echo_args;
+    echo_args.push_back("sh");
+    echo_args.push_back("-c");
+    echo_args.push_back("printf \"Content-Type: text/plain\\r\\n\\r\\n\"; cat");
+    std::string large_input(1024 * 1024, 'x');
+    CGIResult echo_res = run_cgi("/bin/sh", echo_args, env, large_input);
+    ASSERT(echo_res.exit_code == 0, "large CGI request exits successfully");
+    ASSERT(echo_res.body.size() == large_input.size(), "large CGI body is fully returned");
+
     std::cout << "exit_code=" << res.exit_code << "\n";
     // env builder test
     HTTPRequest req;

@@ -12,6 +12,7 @@ std::map<std::string,std::string> build_cgi_env(const HTTPRequest& req,
                                                const std::string& script_filename)
 {
     std::map<std::string,std::string> env;
+    (void)loc;
 
     env["GATEWAY_INTERFACE"] = "CGI/1.1";
     env["REQUEST_METHOD"] = req.getMethod();
