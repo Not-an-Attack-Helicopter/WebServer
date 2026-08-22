@@ -27,6 +27,7 @@
 // #include <sstream>
 #include <vector>
 #include <cstddef>
+// #include <climits>
 #include <cctype>
 
 // Config file parsing helpers
@@ -56,7 +57,7 @@ static std::string stripInlineComment(std::string line) {
 
 // static bool isSupportedMethod(const std::string& method) {
 //
-// 	const std::string valid_methods[METHOD_COUNT] = {"GET", "POST", "DELETE"};
+// 	const std::string valid_methods[METHOD_COUNT] = {"GET", "HEAD", "DELETE", "POST", "PUT"};
 // 	// const size_t size = arraySize(valid_methods);
 // 	if (std::find(valid_methods, valid_methods + METHOD_COUNT, method) != valid_methods + METHOD_COUNT) {
 // 		return true;
@@ -112,6 +113,15 @@ static bool isSupportedCGIExtension(const std::string& ext) {
 // 	return access(path.c_str(), R_OK) == 0;
 // }
 
+static bool isTchar(char c) {
+	return std::isalnum(static_cast<unsigned char>(c)) ||
+	c == '!' || c == '#' || c == '$' ||
+	c == '%' || c == '&' || c == '\'' ||
+	c == '*' || c == '+' || c == '-' ||
+	c == '.' || c == '^' || c == '_' ||
+	c == '`' || c == '|' || c == '~';
+}
+
 static bool isReadable(const std::string& path) {
 
 	if (!isRegularFile(path)) return false;
@@ -149,8 +159,9 @@ static bool isValidPort(const std::string& port_str) {
 
 	std::istringstream iss(port_str);
 	int port;
+	char c;
 
-	return (iss >> port).eof() && 0 < port && port <= 65535;
+	return (iss >> port) && !(iss >> c) && 0 < port && port <= 65535;
 
 }
 
@@ -187,11 +198,11 @@ static bool isValidIPAddress(const std::string& ip) {
 
 }
 
-static bool isValidBodySize(const int size) {
-
-	return size >= 0;
-
-}
+// static bool isValidBodySize(const int size) {
+//
+// 	return size >= 0;
+//
+// }
 
 // static bool isValidErrorCode(const int code) {
 //
@@ -234,15 +245,29 @@ static bool isDuplicateLocation(const std::vector<Config::Location>& locations,
 	}
 	return false;
 }
+/*
+static int createFile(const Config::Location& location,
+					  const std::string& path,
+					  HTTPRequest& request) {
 
-static bool isTchar(char c) {
-	return std::isalnum(static_cast<unsigned char>(c)) ||
-	c == '!' || c == '#' || c == '$' ||
-	c == '%' || c == '&' || c == '\'' ||
-	c == '*' || c == '+' || c == '-' ||
-	c == '.' || c == '^' || c == '_' ||
-	c == '`' || c == '|' || c == '~';
+	log.debug("absolute path: " + path);
+
+	int fd = -1;
+	unsigned short count = 0;
+	std::time_t timestamp = std::time(NULL);
+	do {
+		std::string unique_id = i2a(timestamp) + "-" + randomHexString(8);
+		std::string file_path = path + location.upload_dir + "/.upload_" + unique_id + ".tmp";
+		request.body.file_path = file_path;
+		log.debug("file_path: " + file_path);
+		fd = open(file_path.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0600);
+	} while (fd == -1 && errno == EEXIST && ++count < 11);
+
+	return fd;
+
 }
+	request.body.file_fd = createFile(location, path, request);
+*/
 
 static std::string extractDirectiveKey(const std::string& line) {
 
@@ -363,7 +388,7 @@ static void extractDomainNames(const std::string& header, Config::Domain& dom) {
 	// }
 }
 
-static void extractLocationPath(const std::string& root, const std::string& header, Config::Location& loc) {
+static void extractLocationPath(/*const std::string& root, */const std::string& header, Config::Location& loc) {
 
 	size_t first_space = header.find(' ');
 	size_t last_space  = header.rfind(' ');
@@ -398,11 +423,11 @@ static void extractLocationPath(const std::string& root, const std::string& head
 	// 	<< root + loc.path << std::endl;
 	// 	throw std::runtime_error(oss.str());
 	// }
-	if (mkdir((root + loc.path).c_str(), 0755) == -1 && errno != EEXIST) {
-		oss << "config error: no write access (location path): "
-			<< root + loc.path << std::endl;
-		throw std::runtime_error(oss.str());
-	}
+	// if (mkdir((root + loc.path).c_str(), 0755) == -1 && errno != EEXIST) {
+	// 	oss << "config error: no write access (location path): "
+	// 		<< root + loc.path << std::endl;
+	// 	throw std::runtime_error(oss.str());
+	// }
 
 	return;
 
@@ -483,7 +508,7 @@ Parser& Parser::instance(void) {
 // }
 
 // Read line-by-line; fills config object
-void Parser::configFile(const std::string& config_file) {
+void Parser::file(const std::string& config_file) {
 
 	// if (!validMethodsArrayValid()) {
 	// 	throw std::runtime_error("valid methods enumeration mismatch");
@@ -499,7 +524,7 @@ void Parser::configFile(const std::string& config_file) {
 	}
 
 	// bool foundServer = false;
-	bool foundEndpoint = false;
+	bool found_endpoint = false;
 
 	std::string line;
 	while (std::getline(file, line)) {
@@ -521,7 +546,7 @@ void Parser::configFile(const std::string& config_file) {
 
 		if (trimmed == "socket {") {
 			_parseSocketBlock(file);
-			foundEndpoint = true;
+			found_endpoint = true;
 
 		} else if (trimmed == "socket") {
 			throw std::runtime_error("config error: 'socket' directive requires '{'");
@@ -532,7 +557,7 @@ void Parser::configFile(const std::string& config_file) {
 
 	}
 
-	if (!foundEndpoint) {
+	if (!found_endpoint) {
 		throw std::runtime_error("config error: config file must contain at least one socket block");
 	}
 
@@ -547,49 +572,47 @@ void Parser::configFile(const std::string& config_file) {
 }
 
 // Feed raw bytes; returns the current parse_state:
-HTTPRequest::ParseState Parser::incomingData(const std::string& raw, HTTPRequest* request) {
+// HTTPRequest::ParseState Parser::incomingData(const std::string& raw, HTTPRequest* request) {
+bool Parser::buffer(const Client::Buffer& buffer, HTTPRequest& request) {
 
+	// std::ostringstream oss;
+	// for (size_t i = buffer.begin; i < buffer.end; ++i) {
+	// 	oss << /*"byte[" << i << "]*/ "{" << (int)(unsigned char)buffer.data[i] << "} ";
+	// }
+	// log.error(oss.str());
 // DEBUG BEGIN
 	// log.notice("\n#################################################\n");
 	// log.debug("request id: " + i2a(HR_object_id) + "\tstate: " + i2a(parse_state) + "\tparses: " + i2a(parses_count));
 	// ++parses_count;
 // DEBUG END
 
-	switch (request->parsing.state) {
+	// std::vector<char>::const_iterator begin = pos2it(buffer.data, buffer.begin);
+	// std::vector<char>::const_iterator end = pos2it(buffer.data, buffer.end);
+
+	// log.error("Parser: processing " + request.debug);
+
+	switch (request.parsing.state) {
 
 	case HTTPRequest::READING_REQUEST_LINE:
-
-		return _parseRequestLine(raw, *request);
-
+		return _parseRequestLine(buffer, request);
 	case HTTPRequest::READING_HEADERS:
-
-		return _parseHeaders(raw, *request);
-
+		return _parseHeaders(buffer, request);
 	case HTTPRequest::READING_BODY:
-
-		return _parseBody(raw, *request);
-
-	case HTTPRequest::COMPLETE:
-
-		return request->parsing.state;
-
-	case HTTPRequest::ERROR:
-
-		request->reset();
-		return request->parsing.state;
-
+		return _parseBody(buffer, request);
+	// case HTTPRequest::COMPLETE:
+	// 	return false;
+	// case HTTPRequest::ERROR:
+	// 	return false;
 	default:
-
-		return request->parsing.state;
+		return false;
 
 	}
 
 }
 
-
 Method Parser::extractMethod(const std::string& method) {
 
-	static const std::string valid_methods[METHOD_COUNT] = {"GET", "POST", "DELETE"};
+	static const std::string valid_methods[METHOD_COUNT] = {"GET", "HEAD", "DELETE", "POST", "PUT"};
 	for (size_t i = 0; i < METHOD_COUNT; ++i) {
 		// log.error(valid_methods[i]);
 		if (valid_methods[i] == method) {
@@ -603,7 +626,6 @@ Method Parser::extractMethod(const std::string& method) {
 	return METHOD_COUNT;
 
 }
-
 
   //~~~~~~~~~~~//
  /*  Private  */
@@ -653,6 +675,7 @@ Parser::location_directive_handler_map Parser::_initLocationDirectiveHandlerMap(
 	// handlers["cgi_path"] = &Parser::_handleCGIPath;
 	handlers["interpreter"] = &Parser::_handleInterpreter;
 	handlers["error_page"] = &Parser::_handleErrorPage;
+	handlers["client_max_body_size"] = &Parser::_handleClientMaxBodySize;
 
 	return handlers;
 
@@ -662,12 +685,20 @@ Parser::domain_directive_handler_map Parser::_initDomainDirectiveHandlerMap(void
 
 	domain_directive_handler_map handlers;
 
-	// handlers["listen"] = &Parser::_handleListen;
-	// handlers["host"] = &Parser::_handleHost;
-	// handlers["server_name"] = &Parser::_handleServerNames;
 	handlers["root"] = &Parser::_handleRoot;
 	handlers["index"] = &Parser::_handleIndexFile;
 	handlers["error_page"] = &Parser::_handleErrorPage;
+	handlers["client_max_body_size"] = &Parser::_handleClientMaxBodySize;
+
+	return handlers;
+}
+
+Parser::socket_directive_handler_map Parser::_initSocketDirectiveHandlerMap(void) {
+
+	socket_directive_handler_map handlers;
+
+	handlers["listen"] = &Parser::_handleListen;
+	handlers["host"] = &Parser::_handleHost;
 	handlers["client_max_body_size"] = &Parser::_handleClientMaxBodySize;
 
 	return handlers;
@@ -677,6 +708,9 @@ void Parser::_parseLocationBlock(std::ifstream& config_file_stream,
 								 Config::Domain& dom, Config::Location& loc) {
 
 	static const location_directive_handler_map handlers = _initLocationDirectiveHandlerMap();
+
+	// Falls back to domain treshold, if not specified for location
+	loc.client_max_body_size = dom.client_max_body_size;
 
 	std::string line;
 	while (std::getline(config_file_stream, line)) {
@@ -716,6 +750,7 @@ void Parser::_parseLocationBlock(std::ifstream& config_file_stream,
 			// 		throw std::runtime_error("parse error: no read access: " + path + "/" + loc.index_files[i]);
 			// 	}
 			// }
+
 			// Check for location error pages: if empty, substitute domain error pages
 			if (loc.error_pages.empty()) {
 				loc.error_pages = dom.error_pages;
@@ -727,6 +762,7 @@ void Parser::_parseLocationBlock(std::ifstream& config_file_stream,
 				}
 				++err_it;
 			}
+
 			// Check for upload directory if POST method allowed // TODO
 			// for (size_t i = 0; i < loc.methods.size(); ++i) {
 			// 	if (loc.methods[i] == POST && loc.upload_dir.empty()) {
@@ -738,6 +774,12 @@ void Parser::_parseLocationBlock(std::ifstream& config_file_stream,
 			// 		throw std::runtime_error(oss.str());
 			// 	}
 			// }
+
+			// If client body treshold not set, set to domain treshold
+			// if (loc.client_max_body_size == 0) {
+			// 	loc.client_max_body_size = dom.client_max_body_size;
+			// }
+
 			// Check for duplicate paths
 			if (isDuplicateLocation(dom.locations, loc.path)) {
 				// std::ostringstream oss;
@@ -773,11 +815,13 @@ void Parser::_parseLocationBlock(std::ifstream& config_file_stream,
 void Parser::_parseDomainBlock(std::ifstream& config_file_stream,
 							   Config::Socket& soc, Config::Domain& dom) {
 
+	static const domain_directive_handler_map handlers = _initDomainDirectiveHandlerMap();
+
 	// Config::Domain dom_block;
 	// server_block.port = 80;
-	dom.client_max_body_size = 1048576;
 
-	static const domain_directive_handler_map handlers = _initDomainDirectiveHandlerMap();
+	// Falls back to socket treshold, if not specified for location
+	dom.client_max_body_size = soc.client_max_body_size;
 
 	std::string line;
 	while (std::getline(config_file_stream, line)) {
@@ -804,6 +848,7 @@ void Parser::_parseDomainBlock(std::ifstream& config_file_stream,
 			// 		throw std::runtime_error("parse error: no read access: " + path + dom.index_files[i]);
 			// 	}
 			// }
+
 			// Check domain error pages
 			std::map<int, std::string>::const_iterator err_it = dom.error_pages.begin();
 			while (err_it != dom.error_pages.end()) {
@@ -812,6 +857,12 @@ void Parser::_parseDomainBlock(std::ifstream& config_file_stream,
 				}
 				++err_it;
 			}
+
+			// If client body treshold not set, set to socket treshold
+			// if (dom.client_max_body_size == 0) {
+			// 	dom.client_max_body_size = soc.client_max_body_size;
+			// }
+
 			// Check for duplicate domain names
 			for (size_t i = 0; i < dom.names.size(); ++i) {
 				if (isDuplicateDomain(soc.domains, dom.names[i])) {
@@ -841,7 +892,7 @@ void Parser::_parseDomainBlock(std::ifstream& config_file_stream,
 			Config::Location loc;
 			loc.autoindex = false;
 			// Read the location header line
-			extractLocationPath(dom.root, trimmed, loc);
+			extractLocationPath(/*dom.root, */trimmed, loc);
 			// Read the location block
 			_parseLocationBlock(config_file_stream, dom, loc);
 			continue;
@@ -866,8 +917,11 @@ void Parser::_parseDomainBlock(std::ifstream& config_file_stream,
 
 void Parser::_parseSocketBlock(std::ifstream& config_file_stream) {
 
+	static const socket_directive_handler_map handlers = _initSocketDirectiveHandlerMap();
+
 	Config::Socket soc;
-	soc.port = 80;
+	soc.port = 8080; // If no port set, set to 8080
+	soc.client_max_body_size = UINT64_MAX; // If client body treshold not set, set to 2^64
 
 	std::string line;
 	while (std::getline(config_file_stream, line)) {
@@ -883,10 +937,17 @@ void Parser::_parseSocketBlock(std::ifstream& config_file_stream) {
 		if (trimmed == "}") {
 
 			// Block is complete — now finalize and validate
+			// Check host address
 			if (soc.address.empty()) {
 				// soc.address = "0.0.0.0";
 				throw std::runtime_error("config error: no host address set");
 			}
+
+			// If client body treshold not set, set to 2^64
+			// if (soc.client_max_body_size == 0) {
+			// 	soc.client_max_body_size = UINT64_MAX;
+			// }
+
 			// Check for duplicate sockets
 			if (isDuplicateSocket(configs.get(), soc.address, soc.port)) {
 				// std::ostringstream oss;
@@ -896,6 +957,7 @@ void Parser::_parseSocketBlock(std::ifstream& config_file_stream) {
 				// throw std::runtime_error(oss.str());
 				throw std::runtime_error("config error: duplicate socket " + soc.address + ":" + i2a(soc.port));
 			}
+
 			configs.pushConfig(soc);
 			return;
 
@@ -904,12 +966,14 @@ void Parser::_parseSocketBlock(std::ifstream& config_file_stream) {
 		std::string key = extractDirectiveKey(trimmed);
 		std::string val = extractDirectiveValue(trimmed);
 
-		// if (handlers.find(key) != handlers.end()) {
-		// 	(this->*handlers.at(key))(val, dom);
-		if (key == "listen") {
-			_handleListen(val, soc);
-		} else if (key == "host") {
-			_handleHost(val, soc);
+		if (handlers.find(key) != handlers.end()) {
+			(this->*handlers.at(key))(val, soc);
+		// if (key == "listen") {
+		// 	_handleListen(val, soc);
+		// } else if (key == "host") {
+		// 	_handleHost(val, soc);
+		// } else if (key == "client_max_body_size") {
+		// 	_handleClientMaxBodySize(val, soc);
 		} else if (key == "domain") {
 			Config::Domain dom;
 			// Read the domain header line
@@ -1382,23 +1446,24 @@ void Parser::_handleHost(const std::string& val, Config::Socket& config) {
 //
 // }
 
-void Parser::_handleClientMaxBodySize(const std::string& val, Config::Domain& dom) {
-
-	if (val.empty()) {
-		throw std::runtime_error("config error: client_max_body_size requires a value");
-	}
-
-	size_t size = stringToSize(val);
-
-	if (!isValidBodySize(size)) {
-		throw std::runtime_error("config error: invalid client_max_body_size: " + val);
-	}
-
-	dom.client_max_body_size = size;
-
-	return;
-
-}
+// void Parser::_handleClientMaxBodySize(const std::string& val, Config::Domain& dom) {
+//
+// 	if (val.empty()) {
+// 		throw std::runtime_error("config error: client_max_body_size requires a value");
+// 	}
+//
+// 	size_t size = stringToSize(val);
+//
+// 	if (!isValidBodySize(size)) {
+// 		throw std::runtime_error("config error: invalid client_max_body_size: " + val);
+// 	}
+//
+// 	if (size == 0) dom.client_max_body_size = ULONG_MAX;
+// 	else dom.client_max_body_size = size;
+//
+// 	return;
+//
+// }
 
 void Parser::_validateRedirectChains(void) {
 
@@ -1458,7 +1523,7 @@ void Parser::_validateRedirectChains(void) {
 						throw std::runtime_error(oss.str());
 					}
 					redirects.push_back(loc->redirect);
-					loc = const_cast<Config::Location*>(Dispatcher::matchLocation(dom_it->locations, loc->redirect));
+					loc = const_cast<Config::Location*>(Dispatcher::resolveLocation(dom_it->locations, loc->redirect));
 					// if (!Dispatcher::matchLocation(dom_it->locations, loc->redirect, *loc)) {
 					if (loc == NULL) {
 						log.error("config error: no matching location");
@@ -1476,30 +1541,58 @@ void Parser::_validateRedirectChains(void) {
 }
 
 // HTTP request parsing
-size_t Parser::_findRequestLineEnd(const std::string& raw, HTTPRequest& request) {
+// size_t Parser::_findRequestLineEnd(const Client::Buffer& buffer, HTTPRequest& request) {
+//
+// 	// size_t LF_pos = raw.find(http::LF);
+// 	std::vector<char>::const_iterator begin = pos2it(buffer.data, buffer.begin);
+// 	std::vector<char>::const_iterator end = pos2it(buffer.data, buffer.end);
+// 	std::vector<char>::const_iterator it = std::find(begin, end, http::LF);
+// 	size_t LF_pos = std::string::npos;
+// 	if (it != end) LF_pos = std::distance(begin, it);
+//
+// 	// log.error(i2a(LF_pos));
+// 	// size_t CRLF_pos = raw.find(http::CRLF);
+// 	std::string CRLF = http::CRLF;
+// 	it = std::search(begin, end, CRLF.begin(), CRLF.end(), std::equal_to<char>());
+// 	size_t CRLF_pos = std::string::npos;
+// 	if (it != end) CRLF_pos = std::distance(begin, it);
+// 	// log.error(i2a(CRLF_pos));
+//
+// 	// Both not found: incomplete data
+// 	if (LF_pos == std::string::npos && CRLF_pos == std::string::npos)
+// 		return std::string::npos;
+//
+// 	// Determine which style to use
+// 	if (LF_pos < CRLF_pos) // true if unix style (win = npos) / false if windows style
+// 		return LF_pos;
+//
+// 	// _is_unix_style = false;
+// 	request.parsing.line_ending = IS_CRLF;
+// 	return CRLF_pos;
+//
+// }
 
-	size_t LF_pos = raw.find(http::LF);
-	// log.error(i2a(LF_pos));
-	size_t CRLF_pos = raw.find(http::CRLF);
-	// log.error(i2a(CRLF_pos));
+size_t Parser::_findRequestLineEnd(const Client::Buffer& buffer, HTTPRequest& request) {
 
-	// Both not found: incomplete data
-	if (LF_pos == std::string::npos && CRLF_pos == std::string::npos)
-		return std::string::npos;
-
-	// Determine which style to use
-	if (LF_pos < CRLF_pos) // true if unix style (win = npos) / false if windows style
-		return LF_pos;
-
-	// _is_unix_style = false;
-	request.parsing.line_ending = IS_CRLF;
-	return CRLF_pos;
+	ssize_t LF_pos = buffer.find(http::LF);
+	if (LF_pos == -1) return std::string::npos;
+	// if (LF_pos > HTTPRequest::MAX_REQUEST_LINE_LENGTH)
+	// 	return HTTPRequest::MAX_REQUEST_LINE_LENGTH;
+	if (LF_pos != 0 && buffer.data[LF_pos - 1] == http::CR) {
+		request.parsing.line_ending = CRLF;
+		// log.error("IS_CRLF");
+		// log.error(request.parsing.line_ending == CRLF ? "Yep, confirmed" : "Oh oh, something unexpected happened");
+		return LF_pos - 1;
+	}
+	// log.error("IS_LF");
+	// log.error(request.parsing.line_ending != CRLF ? "Yep, confirmed" : "Oh oh, something unexpected happened");
+	return LF_pos;
 
 }
 
 // bool Parser::_matchMethod(const std::string& method) {
 //
-// 	static const std::string valid_methods[3] = {"GET", "POST", "DELETE"};
+// 	static const std::string valid_methods[5] = {"GET", "HEAD", "DELETE", "POST", "PUT"};
 // 	for (size_t i = 0; i < arraySize(valid_methods); ++i) {
 // 		if (valid_methods[i] == method) {
 // 			// _method = static_cast<Method>(i);
@@ -1511,21 +1604,29 @@ size_t Parser::_findRequestLineEnd(const std::string& raw, HTTPRequest& request)
 //
 // }
 
-bool Parser::_extractTokens(const std::string& line, HTTPRequest& request) {
+bool Parser::_extractTokens(const Client::Buffer& buffer, HTTPRequest& request) {
 
 	// Transform to stream
-	std::stringstream ss(line);
-	if (ss.fail())
+	// std::stringstream ss(line);
+	std::stringstream ss;
+	buffer.sstream(ss, 0, request.parsing.line_end_pos);
+	if (ss.fail()) {
+		log.error("parse error: failed to set stringstream content");
+		request.parsing.error_cause = INTERNAL_SERVER_ERROR;
 		return false;
+	}
+	// log.debug(ss.str());
 
 	// Validate number of tokens
 	std::string method, target, version, extra;
 	if (!(ss >> method >> target >> version)) {
-		log.error("parse error: not enoug tokens found");
+		log.warn("parse error: not enoug tokens found");
+		request.parsing.error_cause = BAD_REQUEST;
 		return false; // too few tokens in request line
 	}
 	if (ss >> extra) {
-		log.error("parse error: too many tokens found");
+		log.warn("parse error: too many tokens found");
+		request.parsing.error_cause = BAD_REQUEST;
 		return false; // too many tokens in request line
 	}
 
@@ -1536,14 +1637,20 @@ bool Parser::_extractTokens(const std::string& line, HTTPRequest& request) {
 	// }
 	const Method m = extractMethod(method);
 	if (m == METHOD_COUNT) {
-		// log.error("Bad method");
-		return false;
-	} else {
-		// log.error("Good method");
-		request.setMethod(m);
-		// request.setMethod(extractMethod(method));
-		// log.error(i2a(request.getMethod()) + " " + request.getMethodName());
+		log.warn("parse error: unknown method");
+		request.parsing.error_cause = BAD_REQUEST;
 	}
+	// 	return false;
+	// } else {
+	// 	// log.error("Good method");
+	// 	request.setMethod(m);
+	// 	// request.setMethod(extractMethod(method));
+	// 	// log.error(i2a(request.getMethod()) + " " + request.getMethodName());
+	// }
+	if (m == HEAD) {
+		request.headers_only = true;
+	}
+	request.setMethod(m);
 	// log.error("Good method");
 	// Method meth = extractMethod(method);
 	// if (meth == METHOD_COUNT) {
@@ -1554,11 +1661,14 @@ bool Parser::_extractTokens(const std::string& line, HTTPRequest& request) {
 	// request.setMethod(extractMethod(method));
 	// log.error(i2a(request.getMethod()) + " " + request.getMethodName());
 
-	// Validate URI
-	if (target.empty() || target[0] != '/')
+	// Validate target
+	if (target.empty() || target[0] != '/') {
+		log.warn("parse error: invalid target");
+		request.parsing.error_cause = BAD_REQUEST;
 		return false;
+	}
 
-	// Split URI into path and query
+	// Split target into path and query
 	size_t query_start_pos = target.find('?');
 	if (query_start_pos != std::string::npos) {
 		request.setPath(target.substr(0, query_start_pos));
@@ -1570,41 +1680,62 @@ bool Parser::_extractTokens(const std::string& line, HTTPRequest& request) {
 
 	// Validate HTTP version
 	version = trim(version); // strip trailing \r
-	if (version != "HTTP/1.1" && version != "HTTP/1.0")
+	if (version != http::V_1_1 && version != http::V_1_0) {
 	// if (version.substr(0, 4) != "HTTP")
 	// if (std::strncmp(version.c_str(), "HTTP", 4) != 0)
+		log.warn("parse error: http version not supported");
+		request.parsing.error_cause = HTTP_VERSION_NOT_SUPPORTED;
 		return false;
+	}
 	request.setVersion(version);
 
 	return true;
 
 }
 
-bool Parser::_parseHeaderLine(const std::string& line, HTTPRequest& request) {
+bool Parser::_parseHeaderLine(const Client::Buffer& buffer, HTTPRequest& request) {
 
-	request.parsing.header_line_size = 0;
-
+	// log.error(&buffer.data[buffer.begin]);
+	// request.parsing.header_line_size = 0;
+	// log.error(i2a(request.parsing.header_line_start_pos) + " - " + i2a(request.parsing.header_line_end_pos));
+	// std::string buff = buffer.substr(request.parsing.header_line_start_pos,
+									 // request.parsing.header_line_end_pos);
+	// log.error(buff);
+	std::ostringstream oss;
 	// Find separator ':'
-	size_t colon_pos = line.find(':');
+	size_t colon_pos = buffer.find(':');
+	// size_t colon_pos = buff.find(':');
 	if (colon_pos == 0) {
-		log.error("parse error: header field has no field-name");
+		log.warn("parse error: header field has no field-name");
+		// request.parsing.error_cause = BAD_REQUEST;
 		return false;
 	}
-	if (colon_pos == std::string::npos) {
-		log.error("parse error: header field has no colon");
+	if (colon_pos == request.parsing.line_end_pos || colon_pos == std::string::npos) {
+		log.warn("parse error: header field has no colon");
+		// request.parsing.error_cause = BAD_REQUEST;
 		return false;
 	}
+	// log.debug("colon found at pos " + i2a(colon_pos));
 	for (size_t i = 0; i < colon_pos; ++i) {
-		if (!isTchar(line[i]))
-			log.error("parse error: invalid character or whitespace in field-name");
+		oss << "{" << (int)(unsigned char)buffer.data[buffer.begin + i] << "} ";
+		// oss << "{" << (int)(unsigned char)buff[i] << "} ";
+		if (!isTchar(buffer.data[buffer.begin + i])) {
+		// if (!isTchar(buff[i])) {
+			log.warn("parse error: invalid character or whitespace in field-name " + oss.str());
+			// request.parsing.error_cause = BAD_REQUEST;
 			return false;
+		}
 	}
+	// log.debug(oss.str());
+	oss.clear();
 
-	std::string key = line.substr(0, colon_pos);
+	std::string key = buffer.substr(0, colon_pos);
+	// std::string key = buff.substr(0, colon_pos);
 	// Lowercase key for case-insensitive lookup
 	for (std::string::iterator it = key.begin(); it != key.end(); ++it) {
 		*it = std::tolower(static_cast<unsigned char>(*it));
 	}
+	// log.debug("added key: " + key);
 	// if (key.find_first_of(" \t\r\n") != std::string::npos) {
 	// 	log.error("parse error: invalid whitespace in field-name");
 	// 	return false;
@@ -1616,67 +1747,107 @@ bool Parser::_parseHeaderLine(const std::string& line, HTTPRequest& request) {
 	// // 	return false; // key is required by header
 	// // }
 
-	std::string value = line.substr(colon_pos + 1);
+	// size_t line_end =	request.parsing.line_ending == CRLF ?
+	// 					// buffer.find(http::CRLF) :
+	// 					buff.find(http::CRLF) :
+	// 					// buffer.find(http::LF);
+	// 					buff.find(http::LF);
+	// // std::string value = buffer.substr(colon_pos + 1, line_end);
+	// std::string value = buff.substr(colon_pos + 1, line_end);
+	std::string value = buffer.substr(colon_pos + 1, request.parsing.line_end_pos);
+	// log.error(value);
 	// Trim whitespaces from value
 	value = trim(value);
+	// log.error(value);
 	for (size_t i = 0; i < value.size(); ++i) {
+		oss << "{" << (int)(unsigned char)value[i] << "}";
 		unsigned char c = static_cast<unsigned char>(value[i]);
 		if ((c < 0x20 && c != '\t') || c == 0x7f) {
-			log.error("parse error: corrupt data in field-value");
+			log.warn("parse error: corrupt data in field-value");
+			log.warn("culprit: {" + i2a((int)(unsigned char)value[i]) + "}");
+			// request.parsing.error_cause = BAD_REQUEST;
 			return false;
 		}
 	}
+	// log.debug(oss.str());
 
 	// request._headers[key] = value;
 	request.setHeader(key, value);
+	// log.debug("added header: " + key + ": " + value);
 
 	return true;
 
 }
 
-HTTPRequest::ParseState Parser::_parseRequestLine(const std::string& raw, HTTPRequest& request) {
+// HTTPRequest::ParseState Parser::_parseRequestLine(const std::string& raw, HTTPRequest& request) {
+bool Parser::_parseRequestLine(const Client::Buffer& buffer, HTTPRequest& request) {
 
 	// Find where request line ends
-	request.parsing.request_line_end_pos = _findRequestLineEnd(raw, request);
+	request.parsing.line_end_pos = _findRequestLineEnd(buffer, request);
 
 	// Calculate headers start position based on line ending style ("\n" or "\r\n")
-	request.parsing.line_end_size = request.parsing.line_ending == IS_CRLF ? CRLF_SIZE : LF_SIZE;
+	if (request.parsing.line_ending == CRLF) {
+		request.parsing.line_end_size = CRLF_SIZE;
+		request.parsing.blank_line_size = CRLFCRLF_SIZE;
+	} else {
+		request.parsing.line_end_size = LF_SIZE;
+		request.parsing.blank_line_size = CRLF_SIZE;
+	}
 
 	// Detected empty line (before start of request line): not copied into buffer
-	if (request.parsing.request_line_end_pos == 0) {
-		request.parsing.bytes_read_count = request.parsing.line_end_size; // set byte count to line_end_size to drop from data
-		return request.parsing.state;
+	if (request.parsing.line_end_pos == 0) {
 
-		// No line feed detected (Data only): wait for more data
-	} else if (request.parsing.request_line_end_pos == std::string::npos) {
+		 // Set byte count to line_end_size to drop from data
+		request.parsing.bytes_read_count = request.parsing.line_end_size;
+		// log.debug("bytes_read: " + i2a(request.parsing.bytes_read_count));
+		// return request.parsing.state;
+		return true;
 
-		request.parsing.buffer.append(raw);
+	// No line feed detected (Data only): wait for more data
+	} else if (request.parsing.line_end_pos == std::string::npos) {
 
-		request.parsing.bytes_read_count = request.parsing.buffer.size() - request.parsing.old_buffer_fill_level;
+		// request.parsing.buffer.append(raw);
+
+		// request.parsing.bytes_read_count = request.parsing.buffer.size() - request.parsing.old_buffer_fill_level;
+		// request.parsing.bytes_read_count = buffer.end - buffer.begin;
+		// request.parsing.bytes_read_count = buffer.range();
+		request.parsing.bytes_read_count = std::string::npos;
+		log.debug("bytes_read: " + i2a(request.parsing.bytes_read_count));
 
 		// log.debug("Bytes read: " + i2a(bytes_read_count));
 		// log.debug("Previous buffer fill level: " + i2a(old_buffer_fill_level));
 
-		request.parsing.old_buffer_fill_level = request.parsing.buffer.size();
+		// request.parsing.old_buffer_fill_level = request.parsing.buffer.size();
 
 		// log.debug("Current buffer fill level: " + i2a(buffer.size()));
 		// log.debug("Current data in buffer (request):\n");
 		// log.notice((buffer));
 
-		return request.parsing.state;
+		// return request.parsing.state;
+		return false;
 
-		// Line feed detected (end of request line): procced with line parsing
+	// Maximum request line length exceeded
+	} else if (request.parsing.line_end_pos > HTTPRequest::MAX_REQUEST_LINE_LENGTH) {
+		log.warn("parse error: maximum request line length exceeded");
+		request.parsing.error_cause = URI_TOO_LONG;
+		request.parsing.state = HTTPRequest::ERROR;
+		return false;
+
+	// Line feed detected (end of request line): procced with line parsing
 	} else {
 
-		request.parsing.buffer.append(raw, 0, request.parsing.request_line_end_pos + request.parsing.line_end_size);
+		// request.parsing.buffer.append(raw, 0, request.parsing.request_line_end_pos + request.parsing.line_end_size);
 		// // buffer.append(::LF); DO NOT APPEND LINE FEED!
 
-		request.parsing.bytes_read_count = request.parsing.buffer.size() - request.parsing.old_buffer_fill_level;
-
+		// request.parsing.bytes_read_count = request.parsing.buffer.size() - request.parsing.old_buffer_fill_level;
 		// log.debug("Bytes read: " + i2a(bytes_read_count));
 		// log.debug("Previous buffer fill level: " + i2a(old_buffer_fill_level));
 
-		request.parsing.old_buffer_fill_level = request.parsing.buffer.size();
+		request.parsing.bytes_read_count =	request.parsing.line_end_pos +
+											request.parsing.line_end_size;
+		log.debug("bytes_read: " + i2a(request.parsing.bytes_read_count));
+
+		// request.parsing.old_buffer_fill_level = request.parsing.buffer.size();
 
 		// log.debug("Current buffer fill level: " + i2a(buffer.size()));
 		// log.debug("Current data in buffer (request):\n");
@@ -1684,160 +1855,399 @@ HTTPRequest::ParseState Parser::_parseRequestLine(const std::string& raw, HTTPRe
 		// log.debug("Line: " + buffer);
 
 		// Extract method, path, query, and version
-		if (!_extractTokens(request.parsing.buffer, request)) {
-			log.error("something went wrong while parsing a request line");
+		// if (!_extractTokens(request.parsing.buffer, request)) {
+		// std::string line = buffer.substr(0, request.parsing.request_line_end_pos + request.parsing.line_end_size);
+		// std::stringstream ss = buffer.sstream(0, request.parsing.request_line_end_pos + request.parsing.line_end_size);
+		if (!_extractTokens(buffer, request)) {
+			// log.error("something went wrong while parsing a request line");
 			request.parsing.state = HTTPRequest::ERROR;
-			return request.parsing.state;
+			// return request.parsing.state;
+			return false;
 		}
 
 		request.parsing.state = HTTPRequest::READING_HEADERS;
-		return request.parsing.state;
+		// return request.parsing.state;
+		return true;
 	}
 
 }
 
-HTTPRequest::ParseState Parser::_parseHeaders(const std::string& raw, HTTPRequest& request) {
+bool Parser::_parseHeaders(const Client::Buffer& buffer, HTTPRequest& request) {
 
 	// Check for line break
-	request.parsing.header_line_end_pos =	request.parsing.line_ending == IS_CRLF ?
-											raw.find(http::CRLF) :
-											raw.find(http::LF);
-	// log.error(i2a(request.parsing.header_line_end_pos));
+	request.parsing.line_end_pos =	request.parsing.line_ending == CRLF ?
+											buffer.find(http::CRLF) :
+											buffer.find(http::LF);
+	// log.debug("header_line_end_pos: " + i2a(request.parsing.line_end_pos));
 
-	// Detected line break at 0 pos (empty line): append and proceed with validity checks
-	if (request.parsing.header_line_end_pos == 0) {
+	// Empty line detected, proceed with validity checks
+	if (request.parsing.line_end_pos == 0) {
 
-		request.parsing.buffer.append(raw, 0, request.parsing.line_end_size);
-
+		// log.debug("CRLF = 0, CRLFCRLF = 0");
+		log.debug("empty line line detected");
 		request.parsing.bytes_read_count = request.parsing.line_end_size;
+		// log.debug("bytes read: " + i2a(request.parsing.bytes_read_count));
 
-		// log.debug("Bytes read: " + i2a(request.parsing.bytes_read_count));
-		// log.debug("Previous buffer fill level: " + i2a(request.parsing.old_buffer_fill_level));
+		// Check for Host Header (mandatory for HTTP/1.1)
+		if (request.getVersion() == http::V_1_1 &&
+			(!request.hasHeader("host") || request.getHeader("host").empty())) {
+			log.warn("parse error: no host header found");
+			request.parsing.error_cause = BAD_REQUEST;
+			request.parsing.state = HTTPRequest::ERROR;
+			return false;
+		}
 
-		request.parsing.old_buffer_fill_level += request.parsing.line_end_size;
+		// GET and HEAD are not designed to carry a request body
+		if (request.getMethod() == GET || request.getMethod() == HEAD) {
+			request.parsing.state = HTTPRequest::DISPATCHING;
+			return true;
+		}
 
-		// log.debug("Current buffer fill level: " + i2a(request.parsing.buffer.size()));
-		// log.debug("Current data in buffer (request):\n");
-		// log.notice((request.parsing.buffer));
+		// DELETE may come with a body (optional)
+		if (request.getMethod() == DELETE) {
+			if (request.hasHeader("content-length")) {
+				request.extractContentLength();
+			} else {
+				request.parsing.state = HTTPRequest::DISPATCHING;
+				return true;
+			}
+		}
 
-		// // return parse_state; DO NOT RETURN AT THIS LINE!
+		// Extract Content-Length value (mandatory for POST and PUY)
+		if ((request.getMethod() == POST || request.getMethod() == PUT) &&
+			!request.extractContentLength()) {
+			log.warn("parse error: no content-length header found");
+			request.parsing.error_cause = LENGTH_REQUIRED;
+			request.parsing.state = HTTPRequest::ERROR;
+			return false;
+		}
 
-		// After detecting empty line, check buffer for end of headers
-		request.parsing.headers_end_pos =	request.parsing.line_ending == IS_CRLF ?
-											request.parsing.buffer.find(http::CRLFCRLF) :
-											request.parsing.buffer.find(http::LFLF);
-		// log.error(i2a(headers_end_pos));
-		// if (headers_end_pos != std::string::npos) {
+		// Check Content-Length value against global treshold
+		if (request.parsing.content_length > HTTPRequest::SERVER_MAX_BODY_SIZE) {
+			log.warn("parse error: content-length exceeds global treshold");
+			request.parsing.error_cause = PAYLOAD_TOO_LARGE;
+			request.parsing.state = HTTPRequest::ERROR;
+			return false;
+		}
+
+		request.parsing.state = HTTPRequest::DISPATCHING;
+		// request.parsing.state = HTTPRequest::READING_BODY;
+		// request.parsing.state = HTTPRequest::COMPLETE;
+		// return request.parsing.state;
+		return true;
+
+		// request.parsing.state = HTTPRequest::ERROR;
+		// return false;
+
+	// No line break detected, wait for more data
+	} else if (request.parsing.line_end_pos == std::string::npos) {
+
+		// log.debug("CRLF = npos, CRLFCRLF = ???");
+		log.debug("waiting for more data...");
+		// request.parsing.bytes_read_count = buffer.range();
+		request.parsing.bytes_read_count = std::string::npos;
+		// log.debug("bytes read: " + i2a(request.parsing.bytes_read_count));
+		return false;
+
+	// Maximum header line length exceeded
+	} else if (request.parsing.line_end_pos > HTTPRequest::MAX_HEADER_LINE_LENGTH) {
+		log.warn("parse error: maximum header line length exceeded");
+		request.parsing.error_cause = REQUEST_HEADER_FIELDS_TOO_LARGE;
+		request.parsing.state = HTTPRequest::ERROR;
+		return false;
+
+	// Detected line break, parse line
+	} else {
+
+		// log.debug("CRLF = " + i2a(request.parsing.line_end_pos) + ", CRLFCRLF = ???");
+		// log.debug("parsing header line...");
+
+		request.parsing.headers_size += request.parsing.line_end_pos;
+		// log.debug("headers_size: " + i2a(request.parsing.headers_size));
+		if (request.parsing.headers_size > HTTPRequest::MAX_TOTAL_HEADERS_SIZE) {
+			log.warn("parse error: total header size exceeds the maximum allowed");
+			request.parsing.error_cause = REQUEST_HEADER_FIELDS_TOO_LARGE;
+			request.parsing.state = HTTPRequest::ERROR;
+			return false;
+		}
+
+		if (!_parseHeaderLine(buffer, request)) {
+			log.error("parse error: something went wrong while parsing a header line");
+			request.parsing.error_cause = BAD_REQUEST;
+			request.parsing.state = HTTPRequest::ERROR;
+			return false;
+		}
+
+		request.parsing.bytes_read_count = request.parsing.line_end_pos + request.parsing.line_end_size;
+		// log.debug("bytes read: " + i2a(request.parsing.bytes_read_count));
+		return true;
+
+		// request.parsing.header_line_start_pos	= 0;
+		// request.parsing.header_line_end_pos		= 	request.parsing.line_ending == CRLF ?
+		// 											buffer.find(http::CRLF) :
+		// 											buffer.find(http::LF);;
+
+		// log.error("header_line_end_pos = " + i2a(request.parsing.header_line_end_pos));
+		// while (request.parsing.header_line_end_pos <= request.parsing.headers_end_pos) {
+  //
+		// 	if (!_parseHeaderLine(buffer, request)) {
+		// 		log.error("something went wrong while parsing a header line");
+		// 		request.parsing.state = HTTPRequest::ERROR;
+		// 		return false;
+		// 	}
+  //
+		// 	request.parsing.header_line_start_pos = request.parsing.header_line_end_pos + request.parsing.line_end_size;
+		// 	if (request.parsing.header_line_start_pos >= request.parsing.headers_end_pos) break;
+		// 	size_t i = request.parsing.header_line_start_pos;
+		// 	while (++i < request.parsing.headers_end_pos) {
+		// 		request.parsing.header_line_end_pos = i;
+		// 		if (buffer.data[buffer.begin + i] == '\r') break;
+		// 	}
+  //
+		// }
+			// if (request.parsing.header_line_end_pos == 0) {
+			// 	log.error("CRLFCRLF = npos, CRLF = 0");
+			// 	log.error("something went wrong while searching for headers");
+			// 	request.parsing.state = HTTPRequest::COMPLETE;
+			// 	return true;
+   //
+			// } else if (request.parsing.header_line_end_pos == std::string::npos) {
+			// 	request.parsing.bytes_read_count = buffer.range();
+			// 	log.error("CRLFCRLF = npos, CRLF = npos");
+			// 	log.debug("Bytes read: " + i2a(request.parsing.bytes_read_count));
+			// 	return false;
+   //
+			// } else {
+   //
+			// 	if (!_parseHeaderLine(buffer, request)) {
+			// 		log.error("something went wrong while parsing a header line");
+			// 		request.parsing.state = HTTPRequest::ERROR;
+			// 		return false;
+			// 	}
+   //
+			// 	request.parsing.bytes_read_count = request.parsing.header_line_end_pos;
+			// 	log.debug("Bytes read: " + i2a(request.parsing.bytes_read_count));
+			// 	log.error("CRLFCRLF = npos, CRLF = " + i2a(request.parsing.bytes_read_count) + " bytes");
+			// 	return true;
+   //
+			// }
+
+			// log.error("CRLFCRLF = N bytes, CRLF = ???");
+			// request.parsing.bytes_read_count = request.parsing.headers_end_pos + request.parsing.blank_line_size;
+			// log.debug("Bytes read: " + i2a(request.parsing.bytes_read_count));
+			// // return true;
+			// if (!_parseHeaderLine(buffer, request)) {
+			// 	log.error("something went wrong while parsing a header line");
+			// 	request.parsing.state = HTTPRequest::ERROR;
+			// 	return false;
+			// }
+
+		// Calculate cumulative size of header lines
+		// request.parsing.headers_start_pos =	request.parsing.request_line_end_pos +
+		// 									request.parsing.line_end_size;
+		// request.parsing.headers_size =		request.parsing.headers_end_pos -
+		// 									request.parsing.headers_start_pos +
+		// 									request.parsing.line_end_size;
+  //
+		// request.parsing.bytes_read_count =	request.parsing.headers_end_pos -
+		// 									request.parsing.headers_start_pos;
+
+		// log.error("headers_end_pos: " + i2a(request.parsing.headers_end_pos));
+		// if (request.parsing.headers_end_pos != std::string::npos) {
 		// 	// Print the 8 bytes around this position
-		// 	for (size_t i = (headers_end_pos > 2 ? headers_end_pos - 2 : 0); i < headers_end_pos + 6 && i < buffer.size(); ++i) {
-		// 		std::cout << "byte[" << i << "] = " << (int)(unsigned char)buffer[i] << std::endl;
+		// 	for (size_t i = (request.parsing.headers_end_pos > 2 ? request.parsing.headers_end_pos - 2 : 0);
+		// 		i < request.parsing.headers_end_pos + 6 && i < buffer.range(); ++i) {
+		// 		std::cout	<< "byte[" << i << "] = " << (int)(unsigned char)buffer.data[buffer.begin + i]
+		// 					<< std::endl;
 		// 	}
 		// }
 
-		// Detected empty line (before start of request line): invalid request
-		// (should never happen)
-		if (request.parsing.headers_end_pos == 0) {
-
-			log.error("parse error: unexpected empty line");
-			request.parsing.bytes_read_count = 0;
-			request.parsing.state = HTTPRequest::ERROR;
-			return request.parsing.state;
-
-			// No empty line detected: expecting more header lines
-			// (should not occur: appended line break right before check)
-		} else if (request.parsing.headers_end_pos == std::string::npos) {
-
-			// log.debug("no empty line in buffer \t\t yet");
-			return request.parsing.state;
-
-			// Detected empty line: end of header lines
-		} else {
-
-			// Calculate cumulative size of header lines
-			request.parsing.headers_start_pos =	request.parsing.request_line_end_pos +
-												request.parsing.line_end_size;
-			request.parsing.headers_size =		request.parsing.headers_end_pos -
-												request.parsing.headers_start_pos +
-												request.parsing.line_end_size;
-
-			// Check for Host Header (mandatory for HTTP/1.1)
-			if (request.getVersion() == http::V_1_1 &&
-				(!request.hasHeader("host") || request.getHeader("host").empty())) {
-				log.error("parse error: no host header found");
-				request.parsing.state = HTTPRequest::ERROR;
-				return request.parsing.state;
-			}
-
-			// GET and DELETE are not designed to carry request bodies
-			if (request.getMethod() == GET || request.getMethod() == DELETE) {
-				request.parsing.state = HTTPRequest::COMPLETE;
-				return request.parsing.state;
-			}
-
-			// Extract Content-Length value (mandatory for POST)
-			if (!request.extractContentLength()) {
-				log.error("parse error: no content-length header found");
-				request.parsing.state = HTTPRequest::ERROR;
-				return request.parsing.state;
-			}
-
-			request.parsing.state = HTTPRequest::READING_BODY;
-			return request.parsing.state;
-
-		}
-
-		// No line break: wait for more data
-	} else if (request.parsing.header_line_end_pos == std::string::npos) {
-
-		request.parsing.buffer.append(raw);
-
-		request.parsing.bytes_read_count = request.parsing.buffer.size() - request.parsing.old_buffer_fill_level;
-		request.parsing.header_line_size += request.parsing.bytes_read_count;
-
-		// log.debug("Bytes read: " + i2a(request.parsing.bytes_read_count));
-		// log.debug("Line length: " + i2a(request.parsing.header_line_size));
-		// log.debug("Previous buffer fill level: " + i2a(request.parsing.old_buffer_fill_level));
-
-		request.parsing.old_buffer_fill_level = request.parsing.buffer.size();
-
-		// log.debug("Current buffer fill level: " + i2a(request.parsing.buffer.size()));
-		// log.debug("Current data in buffer (request):\n");
-		// log.notice((request.parsing.buffer));
-
-		return request.parsing.state;
-
-		// Data detected: proceed with line parsing
-	} else {
-
-		request.parsing.buffer.append(raw, 0, request.parsing.header_line_end_pos + request.parsing.line_end_size);
-		// // buffer.append(::LF); DO NOT APPEND LINE FEED!
-
-		request.parsing.bytes_read_count = request.parsing.buffer.size() - request.parsing.old_buffer_fill_level;
-		request.parsing.header_line_size += request.parsing.bytes_read_count;
-
-		// log.debug("Bytes read: " + i2a(request.parsing.bytes_read_count));
-		// log.debug("Line length: " + i2a(request.parsing.header_line_size));
-		// log.debug("Previous buffer fill level: " + i2a(request.parsing.old_buffer_fill_level));
-
-		request.parsing.old_buffer_fill_level = request.parsing.buffer.size();
-
-		// log.debug("Current buffer fill level: " + i2a(request.parsing.buffer.size()));
-		// log.debug("Current data in buffer (request):\n");
-		// log.notice((request.parsing.buffer));
-
-		// Parse header line
-		// std::string line = buffer.substr(buffer.size() - bytes_read_count);
-		std::string line = request.parsing.buffer.substr(request.parsing.buffer.size() - request.parsing.header_line_size);
-		// log.error(line + i2a(header_line_size));
-		if (!_parseHeaderLine(line, request)) {
-			log.error("something went wrong while parsing a header line");
-			request.parsing.state = HTTPRequest::ERROR;
-			return request.parsing.state;
-		}
-
-		return request.parsing.state;
+		// // Check for Host Header (mandatory for HTTP/1.1)
+		// if (request.getVersion() == http::V_1_1 &&
+		// 	(!request.hasHeader("host") || request.getHeader("host").empty())) {
+		// 	log.error("parse error: no host header found");
+		// 	request.parsing.state = HTTPRequest::ERROR;
+		// 	return false;
+		// }
+  //
+		// // GET and DELETE are not designed to carry request bodies
+		// if (request.getMethod() == GET || request.getMethod() == DELETE) {
+		// 	request.parsing.state = HTTPRequest::COMPLETE;
+		// 	return true;
+		// }
+  //
+		// // Extract Content-Length value (mandatory for POST)
+		// if (!request.extractContentLength()) {
+		// 	log.error("parse error: no content-length header found");
+		// 	request.parsing.state = HTTPRequest::ERROR;
+		// 	return false;
+		// }
+  //
+		// request.parsing.state = HTTPRequest::READING_BODY;
+		// // return request.parsing.state;
+		// return true;
 
 	}
+
+}
+
+	// 	// request.parsing.bytes_read_count = buffer.range();
+	// 	// log.debug("Bytes read: " + i2a(request.parsing.bytes_read_count));
+ //
+	// 	// log.debug("no empty line in buffer \t\t yet");
+	// 	// return false;
+ //
+ //
+	// // // Detected line break at 0 pos (empty line): ~append and proceed with validity checks~
+	// 	// if (request.parsing.header_line_end_pos == 0) {
+ //
+	// 	// request.parsing.buffer.append(raw, 0, request.parsing.line_end_size);
+ //
+	// 	// request.parsing.bytes_read_count = request.parsing.line_end_size;
+ //
+	// 	// log.debug("Bytes read: " + i2a(request.parsing.bytes_read_count));
+	// 	// log.debug("Previous buffer fill level: " + i2a(request.parsing.old_buffer_fill_level));
+ //
+	// 	// request.parsing.old_buffer_fill_level += request.parsing.line_end_size;
+ //
+	// 	// log.debug("Current buffer fill level: " + i2a(request.parsing.buffer.size()));
+	// 	// log.debug("Current data in buffer (request):\n");
+	// 	// log.notice((request.parsing.buffer));
+ //
+	// 	// // return parse_state; DO NOT RETURN AT THIS LINE!
+ //
+	// 	// After detecting empty line, check buffer for end of headers
+	// 	// request.parsing.headers_end_pos =	request.parsing.line_ending == IS_CRLF ?
+	// 	// 									request.parsing.buffer.find(http::CRLFCRLF) :
+	// 	// 									request.parsing.buffer.find(http::LFLF);
+	// 	// log.error("headers_end_pos: " + i2a(request.parsing.headers_end_pos));
+	// 	// if (request.parsing.headers_end_pos != std::string::npos) {
+	// 	// 	// Print the 8 bytes around this position
+	// 	// 	for (size_t i = (request.parsing.headers_end_pos > 2 ? request.parsing.headers_end_pos - 2 : 0);
+	// 	// 		 i < request.parsing.headers_end_pos + 6 && i < buffer.range(); ++i) {
+	// 	// 		std::cout	<< "byte[" << i << "] = " << (int)(unsigned char)buffer.data[buffer.begin + i]
+	// 	// 					<< std::endl;
+	// 	// 	}
+	// 	// }
+ //
+	// 	// ~Detected empty line (before start of request line): invalid request~
+	// 	// ~(should never happen)~
+	// 	// Detected empty line (before any header line): invalid request
+	// 	if (request.parsing.headers_end_pos == 0) {
+ //
+	// 		// log.error("YOU WANT TO READ THIS LINE!");
+	// 		log.error("parse error: unexpected empty line");
+	// 		request.parsing.state = HTTPRequest::ERROR;
+	// 		// return request.parsing.state;
+	// 		return false;
+ //
+	// 	// No empty line detected: expecting more header lines
+	// 	// ~(should not occur: appended line break right before check)~
+	// 	} else if (request.parsing.headers_end_pos == std::string::npos) {
+ //
+	// 		request.parsing.bytes_read_count = buffer.range();
+	// 		log.debug("Bytes read: " + i2a(request.parsing.bytes_read_count));
+ //
+	// 		// log.debug("no empty line in buffer \t\t yet");
+	// 		return false;
+ //
+	// 	// Detected empty line: end of header lines
+	// 	} else {
+ //
+	// 		// Set size of empty line based on line ending style ("\n\n" or "\r\n\r\n")
+	// 		request.parsing.blank_line_size = request.parsing.line_ending == CRLF ? CRLFCRLF_SIZE : LFLF_SIZE;
+ //
+	// 		request.parsing.bytes_read_count = request.parsing.blank_line_size;
+ //
+	// 		// Calculate cumulative size of header lines
+	// 		request.parsing.headers_start_pos =	request.parsing.request_line_end_pos +
+	// 											request.parsing.line_end_size;
+	// 		request.parsing.headers_size =		request.parsing.headers_end_pos -
+	// 											request.parsing.headers_start_pos +
+	// 											request.parsing.line_end_size;
+ //
+	// 		// Check for Host Header (mandatory for HTTP/1.1)
+	// 		if (request.getVersion() == http::V_1_1 &&
+	// 			(!request.hasHeader("host") || request.getHeader("host").empty())) {
+	// 			log.error("parse error: no host header found");
+	// 			request.parsing.state = HTTPRequest::ERROR;
+	// 			return request.parsing.state;
+	// 		}
+ //
+	// 		// GET and DELETE are not designed to carry request bodies
+	// 		if (request.getMethod() == GET || request.getMethod() == DELETE) {
+	// 			request.parsing.state = HTTPRequest::COMPLETE;
+	// 			return request.parsing.state;
+	// 		}
+ //
+	// 		// Extract Content-Length value (mandatory for POST)
+	// 		if (!request.extractContentLength()) {
+	// 			log.error("parse error: no content-length header found");
+	// 			request.parsing.state = HTTPRequest::ERROR;
+	// 			return request.parsing.state;
+	// 		}
+ //
+	// 		request.parsing.state = HTTPRequest::READING_BODY;
+	// 		return request.parsing.state;
+ //
+	// 	}
+ //
+	// // No line break: wait for more data
+	// } else if (request.parsing.header_line_end_pos == std::string::npos) {
+ //
+	// 	log.error("npos detected");
+	// 	// request.parsing.buffer.append(raw);
+ //
+	// 	// request.parsing.bytes_read_count = request.parsing.buffer.size() - request.parsing.old_buffer_fill_level;
+	// 	request.parsing.bytes_read_count = buffer.end - buffer.begin;
+	// 	request.parsing.header_line_size += request.parsing.bytes_read_count;
+ //
+	// 	log.debug("Bytes read: " + i2a(request.parsing.bytes_read_count));
+	// 	log.debug("Line length: " + i2a(request.parsing.header_line_size));
+	// 	// log.debug("Previous buffer fill level: " + i2a(request.parsing.old_buffer_fill_level));
+ //
+	// 	// request.parsing.old_buffer_fill_level = request.parsing.buffer.size();
+ //
+	// 	// log.debug("Current buffer fill level: " + i2a(request.parsing.buffer.size()));
+	// 	// log.debug("Current data in buffer (request):\n");
+	// 	// log.notice((request.parsing.buffer));
+ //
+	// 	return request.parsing.state;
+ //
+	// // Data detected: proceed with line parsing
+	// } else {
+ //
+	// 	// request.parsing.buffer.append(raw, 0, request.parsing.header_line_end_pos + request.parsing.line_end_size);
+	// 	// // buffer.append(::LF); DO NOT APPEND LINE FEED!
+ //
+	// 	// request.parsing.bytes_read_count = request.parsing.buffer.size() - request.parsing.old_buffer_fill_level;
+	// 	// request.parsing.bytes_read_count = request.parsing.header_line_end_pos + request.parsing.line_end_size;
+	// 	request.parsing.bytes_read_count = request.parsing.header_line_end_pos;
+	// 	request.parsing.header_line_size += request.parsing.bytes_read_count;
+ //
+	// 	log.debug("Bytes read: " + i2a(request.parsing.bytes_read_count));
+	// 	log.debug("Line length: " + i2a(request.parsing.header_line_size));
+	// 	// log.debug("Previous buffer fill level: " + i2a(request.parsing.old_buffer_fill_level));
+ //
+	// 	// request.parsing.old_buffer_fill_level = request.parsing.buffer.size();
+ //
+	// 	// log.debug("Current buffer fill level: " + i2a(request.parsing.buffer.size()));
+	// 	// log.debug("Current data in buffer (request):\n");
+	// 	// log.notice((request.parsing.buffer));
+ //
+	// 	// Parse header line
+	// 	// std::string line = buffer.substr(buffer.size() - bytes_read_count);
+	// 	// std::string line = request.parsing.buffer.substr(request.parsing.buffer.size() - request.parsing.header_line_size);
+	// 	// log.error(line + i2a(header_line_size));
+	// 	if (!_parseHeaderLine(buffer, request)) {
+	// 		log.error("something went wrong while parsing a header line");
+	// 		request.parsing.state = HTTPRequest::ERROR;
+	// 		return request.parsing.state;
+	// 	}
+ //
+	// 	return request.parsing.state;
+ //
+	// }
 
 	// // After detecting empty line, check buffer for end of headers
 	// _is_unix_style ?
@@ -1898,14 +2308,14 @@ HTTPRequest::ParseState Parser::_parseHeaders(const std::string& raw, HTTPReques
 	//
 	// }
 
-}
+// }
 
-HTTPRequest::ParseState Parser::_parseBody(const std::string& raw, HTTPRequest& request) {
+bool Parser::_parseBody(const Client::Buffer& buffer, HTTPRequest& request) {
 
 	// Calculate body start position based on line ending style ("\n\n" or "\r\n\r\n")
-	request.parsing.blank_line_size = request.parsing.line_ending == IS_CRLF ? CRLF_CRLF_SIZE : LF_LF_SIZE;
-	request.parsing.body_start_pos = request.parsing.headers_end_pos + request.parsing.blank_line_size;
-	request.parsing.request_size = request.parsing.body_start_pos + request.parsing.content_length;
+	// request.parsing.blank_line_size = request.parsing.line_ending == CRLF ? CRLFCRLF_SIZE : LFLF_SIZE;
+	// request.parsing.body_start_pos = request.parsing.headers_end_pos + request.parsing.blank_line_size;
+	// request.parsing.request_size = request.parsing.body_start_pos + request.parsing.content_length;
 	// DEBUG BEGIN
 	// log.debug("request_line_end_pos: " + i2a(request.parsing.request_line_end_pos));
 	// log.debug("line_end_size: " + i2a(request.parsing.line_end_size));
@@ -1965,16 +2375,22 @@ HTTPRequest::ParseState Parser::_parseBody(const std::string& raw, HTTPRequest& 
 	// request.parsing.old_stream_pos = static_cast<std::streamoff>(request.body.temp.tellp());
 	// if (request.parsing.old_stream_pos < 0) return request.parsing.state;
 
-	if (request.parsing.old_stream_pos + static_cast<std::streamoff>(raw.size()) <= request.parsing.full_body_size) {
-		request.body.temp << raw;
+	log.error("old_stream_pos: " + i2a(request.parsing.old_stream_pos) + "\trange: " + i2a(buffer.range()) + "\tfull_body_size: " + i2a(request.parsing.full_body_size));
+	// if (request.parsing.old_stream_pos + static_cast<std::streamoff>(raw.size()) <= request.parsing.full_body_size) {
+	if (request.parsing.old_stream_pos + static_cast<std::streamoff>(buffer.range()) < request.parsing.full_body_size) {
+		log.error("not all");
+		// request.body.temp << buffer.str();
+		buffer.sstream(request.body.temp);
 		if (!request.body.temp) {
 			request.parsing.state = HTTPRequest::ERROR;
-			return request.parsing.state;
+			request.parsing.error_cause = INTERNAL_SERVER_ERROR;
+			return false;
 		}
 		std::streamoff stream_pos = static_cast<std::streamoff>(request.body.temp.tellp());
 		if (stream_pos < 0) {
 			request.parsing.state = HTTPRequest::ERROR;
-			return request.parsing.state;
+			request.parsing.error_cause = INTERNAL_SERVER_ERROR;
+			return false;
 		}
 		request.parsing.bytes_read_count = stream_pos - request.parsing.old_stream_pos;
 		log.debug("Bytes read: " + i2a(request.parsing.bytes_read_count));
@@ -1982,25 +2398,26 @@ HTTPRequest::ParseState Parser::_parseBody(const std::string& raw, HTTPRequest& 
 		request.parsing.old_stream_pos = stream_pos;
 		log.debug("Current buffer fill level: " + i2a(stream_pos));
 		log.debug("Current data in buffer (request):\n");
-		log.notice(request.body.temp.str());
+		// log.notice(request.body.temp.str());
 		request.parsing.state = HTTPRequest::READING_BODY;
-		return request.parsing.state;  // not enough data for body: wait for more
+		return true;  // not enough data for body: wait for more
 	} else {
+		log.error("FULL BODY PARSED");
 		// size_t remaining = request.parsing.content_length - request.body.temp.str().size();
 		size_t remaining = request.parsing.full_body_size - request.parsing.old_stream_pos;
-		request.body.temp << raw.substr(0, remaining);
+		buffer.sstream(request.body.temp, 0, remaining);
 		request.parsing.bytes_read_count = remaining;
 		log.debug("Bytes read: " + i2a(request.parsing.bytes_read_count));
 		log.debug("Previous buffer fill level: " + i2a(request.parsing.old_stream_pos));
 		log.debug("Current buffer fill level: " + i2a(request.parsing.full_body_size));
-		log.debug("Current data in buffer (request):\n");
-		log.notice(request.body.temp.str());
-		request.setBody(request.body.temp.str()); // TEST
+		log.debug("Current data in buffer (request):");
+		// log.notice(request.body.temp.str());
+		// request.setBody(request.body.temp.str()); // TEST
 
 		// request.body.temp.clear();
-		request.parsing.buffer.clear();
+		// request.parsing.buffer.clear();
 		request.parsing.state = HTTPRequest::COMPLETE;
-		return request.parsing.state;
+		return true;
 	}
 
 }

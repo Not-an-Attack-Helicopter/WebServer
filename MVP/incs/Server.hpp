@@ -33,13 +33,22 @@ class Server {
 		static Server&							instance(void);
 
 		void									setNonblockFlag(int fd);
-		void									setReadInterest(int fd);
-		void									addWriteInterest(int fd);
-		void									removeWriteInterest(int fd);
+		void									setPollInterest(int fd);
+		void									setRDWRInterest(int fd);
+		void									setRDONLYInterest(int fd);
+		void									setWRONLYInterest(int fd);
+		void									dropWriteInterest(int fd);
+		// void									clearRDWRInterest(int fd);
+		// void									removeReadInterest(int fd);
+		// void									addWriteInterest(int fd);
+		// void									removeWriteInterest(int fd);
 		void									prepareEPollInstance(void);
 		void									prepareListeningPort(const Config::Socket& config);
 		void									handleIncomingEvents(void);
 		void									acceptConnectRequest(int fd, const Config::Socket* config);
+		void									handleSocketError(int fd);
+		void									handleHangup(int fd);
+		void									handleRemoteHangup(int fd);
 		bool									handleReadEvent(int fd);
 		void									handleWriteEvent(int fd);
 		void									cleanUpAllRessources(void);
@@ -71,7 +80,7 @@ class Server {
 		std::map<int, Client*>					_clients;
 
 // TEST
-		void									forking_around(int socket_fd, int client_fd);
+		// void									forking_around(int socket_fd, int client_fd);
 // TEST
 
 };

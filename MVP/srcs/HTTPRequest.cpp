@@ -35,7 +35,7 @@
 // 	{HTTPRequest::DELETE, "DELETE"}
 // };
 
-// static const std::string VALID_METHODS[HTTPRequest::METHOD_COUNT] = {"GET", "POST", "DELETE"};
+// static const std::string VALID_METHODS[HTTPRequest::METHOD_COUNT] = {"GET", "HEAD", "DELETE", "POST", "PUT"};
 //
 // static bool validateMethodOrder() {
 // 	if (VALID_METHODS[HTTPRequest::GET] != "GET") return false;
@@ -77,7 +77,7 @@
 
 const std::string HTTPRequest::getMethodName(void) const {
 
-	static const std::string valid_methods[METHOD_COUNT] = {"GET", "POST", "DELETE"};
+	static const std::string valid_methods[METHOD_COUNT] = {"GET", "HEAD", "DELETE", "POST", "PUT"};
 	size_t method = static_cast<size_t>(_method);
 	if (method < METHOD_COUNT) {
 		return valid_methods[method];
@@ -117,16 +117,24 @@ HTTPRequest::HTTPRequest(void) {
 	log.debug("HTTPRequest Constructor called");
 	// buffer.clear();
 	std::memset(static_cast<void*>(&parsing), 0, sizeof(parsing));
+	resolved.domain = NULL;
+	resolved.location = NULL;
+	resolved.method = METHOD_COUNT;
+	body.file_fd = -1;
+	headers_only = false;
+	created_file = false;
+	// debug = randomHexString(4);
+	// log.error("I am " + debug);
 	// std::memset(static_cast<void*>(&body), 0, sizeof(body));
-	body.temp.clear();
-	body.file.close();
-	body.sink = DISK;
-	body.size = 0;
+	// body.temp.clear();
+	// body.file.close();
+	// body.sink = DISK;
+	// body.size = 0;
 	_method = METHOD_COUNT;
 	_path.clear();
 	_query.clear();
 	_version.clear();
-	_body.clear();
+	// _body.clear();
 	_headers.clear();
 	return;
 }
@@ -173,8 +181,9 @@ const std::string& HTTPRequest::getHeader(const std::string& key) const {
 	return it->second;
 }
 
-const std::string& HTTPRequest::getBody(void) const{
-	return _body;
+const std::stringstream& HTTPRequest::getBody(void) const{
+	// return _body;
+	return body.temp;
 };
 
 // size_t HTTPRequest::getBytesRead(void) {
@@ -211,9 +220,9 @@ void HTTPRequest::setHeader(const std::string& key, const std::string& value) {
 	_headers[key] = value;
 }
 
-void HTTPRequest::setBody(const std::string& body) {
-	_body = body;
-}
+// // void HTTPRequest::setBody(const std::string& body) {
+// // 	_body = body;
+// // }
 
 // void HTTPRequest::setBytesRead(size_t bytes_read_count) {
 // 	bytes_read_count = bytes_read_count;
@@ -221,12 +230,19 @@ void HTTPRequest::setBody(const std::string& body) {
 
 bool HTTPRequest::extractContentLength(void) {
 
+	// log.error("EXTRACTING CONTENT LENGTH");
+
+	if (!hasHeader("content-length")) return false; // non-existent
+
+	// log.error("hasContentLengthHeader");
 	std::string value = getHeader("content-length");
 	if (value.empty())
-		return false; // non-existent or empty value
+		return false; // empty value
 
+	// log.error("Content-Length: " + value);
 	char* endptr;
 	parsing.content_length = static_cast<size_t>(strtoul(value.c_str(), &endptr, 10));
+	// log.error("parsing.content_length = " + i2a(parsing.content_length));
 	if (std::strcmp(endptr, value.c_str()) == 0 || *endptr != '\0')
 		return false; // malformed content-length header
 
@@ -254,16 +270,22 @@ void HTTPRequest::reset(void) {
 	// request_size = 0;
 	// buffer.clear();
 	std::memset(static_cast<void*>(&parsing), 0, sizeof(parsing));
+	resolved.domain = NULL;
+	resolved.location = NULL;
+	resolved.method = METHOD_COUNT;
+	body.file_fd = -1;
+	headers_only = false;
+	created_file = false;
 	// std::memset(static_cast<void*>(&body), 0, sizeof(body));
-	body.temp.clear();
-	body.file.close();
-	body.sink = DISK;
-	body.size = 0;
+	// body.temp.clear();
+	// body.file.close();
+	// body.sink = DISK;
+	// body.size = 0;
 	_method = METHOD_COUNT;
 	_path.clear();
 	_query.clear();
 	_version.clear();
-	_body.clear();
+	// _body.clear();
 	_headers.clear();
 
 	return;
@@ -335,13 +357,16 @@ HTTPRequest::HTTPRequest(const HTTPRequest& other)
 	// 	content_length(other.content_length),
 	// 	request_size(other.request_size),
 	:	parsing(other.parsing),
+		resolved(other.resolved),
 		// body(other.body),
+		headers_only(other.headers_only),
+		created_file(other.created_file),
 		_method(other._method),
 		_path(other._path),
 		_query(other._query),
 		_version(other._version),
-		_headers(other._headers),
-		_body(other._body) {
+		_headers(other._headers) {
+		// _body(other._body) {
 	log.debug("HTTPRequest Copy Constructor called");
 	// ssize_t i = -1;
 	// while (other.buffer[++i])
@@ -371,12 +396,15 @@ HTTPRequest& HTTPRequest::operator = (const HTTPRequest& other) {
 		// content_length = other.content_length;
 		// request_size = other.request_size;
 		parsing = other.parsing;
+		resolved = other.resolved;
 		// body = other.body;
+		headers_only = other.headers_only;
+		created_file = other.created_file;
 		_method = other._method;
 		_path = other._path;
 		_query = other._query;
 		_version = other._version;
-		_body = other._body;
+		// _body = other._body;
 		_headers = other._headers;
 	}
 	log.debug("HTTPRequest Copy Assignment Operator called");
@@ -704,7 +732,7 @@ HTTPRequest& HTTPRequest::operator = (const HTTPRequest& other) {
 // 	_method = DELETE;
 // 	break;
 // }
-// const std::string valid_methods[3] = {"GET", "POST", "DELETE"};
+// const std::string valid_methods[5] = {"GET", "HEAD", "DELETE", "POST", "PUT"};
 // bool found = false;
 // for (size_t i = 0; i < arraySize(valid_methods); ++i) {
 // 	if (valid_methods[i] == method) {

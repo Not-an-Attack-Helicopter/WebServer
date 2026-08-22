@@ -19,7 +19,7 @@
 #include "Client.hpp"
 // #include "utils.hpp"
 
-#define dispatcher Dispatcher::instance()
+#define dispatch Dispatcher::instance()
 
 class Dispatcher {
 
@@ -27,10 +27,15 @@ public:
 
 	static Dispatcher&					instance(void);
 
-	void								handleRequest(Client& client);
+	void								currentRequest(Client& client);
+	// void								sendRequestTimeout(Client& client);
+	void								errorPage(const Config::Location* location,
+												  HTTPResponse& response,
+												  bool headers_only,
+												  const StatusCode& code);
 
-	static const Config::Location*		matchLocation(const std::vector<Config::Location>& locations,
-													  const std::string& requested_location_path);
+	static const Config::Location*		resolveLocation(const std::vector<Config::Location>& locations,
+														const std::string& requested_location_path);
 
 	typedef std::map<std::string, std::string> content_type_map;
 

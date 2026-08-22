@@ -53,6 +53,7 @@ void dumpEvents(int nfds, epoll_event* events) {
 		if (events[i].events & EPOLLOUT)	log.debug("\t\t\tEPOLLOUT");
 		if (events[i].events & EPOLLERR)	log.debug("\t\t\tEPOLLERR");
 		if (events[i].events & EPOLLHUP)	log.debug("\t\t\tEPOLLHUP");
+		if (events[i].events & EPOLLRDHUP)	log.debug("\t\t\tEPOLLRDHUP");
 	}
 }
 
@@ -86,6 +87,8 @@ void dumpRequest(HTTPRequest* request) {
 		case HTTPRequest::READING_REQUEST_LINE: parsing_state = "reading request line"; break;
 		case HTTPRequest::READING_HEADERS: parsing_state = "reading headers"; break;
 		case HTTPRequest::READING_BODY: parsing_state = "reading body"; break;
+		case HTTPRequest::DISPATCHING: parsing_state = "dispatching"; break;
+		// case HTTPRequest::FINALIZING: parsing_state = "finalizing"; break;
 		case HTTPRequest::COMPLETE: parsing_state = "complete"; break;
 		case HTTPRequest::ERROR: parsing_state = "error"; break;
 	}
@@ -117,11 +120,19 @@ void dumpRequest(HTTPRequest* request) {
 		log.debug("Content-Length:\t" + request->getHeader("content-length"));
 		// log.debug("Content-Length:\t" + i2a(request->getContentLength()) + "\n");
 
-	log.debug("Body:\t\t" + request->getBody());
+	// log.debug("Body:\t\t" + request->getBody().str());
 }
 // DEBUG END
 
 unsigned short stringToUnsignedShort(const std::string& str) {
+
+	if (str.empty()) {
+		throw std::runtime_error("type conversion failed: cannot convert empty string to int");
+	}
+
+	if (str[0] == '-') {
+		throw std::runtime_error("type conversion failed: invalid negative value for unsigned type");
+	}
 
 	char* endptr;
 	unsigned long tmp = std::strtoul(str.c_str(), &endptr, 10);
@@ -138,7 +149,31 @@ unsigned short stringToUnsignedShort(const std::string& str) {
 
 }
 
+// long stringToLong(const std::string& str) {
+//
+// 	if (str.empty()) {
+// 		throw std::runtime_error("type conversion failed: cannot convert empty string to int");
+// 	}
+//
+// 	char* endptr;
+// 	long tmp = std::strtol(str.c_str(), &endptr, 10);
+//
+// 	if (*endptr != '\0') {
+// 		throw std::runtime_error("type conversion failed (invalid characters): " + str);
+// 	}
+// 	return tmp;
+//
+// }
+
 size_t stringToSize(const std::string& str) {
+
+	if (str.empty()) {
+		throw std::runtime_error("type conversion failed: cannot convert empty string to int");
+	}
+
+	if (str[0] == '-') {
+		throw std::runtime_error("type conversion failed: invalid negative value for unsigned type");
+	}
 
 	char* endptr;
 	unsigned long tmp = std::strtoul(str.c_str(), &endptr, 10);
@@ -146,6 +181,11 @@ size_t stringToSize(const std::string& str) {
 	if (*endptr != '\0') {
 		throw std::runtime_error("type conversion failed: " + str);
 	}
+
+	if (tmp > ULONG_MAX) {
+		throw std::out_of_range("type conversion failed (value out of range for unsigned long): " + str);
+	}
+
 	return static_cast<size_t>(tmp);
 
 }
@@ -176,6 +216,43 @@ std::string trim(const std::string& str) {
 	if (first == std::string::npos || last == std::string::npos)
 		return "";
 	return str.substr(first, last - first + 1);
+}
+
+std::string randomHexString(size_t n) {
+
+	static const char hex[] = "0123456789abcdef";
+
+	unsigned char* bytes = new unsigned char[n];
+
+	try {
+		std::ifstream urandom("/dev/urandom", std::ios::in | std::ios::binary);
+
+		if (!urandom) {
+			throw std::runtime_error("cannot open /dev/urandom");
+		}
+
+		urandom.read(reinterpret_cast<char*>(bytes), static_cast<std::streamsize>(n));
+
+		if (urandom.gcount() != static_cast<std::streamsize>(n)) {
+			throw std::runtime_error("cannot read /dev/urandom");
+		}
+
+		std::string result;
+		result.reserve(n * 2);
+
+		for (std::size_t i = 0; i < n; ++i) {
+			result += hex[bytes[i] >> 4];
+			result += hex[bytes[i] & 0x0f];
+		}
+
+		delete [] bytes;
+		return result;
+	}
+	catch (std::exception& e) {
+		delete [] bytes;
+		log.error("hexgen: " + std::string(e.what()));
+		return i2a(std::time(NULL) * errno == 0 ? 1 : errno);
+	}
 }
 
 bool isRegularFile(const std::string& path) {
@@ -234,6 +311,7 @@ void dumpConfigs(const std::vector<Config::Socket>& sockets) {
 		std::cout << "socket {\n";
 		std::cout << "\thost: " << sockets[i].address << ";\n";
 		std::cout << "\tport: " << sockets[i].port << ";\n";
+		std::cout << "\tclient_max_body_size: " << sockets[i].client_max_body_size << ";\n";
 		for (size_t j = 0; j < sockets[i].domains.size(); ++j) {
 			std::cout << "\tdomain {\n";
 			std::cout << "\t\tnames: [";
@@ -269,6 +347,7 @@ void dumpConfigs(const std::vector<Config::Socket>& sockets) {
 						case GET: method = "GET"; break;
 						case POST: method = "POST"; break;
 						case DELETE: method = "DELETE"; break;
+						case HEAD: method = "HEAD"; break;
 						default: method = "N/A"; break;
 					}
 					std::cout << method;
@@ -289,6 +368,7 @@ void dumpConfigs(const std::vector<Config::Socket>& sockets) {
 				}
 				std::cout << "\t\t\t}\n";
 				std::cout << "\t\t\tupload_dir: " << sockets[i].domains[j].locations[k].upload_dir << ";\n";
+				std::cout << "\t\t\tclient_max_body_size: " << sockets[i].domains[j].locations[k].client_max_body_size << ";\n";
 				// std::cout << "\t\t\tcgi_extension: [";
 				// for (size_t l = 0; l < sockets[i].domains[j].locations[k].cgi_extensions.size(); ++l) {
 				// 	std::cout << sockets[i].domains[j].locations[k].cgi_extensions[l];

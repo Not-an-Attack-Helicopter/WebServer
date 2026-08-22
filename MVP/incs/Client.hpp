@@ -18,14 +18,15 @@
 #include "HTTPRequest.hpp"
 #include "HTTPResponse.hpp"
 // #include "templates.hpp"
-#include <cstddef>
 #include <sys/socket.h>
-#include <cstring>
-#include <ctime>
 #include <fstream>
 #include <sstream>
 #include <string>
+// #include <vector>
 #include <deque>
+#include <ctime>
+#include <cstring>
+#include <cstddef>
 
 // struct Body {
 // 	std::stringstream			temp;
@@ -52,8 +53,14 @@ public:
 
 	enum State {
 		IDLE,
+		RECEIVING_HEADERS,
+		RECEIVING_BODY,
+		DISPATCHING,
+		PENDING_RESPONSE,
 		SENDING_HEADERS,
 		SENDING_BODY,
+		CONCLUDED,
+		REJECTED,
 		ERROR
 		// SENDING_STRINGSTREAM,
 		// SENDING_FILESTREAM,
@@ -66,23 +73,50 @@ public:
 	// 	ERROR
 	// };
 
-	// struct Body {
-	// 	std::stringstream			temp;
-	// 	// bool						body_pending;
-	// 	std::ifstream				file;
-	// 	// bool						file_pending;
-	// 	Sink						sink;
- //   };
- //
-	// struct OutgoingData {
-	// 	std::stringstream			headers;
-	// 	// std::stringstream			body;
-	// 	// std::ifstream				file;
-	// 	// bool						is_file;
-	// 	Body						body;
- //   };
+	struct Buffer {
 
-	bool							keepAlive;
+		std::vector<char> data;
+		size_t begin;
+		size_t mark;
+		size_t end;
+
+		// std::vector<char>::const_iterator begin_it = data.begin() + begin;
+		// std::vector<char>::const_iterator end_it = data.begin() + end;
+
+		std::string str(void) const;
+		std::string substr(ssize_t begin) const;
+		std::string substr(ssize_t begin, ssize_t end) const;
+
+		void sstream(std::stringstream& ss) const;
+		void sstream(std::stringstream& ss, ssize_t begin) const;
+		void sstream(std::stringstream& ss, ssize_t begin, ssize_t end) const;
+
+		void reset(void);
+		void compact(void);
+
+		size_t range(void) const;
+
+		ssize_t find(const char& pin) const;
+		ssize_t find(const std::string& needle) const;
+
+	};
+
+	struct Body {
+		std::stringstream			temp;
+		// bool						body_pending;
+		std::ifstream				file;
+		// bool						file_pending;
+		size_t						size;
+		Sink						sink;
+	};
+
+	struct Response {
+		std::stringstream			headers;
+		// std::stringstream			body;
+		// std::ifstream				file;
+		// bool						is_file;
+		Body						body;
+	};
 
 	// template<typename StreamType> // send data
 	// ssize_t							flushPendingData(int fd, StreamType& stream) {
@@ -151,9 +185,11 @@ public:
 	unsigned short int				getHostPort(void) const;
 	const std::string				getHostAddress(void) const;
 	const std::string				getBuffer(void) const;
-	const std::string&				getIncomingData(void) const;
-	void							queueOutgoingData(const std::string& message);
+	// const std::string&				getIncomingData(void) const;
+	// void							queueOutgoingData(const std::string& message);
 // DEBUG END
+
+	// size_t							max_body_size;
 
 	const State&					getState(void) const;
 
@@ -166,65 +202,65 @@ public:
 	// const Config*					getConfigPointer(void) const;
 	const Config::Socket&			getConfig(void) const;
 
-	const HTTPRequest&				getCurrentRequest(void) const;
+	HTTPRequest&					getCurrentRequest(void);
+	HTTPRequest&					getRecentRequest(void);
 
 	HTTPResponse&					getCurrentResponse(void);
+
+	Buffer&							getIncomingData(void);
 
 	// const OutgoingData*				getOutgoingData(void) const;
 
 	// std::stringstream*				getHeaders(void);
 
+	void							setState(State state);
 	// void							setBytesRead(ssize_t bytes_read);
 
 	// bool							hasPendingRequest(void) const;
 	bool							hasPendingResponse(void) const;
 	bool							hasPendingData(void) const;
+	bool							blockedFromReceiving() const;
+	bool							markedForTermination() const;
+	bool							isTimedOut(void) const;
+
+	// ssize_t							recvNextChunk(int fd);
 
 	ssize_t							queueIncomingData(int fd); // receive data
 
 	void							parseIncomingData(void); // build request
+	// void							parseBody(void); // build request
 	void							queueOutgoingData(void); // prepare response
 	void							flushPendingData(int fd); // send data
 	void							pushRequest(void);
 	void							pushResponse(void);
 	void							popRequest(void);
 	void							popResponse(void);
+	void							blockFromReceiving(void);
+	void							markForTermination(void);
 	void							reset(void);
 
-	bool							isTimedOut(void) const;
 
 private:
 
 	Client(const Client& other);
 	Client& operator = (const Client& other);
 
-	struct Body {
-		std::stringstream			temp;
-		// bool						body_pending;
-		std::ifstream				file;
-		// bool						file_pending;
-		size_t						size;
-		Sink						sink;
-   };
+	static const time_t				IDLE_TIMEOUT_SECONDS		= 60;
+	static const time_t				HEADER_TIMEOUT_SECONDS		= 10;
+	static const time_t				DISPATCH_TIMEOUT_SECONDS	= 120;
+	static const time_t				BODY_TIMEOUT_SECONDS		= 120;
+	static const time_t				REJECTED_TIMEOUT_SECONDS	= 10;
 
-	struct OutgoingData {
-		std::stringstream			headers;
-		// std::stringstream			body;
-		// std::ifstream				file;
-		// bool						is_file;
-		Body						body;
-   };
+	static const size_t				BUFFER_SIZE = 4 * 1024;
 
-	static const time_t				CONNECTION_IDLE_TIMEOUT_SECONDS = 420;
-	static const size_t				BUFFER_SIZE = 8*1024;
 	// static const size_t				CONTENT_STREAM_BUFFER_SIZE = 4096;
 	// static const size_t				LOW_LATENCY_BUFFER_SIZE = 8192;
 	// static const size_t				GENERAL_PURPOSE_BUFFER_SIZE = 16384;
 	// static const size_t				HIGH_THROUGHPUT_BUFFER_SIZE = 32768;
 	// static const size_t				BULK_DATA_BUFFER_SIZE = 65536;
 
-	std::vector<char>				_buffer;
 	// char							_buffer[SEND_BUFFER_SIZE];
+
 	// char							_content_stream_buffer[CONTENT_STREAM_BUFFER_SIZE];
 	// char							_low_latency_buffer[LOW_LATENCY_BUFFER_SIZE];
 	// char							_general_purpose_buffer[GENERAL_PURPOSE_BUFFER_SIZE];
@@ -233,15 +269,8 @@ private:
 
 	State							_state;
 
-	// HTTPResponse::BodyType			_body_sink;
-
-	ssize_t							_bytes_read;
-	ssize_t							_bytes_sent;
-
-	size_t							_begin;
-	size_t							_end;
-
-	bool							_eof_reached;
+	bool							_blocked_from_receiving;
+	bool							_marked_for_termination;
 
 	sockaddr_storage				_addr;
 
@@ -252,9 +281,22 @@ private:
 	std::deque<HTTPRequest*>		_request_queue;		// FIFO queue of requests to dispatch
 	std::deque<HTTPResponse*>		_response_queue;	// FIFO queue of responses to send
 
-	std::string						_incoming_data;
+	// std::vector<char>				_buffer;
 
-	OutgoingData					_outgoing_data;
+	// ssize_t							_bytes_read;
+	// ssize_t							_bytes_sent;
+
+	// size_t							_begin;
+	// size_t							_end;
+
+	// std::string						_incoming_data;
+
+	Buffer							_instream;
+	Buffer							_outstream;
+
+	Response						_response;
+
+	bool							_eof_reached;
 
 	time_t							_last_event;
 
@@ -362,7 +404,7 @@ private:
 
 	bool							_sendNextChunk(int fd, std::istream& stream);
 
-	size_t							_adjustBufferSize(void);
+	size_t							_adjustBufferSize(size_t payload_size);
 
 	void							_clearStream(std::stringstream& stream);
 	void							_clearStream(std::ifstream& stream);

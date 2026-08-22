@@ -28,10 +28,12 @@ void			dumpRequest(HTTPRequest* request);
 // DEBUG
 
 unsigned short	stringToUnsignedShort(const std::string& str);
+// long			stringToLong(const std::string& str);
 size_t			stringToSize(const std::string& str);
 int				stringToInt(const std::string& str);
 
 std::string		trim(const std::string& str);
+std::string		randomHexString(size_t n);
 
 bool			isRegularFile(const std::string& path);
 bool			isDirectory(const std::string& path);

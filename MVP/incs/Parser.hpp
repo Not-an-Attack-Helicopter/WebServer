@@ -13,18 +13,20 @@
 #ifndef PARSER_HPP
 #define PARSER_HPP
 
-// #include "Config.hpp"
 // #include "HTTPRequest.hpp"
 #include "HTTPResponse.hpp"
+#include "Config.hpp"
+#include "Client.hpp"
 #include "utils.hpp"
-#include <sys/stat.h>
 #include <stdexcept>
-// #include <typeinfo>
 #include <sstream>
 // #include <vector>
 #include <string>
 #include <map>
+// #include <climits>
 #include <cstddef>
+// #include <typeinfo>
+#include <sys/stat.h>
 
 #define parse Parser::instance()
 
@@ -43,8 +45,13 @@ public:
 	// static const Location*					matchLocation(const std::vector<Location>& locations,
 	// 													  const std::string& location_path);
 
-	void									configFile(const std::string& config_file);
-	HTTPRequest::ParseState					incomingData(const std::string& raw, HTTPRequest* request);
+	void									file(const std::string& config_file);
+	// HTTPRequest::ParseState					incomingData(const std::string& raw, HTTPRequest* request);
+	bool									buffer(const Client::Buffer& buff, HTTPRequest& request);
+
+	// bool									body(const Client::Buffer& buff, HTTPRequest& request);
+
+	Method									extractMethod(const std::string& name);
 
 	typedef void (Parser::*locationDirectiveHandler) (const std::string& val,
 													  Config::Location& loc);
@@ -52,13 +59,17 @@ public:
 	typedef void (Parser::*domainDirectiveHandler) (const std::string& val,
 													Config::Domain& domain);
 
+	typedef void (Parser::*socketDirectiveHandler) (const std::string& val,
+													Config::Socket& socket);
+
 	typedef std::map<std::string,
 					locationDirectiveHandler> location_directive_handler_map;
 
 	typedef std::map<std::string,
 					domainDirectiveHandler> domain_directive_handler_map;
 
-	Method									extractMethod(const std::string& name);
+	typedef std::map<std::string,
+					socketDirectiveHandler> socket_directive_handler_map;
 
 private:
 
@@ -71,8 +82,8 @@ private:
 
 	static const size_t 					LF_SIZE = 1;
 	static const size_t 					CRLF_SIZE = 2;
-	static const size_t						LF_LF_SIZE = 2;
-	static const size_t						CRLF_CRLF_SIZE = 4;
+	static const size_t						LFLF_SIZE = 2;
+	static const size_t						CRLFCRLF_SIZE = 4;
 
 	// Config file parsing //
 	template<typename ConfigType>
@@ -107,6 +118,7 @@ private:
 		}
 
 		block.root = val;
+		return;
 
 	}
 
@@ -141,6 +153,8 @@ private:
 			block.index_files.push_back(path);
 
 		}
+
+		return;
 
 	}
 
@@ -189,9 +203,27 @@ private:
 
 	}
 
+	template<typename ConfigType>
+	void _handleClientMaxBodySize(const std::string& val, ConfigType& block) {
+
+		if (val.empty()) {
+			throw std::runtime_error("config error: client_max_body_size requires a value");
+		}
+
+		size_t size = stringToSize(val);
+
+		if (size == 0) block.client_max_body_size = UINT64_MAX;
+		else block.client_max_body_size = size;
+
+		return;
+
+	}
+
 	static location_directive_handler_map	_initLocationDirectiveHandlerMap(void);
 
 	static domain_directive_handler_map		_initDomainDirectiveHandlerMap(void);
+
+	static socket_directive_handler_map		_initSocketDirectiveHandlerMap(void);
 
 	void									_parseLocationBlock(std::ifstream& config_file_stream,
 																Config::Domain& dom,
@@ -221,7 +253,7 @@ private:
 	// void									_handleRoot(const std::string& val, Config::Domain& dom);
 	// void									_handleIndexFile(const std::string& val, Config::Domain& dom);
 	// void									_handleErrorPage(const std::string& val, Config::Domain& dom);
-	void									_handleClientMaxBodySize(const std::string& val, Config::Domain& dom);
+	// void									_handleClientMaxBodySize(const std::string& val, Config::Domain& dom);
 
 	// Endpoint directive handlers
 	void									_handleListen(const std::string& val, Config::Socket& soc);
@@ -230,16 +262,16 @@ private:
 	void									_validateRedirectChains(void);
 
 	// HTTP request parsing //
-	size_t									_findRequestLineEnd(const std::string& raw, HTTPRequest& request);
+	size_t									_findRequestLineEnd(const Client::Buffer& buffer, HTTPRequest& request);
 
 	// bool									_matchMethod(const std::string& method);
-	bool									_extractTokens(const std::string& line, HTTPRequest& request);
-	bool									_parseHeaderLine(const std::string& line, HTTPRequest& request);
+	bool									_extractTokens(const Client::Buffer& buffer, HTTPRequest& request);
+	bool									_parseHeaderLine(const Client::Buffer& buffer, HTTPRequest& request);
 	// bool									_extractContentLength(void);
 
-	HTTPRequest::ParseState					_parseRequestLine(const std::string& raw, HTTPRequest& request);
-	HTTPRequest::ParseState					_parseHeaders(const std::string& raw, HTTPRequest& request);
-	HTTPRequest::ParseState					_parseBody(const std::string& raw, HTTPRequest& request);
+	bool									_parseRequestLine(const Client::Buffer& buffer, HTTPRequest& request);
+	bool									_parseHeaders(const Client::Buffer& buffer, HTTPRequest& request);
+	bool									_parseBody(const Client::Buffer& buffer, HTTPRequest& request);
 
 	// std::vector<Config>					_configs;
 

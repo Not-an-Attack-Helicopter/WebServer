@@ -23,14 +23,17 @@
 #define configs Config::instance()
 
 enum Sink {
+	NONE,
 	HEAP,
 	DISK
 };
 
 enum Method {
 	GET,
-	POST,
+	HEAD,
 	DELETE,
+	POST,
+	PUT,
 	METHOD_COUNT
 };
 
@@ -49,6 +52,7 @@ public:
 		std::vector<std::string>				index_files;			// Default index files for this location
 		std::map<int, std::string>				error_pages;			// Error code -> error page file mapping
 		std::string								upload_dir;				// Directory for file uploads
+		size_t									client_max_body_size;	// Maximum request body size in bytes
 		// std::vector<std::string>				cgi_extensions;			// CGI file extensions (.py, .sh, etc.)
 		// std::vector<std::string>				cgi_paths;				// Corresponding CGI interpreter paths
 		std::map<std::string, std::string>		interpreters;			// CGI file ext -> CGI interpreter path
@@ -67,6 +71,7 @@ public:
 	struct Socket {
 		in_port_t								port;					// Listen port (1–65535)
 		std::string								address;				// Bind host IP address
+		size_t									client_max_body_size;	// Maximum request body size in bytes
 		std::vector<Domain>						domains;				// Virtual hosts
 	};
 

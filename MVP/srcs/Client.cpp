@@ -12,21 +12,19 @@
 
 #include "../incs/Client.hpp"
 #include "../incs/Config.hpp"
-#include "../incs/Logger.hpp"
 #include "../incs/Parser.hpp"
-#include "../incs/utils.hpp"
+#include "../incs/Logger.hpp"
 #include "../incs/constexpr.hpp"
 #include "../incs/templates.hpp"
-#include <cstddef>
+// #include "../incs/utils.hpp"
+#include <algorithm>
 #include <fstream>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <fcntl.h>
-// #include <fstream>
 #include <sstream>
+#include <cstddef>
 #include <cstring>
-// #include <vector>
-// #include <ios>
+#include <fcntl.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
 
 // template<>
 // void Client::push<HTTPRequest>() {
@@ -58,32 +56,43 @@
 
 /*	@brief Constructor	*/
 Client::Client(const Config::Socket* config)
-	:	keepAlive(true),
-		_buffer(BUFFER_SIZE),
-		_state(IDLE),
-		// _body_sink(HTTPResponse::UNDEFINED),
-		_bytes_read(0),
-		_bytes_sent(0),
-		_begin(0),
-		_end(0),
-		_eof_reached(false),
+	:	_state(IDLE),
+		_blocked_from_receiving(false),
+		_marked_for_termination(false),
 		_addrlen(sizeof(_addr)),
 		_config(config),
+		// _buffer(BUFFER_SIZE),
+		// _bytes_read(0),
+		// _bytes_sent(0),
+		// _begin(0),
+		// _end(0),
+		_eof_reached(false),
 		_last_event(std::time(NULL)) {
 
 	log.debug("Client Constructor called");
 
+	// max_body_size = (*config).client_max_body_size;
 	// _buffer.resize(BUFFER_SIZE);
-	std::memset(&_buffer[0], 0, _buffer.size());
+	// std::memset(&_buffer[0], 0, _buffer.size());
 	// std::memset(_buffer, 0, SEND_BUFFER_SIZE);
 	std::memset(&_addr, 0, _addrlen);
-	// std::memset(static_cast<void*>(&_outgoing_data), 0, sizeof(_outgoing_data));
-	_incoming_data.clear();
-	_outgoing_data.headers.clear();
-	_outgoing_data.body.temp.clear();
-	_outgoing_data.body.file.clear();
-	_outgoing_data.body.size = 0;
-	_outgoing_data.body.sink = DISK;
+	// std::memset(static_cast<void*>(&_response), 0, sizeof(_response));
+	// _incoming_data.clear();
+	_response.headers.clear();
+	_response.body.temp.clear();
+	_response.body.file.clear();
+	_response.body.size = 0;
+	_response.body.sink = NONE;
+	_instream.data.resize(BUFFER_SIZE);
+	// _instream.begin = 0;
+	// _instream.mark = 0;
+	// _instream.end = 0;
+	_instream.reset();
+	_outstream.data.resize(BUFFER_SIZE);
+	// _outstream.begin = 0;
+	// _outstream.mark = 0;
+	// _outstream.end = 0;
+	_outstream.reset();
 
 	// Create new request object in deque container
 	// HTTPRequest* request = new HTTPRequest();
@@ -94,7 +103,8 @@ Client::Client(const Config::Socket* config)
 	// Create new response object in deque container
 	// HTTPResponse* response = new HTTPResponse;
 	// _response_queue.push_back(response);
-
+	// push<HTTPResponse>();
+	// pushResponse();
 	// if (ss.good()) {
 	// 	log.warn("goodbit is set");
 	// }
@@ -126,6 +136,68 @@ Client::~Client(void) {
 
 }
 
+std::string Client::Buffer::str(void) const {
+	return std::string(data.begin() + begin, data.begin() + end);
+}
+
+std::string Client::Buffer::substr(ssize_t offset) const {
+	return std::string(data.begin() + begin + offset, data.begin() + end);
+}
+
+std::string Client::Buffer::substr(ssize_t offset1, ssize_t offset2) const {
+	return std::string(data.begin() + begin + offset1, data.begin() + begin + offset2);
+}
+
+void Client::Buffer::sstream(std::stringstream& ss) const {
+	ss.write(&data[begin], range());
+}
+
+void Client::Buffer::sstream(std::stringstream& ss, ssize_t offset) const {
+	ss.write(&data[begin + offset], end - (begin + offset));
+}
+
+void Client::Buffer::sstream(std::stringstream& ss, ssize_t offset1, ssize_t offset2) const {
+	ss.write(&data[begin + offset1], offset2 - offset1);
+}
+
+void Client::Buffer::reset(void) {
+	end = 0;
+	mark = 0;
+	begin = 0;
+	// data.clear();
+	// data.resize(BUFFER_SIZE);
+}
+
+void Client::Buffer::compact(void) {
+	std::memmove(&data[0], &data[begin], range());
+	mark -= begin;
+	end -= begin;
+	begin = 0;
+}
+
+size_t Client::Buffer::range(void) const {
+	return end - begin;
+}
+
+ssize_t Client::Buffer::find(const char& pin) const {
+	std::vector<char>::const_iterator begin_it = data.begin() + begin;
+	std::vector<char>::const_iterator end_it = data.begin() + end;
+	std::vector<char>::const_iterator it = std::find(begin_it,
+													 end_it,
+													 pin);
+	return (it != end_it) ? std::distance(begin_it, it) : -1;
+}
+
+ssize_t Client::Buffer::find(const std::string& needle) const {
+	std::vector<char>::const_iterator end_it = data.begin() + end;
+	std::vector<char>::const_iterator begin_it = data.begin() + begin;
+	std::vector<char>::const_iterator it = std::search(begin_it, end_it,
+													   needle.begin(), needle.end()
+													   // , std::equal_to<char>()
+													   );
+	return (it != end_it) ? std::distance(begin_it, it) : -1;
+}
+
 // DEBUG BEGIN
 double Client::getIdleTime(void) const {
 	return (std::difftime(std::time(NULL), _last_event));
@@ -144,12 +216,12 @@ const std::string Client::getHostAddress(void) const {
 }
 
 const std::string Client::getBuffer(void) const {
-	return std::string(&_buffer[0]);
+	return std::string(&_instream.data[_instream.begin]);
 }
 
-const std::string& Client::getIncomingData(void) const {
-	return _incoming_data;
-}
+// // const std::string& Client::getIncomingData(void) const {
+// // 	return _incoming_data;
+// // }
 
 // void Client::queueOutgoingData(const std::string& message) {
 //
@@ -214,12 +286,20 @@ const Config::Socket& Client::getConfig(void) const {
 	return *_config;
 }
 
-const HTTPRequest& Client::getCurrentRequest(void) const {
+HTTPRequest& Client::getCurrentRequest(void) {
 	return *_request_queue.front();
+}
+
+HTTPRequest& Client::getRecentRequest(void) {
+	return *_request_queue.back();
 }
 
 HTTPResponse& Client::getCurrentResponse(void) {
 	return *_response_queue.front();
+}
+
+Client::Buffer& Client::getIncomingData(void) {
+	return _instream;
 }
 
 // const Client::OutgoingData* Client::getOutgoingData(void) const {
@@ -229,6 +309,10 @@ HTTPResponse& Client::getCurrentResponse(void) {
 // std::stringstream* Client::getHeaders(void) {
 // 	return &_outgoing.headers;
 // }
+
+void Client::setState(State state) {
+	_state = state;
+}
 
 // void Client::setBytesRead(ssize_t bytes_read) {
 // 	_bytes_read = bytes_read;
@@ -250,7 +334,6 @@ HTTPResponse& Client::getCurrentResponse(void) {
 // }
 
 bool Client::hasPendingResponse(void) const {
-
 	return !_response_queue.empty();
 }
 
@@ -261,33 +344,113 @@ bool Client::hasPendingData(void) const {
 	return (_state == SENDING_HEADERS || _state == SENDING_BODY);
 }
 
-ssize_t Client::queueIncomingData(int fd) {
+bool Client::blockedFromReceiving(void) const {
+	return _blocked_from_receiving;
+}
 
-	// std::memset(_buffer, 0, BUFFER_SIZE);
-	ssize_t n = recv(fd, &_buffer[0], _buffer.size(), 0);
+bool Client::markedForTermination(void) const {
+	return _marked_for_termination;
+}
 
-	if (n <= 0) {
-		return n;
+bool Client::isTimedOut(void) const {
+
+	std::time_t timeout = 0;
+	switch (_state) {
+	case IDLE:
+		timeout = IDLE_TIMEOUT_SECONDS;
+		break;
+		// return std::difftime(std::time(NULL), _last_event) > IDLE_TIMEOUT_SECONDS;
+	case RECEIVING_HEADERS:
+		timeout = HEADER_TIMEOUT_SECONDS;
+		break;
+		// return std::difftime(std::time(NULL), _last_event) > HEADER_TIMEOUT_SECONDS;
+	case RECEIVING_BODY:
+		timeout = BODY_TIMEOUT_SECONDS;
+		break;
+		// return std::difftime(std::time(NULL), _last_event) > BODY_TIMEOUT_SECONDS;
+	case DISPATCHING:
+		timeout = DISPATCH_TIMEOUT_SECONDS;
+		break;
+		// return std::difftime(std::time(NULL), _last_event) > DISPATCH_TIMEOUT_SECONDS;
+	case PENDING_RESPONSE:
+		timeout = DISPATCH_TIMEOUT_SECONDS;
+		break;
+		// return std::difftime(std::time(NULL), _last_event) > DISPATCH_TIMEOUT_SECONDS;
+	case SENDING_HEADERS:
+		timeout = HEADER_TIMEOUT_SECONDS;
+		break;
+		// return std::difftime(std::time(NULL), _last_event) > HEADER_TIMEOUT_SECONDS;
+	case SENDING_BODY:
+		timeout = BODY_TIMEOUT_SECONDS;
+		break;
+		// return std::difftime(std::time(NULL), _last_event) > BODY_TIMEOUT_SECONDS;
+	case CONCLUDED:
+		return true;
+	case REJECTED:
+		timeout = REJECTED_TIMEOUT_SECONDS;
+		break;
+		// return std::difftime(std::time(NULL), _last_event) > REJECTED_TIMEOUT_SECONDS;
+	case ERROR:
+		return true;
 	}
 
-	// _buffer[n] = '\0'; // extra precaution
-// DEBUG BEGIN
-	// Interpret the first 4 bytes as an admin command.
-	std::string cmd(&_buffer[0], (n < 4 ? static_cast<size_t>(n) : static_cast<size_t>(4)));
-	// std::string cmd = _buffer;
-	// if (cmd.size() > 4) {
-	// 	cmd.erase(4);
-	// }
-	if (cmd == "STOP") {
-		return STOP;
-	}
-// DEBUG END
-	_incoming_data.append(&_buffer[0], n);
-	_last_event = std::time(NULL);
-
-	return n;
+	const std::time_t now = std::time(NULL);
+	return std::difftime(now, _last_event) > timeout;
 
 }
+
+ssize_t Client::queueIncomingData(int fd) {
+
+	ssize_t bytes_received = 0;
+	// if (_instream.data.size() < BUFFER_SIZE) {
+	// 	_instream.data.resize(BUFFER_SIZE);
+	// } // No need as no resize-after-recv, data.size() stays at BUFFER_SIZE
+	// log.error("end=" + i2a(_instream.end) + " data.size()=" + i2a(_instream.data.size()));
+	if (_instream.end < _instream.data.size()) {
+		// log.error("DING!");
+		bytes_received = recv(fd, &_instream.data[_instream.end], _instream.data.size() - _instream.end, 0);
+		if (bytes_received <= 0) return bytes_received;
+// DEBUG BEGIN // Interpret the first 4 bytes as an admin command.
+		if (bytes_received >= 4)
+			// if (std::string(&_instream.data[_instream.end], 4) == "STOP")
+			if (_instream.substr(_instream.range(), _instream.range() + 4) == "STOP")
+				return STOP;
+// DEBUG END
+		_instream.end += static_cast<size_t>(bytes_received);
+		_last_event = std::time(NULL);
+		// _instream.data.resize(bytes_received); // DOES !NOT! FIT CURRENT MODEL!!!
+	}
+	// log.error("bytes_received=" + i2a(bytes_received) + " " + &_instream.data[0]);
+	return bytes_received;
+}
+
+// ssize_t Client::queueIncomingData(int fd) {
+//
+// 	// std::memset(_buffer, 0, BUFFER_SIZE);
+// 	ssize_t n = recv(fd, &_buffer[0], _buffer.size(), 0);
+//
+// 	if (n <= 0) {
+// 		return n;
+// 	}
+//
+// 	// _buffer[n] = '\0'; // extra precaution
+// // DEBUG BEGIN
+// 	// Interpret the first 4 bytes as an admin command.
+// 	std::string cmd(&_buffer[0], (n < 4 ? static_cast<size_t>(n) : static_cast<size_t>(4)));
+// 	// std::string cmd = _buffer;
+// 	// if (cmd.size() > 4) {
+// 	// 	cmd.erase(4);
+// 	// }
+// 	if (cmd == "STOP") {
+// 		return STOP;
+// 	}
+// // DEBUG END
+// 	_incoming_data.append(&_buffer[0], n);
+// 	_last_event = std::time(NULL);
+//
+// 	return n;
+//
+// }
 
 void Client::parseIncomingData(void) {
 
@@ -306,90 +469,265 @@ void Client::parseIncomingData(void) {
 	// log.notice(_incoming_data);
 	// log.error("Size: " + i2a(_incoming_data.size()));
 
-	// HTTPRequest*	request;
+	HTTPRequest& request = *_request_queue.back();
+	// log.error("I shall parse data for " + request.debug);
 	// HTTPResponse*	response;
 
-	while (!_incoming_data.empty()) {
+	// while (!_incoming_data.empty()) {
+	while (_instream.mark < _instream.end) {
 
-		// switch (_request_queue.back()->parse(_incoming_data)) {
-		switch (parse.incomingData(_incoming_data, _request_queue.back())) {
+		// std::ostringstream oss;
+		size_t bytes_read = 0;
+		bool has_consumed_line = parse.buffer(_instream, request);
+		bytes_read = request.parsing.bytes_read_count;
+		// oss << "bytes_read=" << request.parsing.bytes_read_count
+		// 	<< " begin=" << _instream.begin
+		// 	<< " mark=" << _instream.mark
+		// 	<< " end=" << _instream.end
+		// 	<< std::endl;
+		// log.error(oss.str());
+		// oss.str("");
+		if (bytes_read == std::string::npos) return;
+		_instream.mark += bytes_read;
+		// oss << "bytes_read=" << request.parsing.bytes_read_count
+		// 	<< " begin=" << _instream.begin
+		// 	<< " mark=" << _instream.mark
+		// 	<< " end=" << _instream.end
+		// 	<< std::endl;
+		// log.error(oss.str());
+		// oss.str("");
+		// if (has_consumed_line) log.error("DING!");
+		if (has_consumed_line == true) _instream.begin = _instream.mark;
+		// oss << "bytes_read=" << request.parsing.bytes_read_count
+		// 	<< " begin=" << _instream.begin
+		// 	<< " mark=" << _instream.mark
+		// 	<< " end=" << _instream.end
+		// 	<< std::endl;
+		// log.error(oss.str());
+		// oss.str("");
+		if (_instream.begin == _instream.end) _instream.reset();
+		else if (_instream.end == _instream.data.size()) {
+			if (_instream.begin > 0) {
+				_instream.compact();
+			} else {
+				log.error("parse error: buffer overflow");
+				request.parsing.state = HTTPRequest::ERROR;
+				request.parsing.error_cause = INTERNAL_SERVER_ERROR;
+				break;
+			};
+		}
+		// oss << "bytes_read=" << request.parsing.bytes_read_count
+		// 	<< " begin=" << _instream.begin
+		// 	<< " mark=" << _instream.mark
+		// 	<< " end=" << _instream.end
+		// 	<< std::endl;
+		// log.error(oss.str());
+		// oss.str("");
+
+		if (request.parsing.state == HTTPRequest::DISPATCHING ||
+			request.parsing.state == HTTPRequest::COMPLETE ||
+			request.parsing.state == HTTPRequest::ERROR) {
+			log.error("On to dispatching!");
+			dumpRequest(&request);
+			break;
+		}
+
+	}
+
+	// if (request.parsing.state == HTTPRequest::FINALIZING ||
+	// 	request.parsing.state == HTTPRequest::ERROR) {
+	// 	_instream.reset();
+	// }
+
+	switch (request.parsing.state) {
 
 		case HTTPRequest::READING_REQUEST_LINE:
-
-			// log.info("HTTP request incomplete: awaiting more data");
-			// dumpRequest(_request_queue.back());
-
-			_incoming_data.erase(0, _request_queue.back()->parsing.bytes_read_count);
-
-			// log.debug("Current data in buffer (client):\n");
-			// log.notice(_incoming_data);
-
+			setState(Client::RECEIVING_HEADERS);
 			break;
-
 		case HTTPRequest::READING_HEADERS:
-
-			// log.info("HTTP request incomplete: awaiting more data");
-			// dumpRequest(_request_queue.back());
-
-			_incoming_data.erase(0, _request_queue.back()->parsing.bytes_read_count);
-
-			// log.debug("Current data in buffer (client):\n");
-			// log.notice(_incoming_data);
-
+			setState(Client::RECEIVING_HEADERS);
 			break;
-
 		case HTTPRequest::READING_BODY:
-
-			// log.info("HTTP request incomplete: awaiting more data");
-			// dumpRequest(_request_queue.back());
-
-			_incoming_data.erase(0, _request_queue.back()->parsing.bytes_read_count);
-
-			// log.debug("Current data in buffer (client):\n");
-			// log.notice(_incoming_data);
-
+			setState(Client::RECEIVING_BODY);
 			break;
-
+		case HTTPRequest::DISPATCHING:
+			log.info("All HTTP request headers received");
+			setState(Client::DISPATCHING);
+			// Create new response object in deque container
+			pushResponse();
+			break;
 		case HTTPRequest::COMPLETE:
-
 			log.info("Valid HTTP request received");
-			dumpRequest(_request_queue.back());
-
-			_incoming_data.erase(0, _request_queue.back()->parsing.bytes_read_count);
-
-			// log.debug("Current data in buffer (client):\n");
-			// log.notice(_incoming_data);
-
-			pushRequest();
-			// memset(_buffer, 0, BUFFER_SIZE); // necessary? // TODO // DECISION REQUIRED // TODO
-
-			// handleRequest(); // TEST
-
+			setState(Client::DISPATCHING);
+			_instream.reset();
 			break;
-
 		case HTTPRequest::ERROR:
-
-			log.error("HTTP request parser returned error");
-			dumpRequest(_request_queue.back());
-
-			_incoming_data.erase(0, _request_queue.back()->parsing.bytes_read_count);
-
-			log.debug("Current data in buffer (client):\n");
-			log.notice(_incoming_data);
-
-			pushRequest();
-			// memset(_buffer, 0, BUFFER_SIZE); // necessary? // TODO // DECISION REQUIRED // TODO
-			// _request_queue.back()->reset(); // reset last request object in vector container
-
+			log.warn("HTTP request parser returned error");
+			setState(Client::DISPATCHING);
+			// Create new response object in deque container
+			pushResponse();
+			_instream.reset();
 			break;
-
-		}
+		// case HTTPRequest::COMPLETE:
+		// 	break;
 
 	}
 
 	return;
 
 }
+
+		// if (_request_queue.back()->parsing.state == HTTPRequest::COMPLETE) {
+		// 	log.info("Valid HTTP request received");
+		// 	dumpRequest(_request_queue.back());
+		// 	_instream.reset();
+		// 	pushRequest();
+		// 	break;;
+		// } else if (_request_queue.back()->parsing.state == HTTPRequest::ERROR) {
+		// 	log.warn("HTTP request parser returned error");
+		// 	dumpRequest(_request_queue.back());
+		// 	_instream.reset();
+		// 	pushRequest();
+		// 	break;
+		// // } else {
+		// // 	dumpRequest(_request_queue.back());
+		// }
+
+		// switch (_request_queue.back()->parse(_incoming_data)) {
+		// switch (_request_queue.back()->parsing.state) {
+  //
+		// case HTTPRequest::READING_REQUEST_LINE:
+  //
+		// 	// log.info("HTTP request incomplete: awaiting more data");
+		// 	// dumpRequest(_request_queue.back());
+  //
+		// 	// _incoming_data.erase(0, _request_queue.back()->parsing.bytes_read_count);
+		// 	_instream.mark += _request_queue.back()->parsing.bytes_read_count;
+  //
+		// 	// log.debug("Current data in buffer (client):\n");
+		// 	// log.notice(_incoming_data);
+  //
+		// 	break;
+  //
+		// case HTTPRequest::READING_HEADERS:
+  //
+		// 	log.info("HTTP request incomplete: awaiting more data");
+		// 	dumpRequest(_request_queue.back());
+		// 	oss << "bytes_read=" << _request_queue.back()->parsing.bytes_read_count
+		// 	<< " begin=" << _instream.begin
+		// 	<< " end=" << _instream.end
+		// 	<< std::endl;
+		// 	log.error(oss.str());
+		// 	oss.str("");
+		// 	// _incoming_data.erase(0, _request_queue.back()->parsing.bytes_read_count);
+		// 	// _instream.data.erase(pos2it(_instream.data, _instream.begin),
+		// 	// 					 pos2it(_instream.data, _instream.begin +
+		// 	// 					 _request_queue.back()->parsing.bytes_read_count)
+		// 	// );
+		// 	_instream.mark += _request_queue.back()->parsing.bytes_read_count;
+		// 	oss << "bytes_read=" << _request_queue.back()->parsing.bytes_read_count
+		// 	<< " begin=" << _instream.begin
+		// 	<< " end=" << _instream.end
+		// 	<< std::endl;
+		// 	log.error(oss.str());
+		// 	oss.str("");
+		// 	if (_instream.begin == _instream.end) {
+		// 		_instream.begin = 0;
+		// 		_instream.end = 0;
+		// 	}
+		// 	oss << "bytes_read=" << _request_queue.back()->parsing.bytes_read_count
+		// 	<< " begin=" << _instream.begin
+		// 	<< " end=" << _instream.end
+		// 	<< std::endl;
+		// 	log.error(oss.str());
+		// 	oss.str("");
+  //
+		// 	// log.debug("Current data in buffer (client):\n");
+		// 	// log.notice(_incoming_data);
+  //
+		// 	break;
+  //
+		// case HTTPRequest::READING_BODY:
+  //
+		// 	// log.info("HTTP request incomplete: awaiting more data");
+		// 	// dumpRequest(_request_queue.back());
+  //
+		// 	// _incoming_data.erase(0, _request_queue.back()->parsing.bytes_read_count);
+		// 	_instream.mark += _request_queue.back()->parsing.bytes_read_count;
+		// 	if (_instream.begin == _instream.end) {
+		// 		_instream.begin = 0;
+		// 		_instream.end = 0;
+		// 	}
+  //
+		// 	// log.debug("Current data in buffer (client):\n");
+		// 	// log.notice(_incoming_data);
+  //
+		// 	break;
+  //
+		// case HTTPRequest::COMPLETE:
+  //
+		// 	log.info("Valid HTTP request received");
+		// 	dumpRequest(_request_queue.back());
+  //
+		// 	// _incoming_data.erase(0, _request_queue.back()->parsing.bytes_read_count);
+		// 	_instream.mark += _request_queue.back()->parsing.bytes_read_count;
+		// 	if (_instream.begin == _instream.end) {
+		// 		_instream.begin = 0;
+		// 		_instream.end = 0;
+		// 	}
+		// 	// log.debug("Current data in buffer (client):\n");
+		// 	// log.notice(_incoming_data);
+  //
+		// 	pushRequest();
+		// 	// memset(_buffer, 0, BUFFER_SIZE); // necessary? // TODO // DECISION REQUIRED // TODO
+  //
+		// 	// handleRequest(); // TEST
+  //
+		// 	break;
+  //
+		// case HTTPRequest::ERROR:
+  //
+		// 	log.error("HTTP request parser returned error");
+		// 	dumpRequest(_request_queue.back());
+  //
+		// 	// _incoming_data.erase(0, _request_queue.back()->parsing.bytes_read_count);
+		// 	_instream.mark += _request_queue.back()->parsing.bytes_read_count;
+		// 	if (_instream.begin == _instream.end) {
+		// 		_instream.begin = 0;
+		// 		_instream.end = 0;
+		// 	}
+  //
+		// 	// log.debug("Current data in buffer (client):\n");
+		// 	// log.notice(_incoming_data);
+  //
+		// 	pushRequest();
+		// 	// memset(_buffer, 0, BUFFER_SIZE); // necessary? // TODO // DECISION REQUIRED // TODO
+		// 	// _request_queue.back()->reset(); // reset last request object in vector container
+  //
+		// 	break;
+  //
+		// }
+
+	// }
+
+	// return;
+
+// }
+
+// void Client::parseBody(void) {
+// // TODO
+// 	HTTPRequest& request = *_request_queue.back();
+// 	request.parsing.state = HTTPRequest::READING_BODY;
+//
+// 	while (_instream.mark < _instream.end) {
+//
+// 		size_t bytes_read = 0;
+// 		bool has_consumed_line = parse.buffer(_instream, request);
+// 		bytes_read = request.parsing.bytes_read_count;
+//
+// 	}
+//
+// }
 
 // TEST BEGIN
 void Client::queueOutgoingData(void) {
@@ -416,47 +754,60 @@ void Client::queueOutgoingData(void) {
 	// delete _response_queue.front();
 	// _response_queue.pop_front();
 
-	_outgoing_data.headers	<< http::V_1_1 << http::_ << _response_queue.front()->getStatusCode()
-							<< http::_ << _response_queue.front()->getStatusReason() << http::CRLF;
+	_response.headers	<< http::V_1_1 << http::_ << _response_queue.front()->getStatusCode()
+						<< http::_ << _response_queue.front()->getStatusReason() << http::CRLF;
 
 	if (!_response_queue.front()->getHeaders().empty()) {
 		std::map<std::string, std::string>::const_iterator it = _response_queue.front()->getHeaders().begin();
 		while (it != _response_queue.front()->getHeaders().end()) {
-			_outgoing_data.headers << it->first << ": " << it->second << http::CRLF;
+			_response.headers << it->first << ": " << it->second << http::CRLF;
 			// log.debug(it->first + ": " + it->second);
 			++it;
 		}
 	}
-	_outgoing_data.headers << http::CRLF;
+	_response.headers << http::CRLF;
 
 	// if (_response_queue.front()->getBodySink() == HTTPResponse::HEAP) {
 		// _body_sink = HTTPResponse::TEXT;
-		// _outgoing_data.body.sink = HTTPResponse::HEAP;
+		// _response.body.sink = HTTPResponse::HEAP;
 	// } else if (_response_queue.front()->getBodySink() == HTTPResponse::FILE) {
 		// _body_sink = HTTPResponse::FILE_PATH;
-		// _outgoing_data.body.sink = HTTPResponse::FILE;
+		// _response.body.sink = HTTPResponse::FILE;
 
-	_outgoing_data.body.sink = _response_queue.front()->getBodySink();
-	// if (_outgoing_data.body.sink == HEAP) {
-	switch (_outgoing_data.body.sink) {
+	_response.body.sink = _response_queue.front()->getBodySink();
+	// if (_response.body.sink == HEAP) {
+	switch (_response.body.sink) {
 	case HEAP:
 		// log.debug("preparing send: body data read from heap");
-		_outgoing_data.body.temp << _response_queue.front()->getBody();
+		_response.body.temp << _response_queue.front()->getBody();
+		_response.body.size = _response_queue.front()->getBodySize();
+		// log.error(_response.body.temp.str());
 		break;
-	// } else if (_outgoing_data.body.sink == DISK) {
+	// } else if (_response.body.sink == DISK) {
 	case DISK:
-		// log.debug("preparing send: body data read from file");
-		_outgoing_data.body.file.open(_response_queue.front()->getBody().c_str(), std::ios::binary);
-		if (!_outgoing_data.body.file.is_open()) {
+		log.debug("preparing send: data read from file: " + _response_queue.front()->getBody());
+		_response.body.file.open(_response_queue.front()->getBody().c_str(), std::ios::binary);
+		if (!_response.body.file.is_open()) {
 			log.error("preparing send: unable to open file");
-			return;
+			// log.error("client state: " + i2a(_state));
+			// log.error("0 = IDLE, 1 = RECEIVING_REQUEST, 2 = SENDING_HEADERS, 3 = SENDING_BODY, 4 = ERROR");
+			// return;
+			// _response.body.size = 0;
+			_response.body.sink = NONE;
+			break;
 		}
-		_outgoing_data.body.size = _response_queue.front()->getContentLength();
+		_response.body.size = _response_queue.front()->getBodySize();
 		break;
+	case NONE:
+		break;
+	// default:
+		// _response.body.size = 0;
+		// break;
 	}
+	// log.error("body size: " + i2a(_response.body.size));
 
 	_state = SENDING_HEADERS;
-	_last_event = std::time(NULL);
+	// _last_event = std::time(NULL);
 	return;
 
 }
@@ -464,63 +815,101 @@ void Client::queueOutgoingData(void) {
 void Client::flushPendingData(int fd) {
 
 	// bool fullySent;
-	// std::istream& body = _outgoing_data.body.sink == DISK ?
-	// static_cast<std::istream&>(_outgoing_data.body.file) : static_cast<std::istream&>(_outgoing_data.body.temp);
+	// std::istream& body = _response.body.sink == DISK ?
+	// static_cast<std::istream&>(_response.body.file) : static_cast<std::istream&>(_response.body.temp);
+
+	size_t buffer_size;
 
 	switch (_state) {
 
-		case SENDING_HEADERS:
-			log.info("client_" + i2a(fd) + " state: SENDING_HEADERS");
-			// fullySent = _sendNextChunk(fd, _outgoing_data.headers);
-			// if (fullySent) {
-			if (_sendNextChunk(fd, _outgoing_data.headers)) {
-				_clearStream(_outgoing_data.headers);
-				log.info("client_" + i2a(fd) + ": all headers sent");
+	case SENDING_HEADERS:
+		log.info("client_" + i2a(fd) + " state: SENDING_HEADERS");
+		// fullySent = _sendNextChunk(fd, _response.headers);
+		// if (fullySent) {
+		if (_sendNextChunk(fd, _response.headers)) {
+			_clearStream(_response.headers);
+			log.info("client_" + i2a(fd) + ": all headers sent");
+			// if (_response.body.size == 0) {
+			if (_response.body.sink == NONE) {
+				if (_blocked_from_receiving) {
+					_state = REJECTED;
+					log.debug("client_" + i2a(fd) + ": state set to REJECTED");
+				} else if (_marked_for_termination) {
+					_state = CONCLUDED;
+					log.debug("client_" + i2a(fd) + ": state set to CONCLUDED");
+				} else {
+					_state = IDLE;
+					log.debug("client_" + i2a(fd) + ": state set to IDLE");
+				}
+			} else {
 				_state = SENDING_BODY;
 				log.debug("client_" + i2a(fd) + ": state set to SENDING_BODY");
 			}
+		}
+		break;
+
+	case SENDING_BODY:
+		log.info("client_" + i2a(fd) + " state: SENDING_BODY");
+		// fullySent = _sendNextChunk(fd, body);
+		switch (_response.body.sink) {
+
+		case HEAP:
+			// fullySent = _sendNextChunk(fd, _response.body.temp);
+			// if (fullySent) {
+			if (_sendNextChunk(fd, _response.body.temp)) {
+				_clearStream(_response.body.temp);
+				log.info("client_" + i2a(fd) + ": full body/file sent");
+				if (_blocked_from_receiving) {
+					_state = REJECTED;
+					log.debug("client_" + i2a(fd) + ": state set to REJECTED");
+				} else if (_marked_for_termination) {
+					_state = CONCLUDED;
+					log.debug("client_" + i2a(fd) + ": state set to CONCLUDED");
+				} else {
+					_state = IDLE;
+					log.debug("client_" + i2a(fd) + ": state set to IDLE");
+				}
+			}
 			break;
 
-		case SENDING_BODY:
-			log.info("client_" + i2a(fd) + " state: SENDING_BODY");
-			// fullySent = _sendNextChunk(fd, body);
-			switch (_outgoing_data.body.sink) {
-
-				case HEAP:
-					// fullySent = _sendNextChunk(fd, _outgoing_data.body.temp);
-					// if (fullySent) {
-					if (_sendNextChunk(fd, _outgoing_data.body.temp)) {
-						_clearStream(_outgoing_data.body.temp);
-						log.info("client_" + i2a(fd) + ": full body/file sent");
-						_state = IDLE;
-						log.debug("client_" + i2a(fd) + ": state set to IDLE");
-					}
-					break;
-
-				case DISK:
-					// fullySent = _sendNextChunk(fd, _outgoing_data.body.file);
-					// if (fullySent) {
-					_buffer.resize(_adjustBufferSize());
-					if (_sendNextChunk(fd, _outgoing_data.body.file)) {
-						// _buffer.clear();
-						_buffer.resize(BUFFER_SIZE);
-						_clearStream(_outgoing_data.body.file);
-						log.info("client_" + i2a(fd) + ": full body/file sent");
-						_state = IDLE;
-						log.debug("client_" + i2a(fd) + ": state set to IDLE");
-					}
-					break;
-
+		case DISK:
+			// fullySent = _sendNextChunk(fd, _response.body.file);
+			// if (fullySent) {
+			if (_outstream.data.size() == BUFFER_SIZE) {
+				buffer_size = _adjustBufferSize(_response.body.size);
+				_outstream.data.resize(buffer_size);
 			}
+			if (_sendNextChunk(fd, _response.body.file)) {
+				_clearStream(_response.body.file);
+				log.info("client_" + i2a(fd) + ": full body/file sent");
+				if (_blocked_from_receiving) {
+					_state = REJECTED;
+					log.debug("client_" + i2a(fd) + ": state set to REJECTED");
+				} else if (_marked_for_termination) {
+					_state = CONCLUDED;
+					log.debug("client_" + i2a(fd) + ": state set to CONCLUDED");
+				} else {
+					_state = IDLE;
+					log.debug("client_" + i2a(fd) + ": state set to IDLE");
+				}
+				_outstream.data.resize(BUFFER_SIZE);
+			}
+			break;
 
-				default:
-					break;
+		default:
+			break;
+
+		}
+
+	default:
+		break;
 
 	}
 
 	return;
 
 }
+
 // if (_outgoing_data.body.sink == HEAP) {
 // 	eof_reached = _sendNextChunk(fd, _outgoing_data.body.temp);
 // } else if (_outgoing_data.body.sink == DISK) {
@@ -618,19 +1007,29 @@ void Client::popResponse(void) {
 
 }
 
+void Client::blockFromReceiving(void) {
+	_blocked_from_receiving = true;
+}
+
+
+void Client::markForTermination(void) {
+	_marked_for_termination = true;
+}
+
 void Client::reset(void) {
 
-	keepAlive = true;
 	_state = IDLE;
-	_bytes_read = 0;
-	_bytes_sent = 0;
-	_begin = 0;
-	_end = 0;
+	_blocked_from_receiving = false;
+	_marked_for_termination = false;
+	// _bytes_read = 0;
+	// _bytes_sent = 0;
+	// _begin = 0;
+	// _end = 0;
 	_eof_reached = false;
-	std::memset(&_buffer[0], 0, _buffer.size());
+	// std::memset(&_buffer[0], 0, _buffer.size());
 	// std::memset(_buffer, 0, SEND_BUFFER_SIZE);
 	std::memset(&_addr, 0, _addrlen);
-	// std::memset(static_cast<void*>(&_outgoing_data), 0, sizeof(_outgoing_data));
+	// std::memset(static_cast<void*>(&_response), 0, sizeof(_response));
 
 	if (!_request_queue.empty()) {
 		while (_request_queue.begin() != _request_queue.end()) {
@@ -648,29 +1047,36 @@ void Client::reset(void) {
 		_response_queue.clear();
 	}
 
-	_incoming_data.clear();
-	_outgoing_data.headers.clear();
-	_outgoing_data.body.temp.clear();
-	_outgoing_data.body.file.clear();
-	_outgoing_data.body.size = 0;
-	_outgoing_data.body.sink = DISK;
+	// _incoming_data.clear();
+	_response.headers.clear();
+	_response.body.temp.clear();
+	_response.body.file.clear();
+	_response.body.size = 0;
+	_response.body.sink = NONE;
+	_instream.data.resize(BUFFER_SIZE);
+	// _instream.begin = 0;
+	// _instream.mark = 0;
+	// _instream.end = 0;
+	_instream.reset();
+	_outstream.data.resize(BUFFER_SIZE);
+	// _outstream.begin = 0;
+	// _outstream.mark = 0;
+	// _outstream.end = 0;
+	_outstream.reset();
 
 	// HTTPRequest* request = new HTTPRequest();
 	// _request_queue.push_back(request);
 	// push<HTTPRequest>();
 	pushRequest();
 
-	_last_event = std::time(NULL);
+	// HTTPResponse* response = new HTTPResponse;
+	// _response_queue.push_back(response);
+	// push<HTTPResponse>();
+	// pushResponse();
 
+	_last_event = std::time(NULL);
 	return;
 
-}
-
-bool Client::isTimedOut(void) const {
-	// double idleTime = std::difftime(std::time(NULL), _last_event);
-	// log.debug("client " + getHostAddress() + ":" + i2a(getHostPort()) + " idleTime: " + i2a(idleTime));
-	// return idleTime > CONNECTION_IDLE_TIMEOUT_SECONDS;
-	return std::difftime(std::time(NULL), _last_event) > CONNECTION_IDLE_TIMEOUT_SECONDS;
 }
 
   //~~~~~~~~~~~//
@@ -679,20 +1085,19 @@ bool Client::isTimedOut(void) const {
 
 /*	@brief Copy Constructor	*/
 Client::Client(const Client& other)
-	:	keepAlive(other.keepAlive) {
-		// _buffer(other._buffer),
-		// _state(other._state),
-		// // _body_sink(other._body_sink),
-		// _bytes_read(other._bytes_read),
-		// _bytes_sent(other._bytes_sent),
-		// _begin(other._begin),
-		// _end(other._end),
-		// _eof_reached(other._eof_reached),
+	:	 _state(other._state) {
+		// _keep_alive(other._keep_alive)
 		// _addr(other._addr),
 		// _addrlen(other._addrlen),
 		// _config(other._config),
 		// _request_queue(other._request_queue),
 		// _response_queue(other._response_queue),
+		// _buffer(other._buffer),
+		// _bytes_read(other._bytes_read),
+		// _bytes_sent(other._bytes_sent),
+		// _begin(other._begin),
+		// _end(other._end),
+		// _eof_reached(other._eof_reached),
 		// _incoming_data(other._incoming_data),
 		// // _outgoing_data(other._outgoing_data),
 		// _last_event(other._last_event) {
@@ -710,9 +1115,9 @@ Client::Client(const Client& other)
 Client& Client::operator = (const Client& other) {
 	log.debug("Client Copy Assignment Operator called");
 	if (this != &other) {
-		keepAlive = other.keepAlive;
-		// _buffer = other._buffer;
 		// _state = other._state;
+		// _keep_alive = other._keep_alive;
+		// _buffer = other._buffer;
 		// // _body_sink = other._body_sink;
 		// _bytes_read = other._bytes_read;
 		// _bytes_sent = other._bytes_sent;
@@ -741,8 +1146,8 @@ bool Client::_sendNextChunk(int fd, std::istream& stream) {
 	std::ostringstream oss;
 	oss << "stream.tellg(): " << i2a(stream.tellg())
 		<< std::endl
-		<< "before read: "
-		<< "good=" << stream.good()
+		<< "before read:"
+		<< " good=" << stream.good()
 		<< " eof=" << stream.eof()
 		<< " fail=" << stream.fail()
 		<< " bad=" << stream.bad()
@@ -751,22 +1156,24 @@ bool Client::_sendNextChunk(int fd, std::istream& stream) {
 	// oss.clear();
 
 	// Fill buffer if there is space in the ring buffer and stream has not reached EOF
-	if (!_eof_reached && _end < _buffer.size()) {
-		stream.read(&_buffer[_end], _buffer.size() - _end);
-		oss << "after read: "
-			<< "gcount=" << stream.gcount()
+	// if (!_eof_reached && _end < _buffer.size()) {
+		// stream.read(&_buffer[_end], _buffer.size() - _end);
+	if (!_eof_reached && _outstream.end < _outstream.data.size()) {
+		stream.read(&_outstream.data[_outstream.end], _outstream.data.size() - _outstream.end);
+		oss << "after read:"
+			<< " gcount=" << stream.gcount()
 			<< " eof=" << stream.eof()
 			<< " fail=" << stream.fail()
 			<< std::endl;
 		// log.error(oss.str());
 		// oss.clear();
-		_bytes_read += stream.gcount();
-		log.debug("client_" + i2a(fd) + ": bytes read: " + i2a(_bytes_read));
+		std::streamsize bytes_read = stream.gcount();
+		log.debug("client_" + i2a(fd) + ": bytes read: " + i2a(bytes_read));
 
-		if (_bytes_read > 0) _end += static_cast<size_t>(_bytes_read);
-		oss << "bytes_read=" << _bytes_read
-			<< " begin=" << _begin
-			<< " end=" << _end
+		if (bytes_read > 0) _outstream.end += static_cast<size_t>(bytes_read);
+		oss << "bytes_read=" << bytes_read
+			<< " begin=" << _outstream.begin
+			<< " end=" << _outstream.end
 			<< std::endl;
 
 		if (stream.eof()) {
@@ -785,9 +1192,11 @@ bool Client::_sendNextChunk(int fd, std::istream& stream) {
 	}
 
 	// Send pending bytes
-	if (_begin < _end) {
-		_bytes_sent = send(fd, &_buffer[_begin], _end - _begin, 0);
-		switch (_bytes_sent) {
+	if (_outstream.begin < _outstream.end) {
+		// log.error(&_outstream.data[_outstream.begin]);
+		// log.error(_outstream.str());
+		ssize_t bytes_sent = send(fd, &_outstream.data[_outstream.begin], _outstream.end - _outstream.begin, 0);
+		switch (bytes_sent) {
 			case -1:
 				log.error("send: client_" + i2a(fd) + ": " + std::string(strerror(errno)));
 				_state = ERROR;
@@ -796,30 +1205,41 @@ bool Client::_sendNextChunk(int fd, std::istream& stream) {
 				_state = ERROR;
 				return false;
 			default:
-				log.debug("client_" + i2a(fd) + ": bytes sent: " + i2a(_bytes_sent));
-				_begin += static_cast<size_t>(_bytes_sent);
+				log.debug("client_" + i2a(fd) + ": bytes sent: " + i2a(bytes_sent));
+				_outstream.begin += static_cast<size_t>(bytes_sent);
+				_last_event = std::time(NULL);
 		}
 	}
-	log.debug(oss.str());
+	// log.debug(oss.str());
 	oss.clear();
 
 	// Everything has been sent; reset buffer
-	if (_begin == _end) {
-		_begin = 0;
-		_bytes_read = 0;
-		_bytes_sent = 0;
-		_end = 0;
+	if (_outstream.begin == _outstream.end) {
+		// _outstream.begin = 0;
+		// _bytes_read = 0;
+		// _buffer.clear();
+		// _outstream.data.clear();
+		// _bytes_sent = 0;
+		// _outstream.end = 0;
+		_outstream.reset();
 
 	// Roll-over/compact buffer if needed
-	} else if (_end == _buffer.size()) {
-		std::memmove(&_buffer[0], &_buffer[_begin], _end - _begin);
-		_end -= _begin;
-		_begin = 0;
+	} else if (_outstream.end == _outstream.data.size()) {
+		// std::memmove(&_outstream.data[0], &_outstream.data[_outstream.begin], _outstream.end - _outstream.begin);
+		// _outstream.end -= _outstream.begin;
+		// _outstream.begin = 0;
+		if (_outstream.begin > 0) _outstream.compact();
+		else {
+			log.error("send: client_" + i2a(fd) + ": buffer overflow");
+			_state = ERROR;
+			return false;
+		}
 	}
 
 	// Done only when stream ended AND buffer is empty
-	if (_eof_reached && _begin == _end) {
+	if (_eof_reached && _outstream.begin == _outstream.end) {
 		_eof_reached = false;
+		_outstream.reset();
 		return true;
 	}
 
@@ -827,13 +1247,13 @@ bool Client::_sendNextChunk(int fd, std::istream& stream) {
 
 }
 
-size_t Client::_adjustBufferSize(void) {
-	if (_outgoing_data.body.size < std::size_t(5) * 1024) return 8 * 1024;
-	else if (_outgoing_data.body.size < std::size_t(50) * 1024) return 16 * 1024;
-	else if (_outgoing_data.body.size < std::size_t(500) * 1024) return 32 * 1024;
-	else if (_outgoing_data.body.size < std::size_t(5) * 1024 * 1024) return 64 * 1024;
-	else if (_outgoing_data.body.size < std::size_t(50) * 1024 * 1024) return 128 * 1024;
-	else if (_outgoing_data.body.size < std::size_t(500) * 1024 * 1024) return 192 * 1024;
+size_t Client::_adjustBufferSize(size_t payload_size) {
+	if (payload_size < std::size_t(5) * 1024) return 8 * 1024;
+	else if (payload_size < std::size_t(50) * 1024) return 16 * 1024;
+	else if (payload_size < std::size_t(500) * 1024) return 32 * 1024;
+	else if (payload_size < std::size_t(5) * 1024 * 1024) return 64 * 1024;
+	else if (payload_size < std::size_t(50) * 1024 * 1024) return 128 * 1024;
+	else if (payload_size < std::size_t(500) * 1024 * 1024) return 192 * 1024;
 	else return 256 * 1024;
 }
 

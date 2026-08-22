@@ -24,6 +24,7 @@
 #include <map>
 
 enum StatusCode {
+	NO_STATUS = 0,
 	// 1xx Informational
 	CONTINUE = 100,
 	SWITCHING_PROTOCOLS = 101,
@@ -117,16 +118,18 @@ public:
 	// bool										hasHeader(const std::string& key) const;
 
 	// Body(-Type), Content-Type, and Content-Length
+	void										setBody(const std::string& body,
+														const std::string& content_type,
+														bool headers_only);
+	const std::string&							getBody(void) const;
+	size_t										getBodySize(void) const;
 	Sink										getBodySink(void) const;
 	void										setBodySink(Sink body_type);
-	const std::string&							getBody(void) const;
-	void										setBody(const std::string& body,
-														const std::string& content_type);
 	// void										setFilePath(const std::string& body,
 	// 														const std::string& content_type);
 	// const std::string&							getFilePath(void) const;
 	// void										setContentLength(void);
-	size_t										getContentLength(void) const;
+	// size_t										getContentLength(void) const;
 
 	// Produce the raw HTTP/1.1 string ready to write to the socket
 	// std::string									serialize(void) const;
@@ -147,7 +150,7 @@ private:
 
 	std::string									_body;
 
-	size_t										_content_length;
+	size_t										_body_size;
 
 	Sink										_body_sink;
 

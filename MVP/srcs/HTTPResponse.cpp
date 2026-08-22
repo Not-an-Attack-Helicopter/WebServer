@@ -11,11 +11,12 @@
 /* ************************************************************************** */
 
 #include "../incs/HTTPResponse.hpp"
+#include "../incs/templates.hpp"
 #include "../incs/Logger.hpp"
 // #include <cstdint>
 #include <cstddef>
 #include <fstream>
-#include <sstream>
+// #include <sstream>
 
   //~~~~~~~~~~//
  /*  Public  */
@@ -28,7 +29,7 @@ HTTPResponse::HTTPResponse(void)
 	log.debug("HTTPResponse Constructor called");
 	_headers.clear();
 	_body.clear();
-	_body_sink = DISK;
+	_body_sink = NONE;
 	return;
 }
 
@@ -91,30 +92,55 @@ const std::string& HTTPResponse::getBody(void) const {
 	return _body;
 }
 
-void HTTPResponse::setBody(const std::string& str, const std::string& content_type) {
+void HTTPResponse::setBody(const std::string& str,
+						   const std::string& content_type,
+						   bool headers_only) {
 
-	_body = str;
 	setHeader("Content-Type", content_type);
 
-	std::ostringstream oss;
-	if (_body_sink == HEAP) {
-		oss << str.size();
-	} else if (_body_sink == DISK) {
-		std::ifstream file;
+	std::ifstream file;
+	// std::ostringstream oss;
+	switch (_body_sink) {
+
+	// if (_body_sink == HEAP) {
+	case HEAP:
+		_body_size = str.size();
+		// oss << _body_size
+		break;
+	// } else if (_body_sink == DISK) {
+	case DISK:
+		log.error("set body: data read from file: " + str);
+		// std::ifstream file;
 		file.open(str.c_str(), std::ios::binary);
+		if (!file.is_open()) {
+			log.error("set body: unable to open file");
+		}
 		file.seekg(0, std::ios::end);
-		_content_length = static_cast<size_t>(file.tellg());
+		_body_size = static_cast<size_t>(file.tellg());
 		// oss << file.tellg();
-		oss << _content_length;
+		// oss << _body_size;
 		// file.seekg(0, std::ios::beg);  // reset to start // necessary?
 		file.close();
-	} else {
+		break;
+	// } else {
+	default:
 		log.warn("HTTP Response: body type undefined");
-		oss << 0;
+		_body_size = 0;
+		// oss << _body_size;
 	}
-	setHeader("Content-Length", oss.str());
 
+	// log.debug("Content-Length: " + oss.str() + " or " + i2a(_content_length));
+	// setHeader("Content-Length", oss.str());
+	setHeader("Content-Length", i2a(_body_size));
+
+	if (headers_only) {
+		_body_sink = NONE;
+		return;
+	}
+
+	_body = str;
 	return;
+
 }
 
 // void HTTPResponse::setFilePath(const std::string& file_path, const std::string& content_type) {
@@ -178,8 +204,8 @@ void HTTPResponse::setBody(const std::string& str, const std::string& content_ty
 // 	return;
 // }
 
-size_t HTTPResponse::getContentLength(void) const {
-	return _content_length;
+size_t HTTPResponse::getBodySize(void) const {
+	return _body_size;
 }
 
 void HTTPResponse::reset(void) {
@@ -187,7 +213,7 @@ void HTTPResponse::reset(void) {
 	_status_reason = _getDefaultReason(OK);
 	_headers.clear();
 	_body.clear();
-	_body_sink = DISK;
+	_body_sink = NONE;
 	return;
 }
 
