@@ -2,6 +2,8 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <sys/types.h>
+#include <ctime>
 
 // Result from running a CGI program
 struct CGIResult {
@@ -13,10 +15,54 @@ struct CGIResult {
     CGIResult(): status(0), exit_code(-1) {}
 };
 
-// Runs `path` (executable) with `args` (argv vector), `env` (environment map),
-// feeds `input` to the program's stdin, waits for completion, parses CGI headers
-// from stdout and returns `CGIResult` containing headers/body and exit code.
-// `working_dir` (optional): if non-empty, the child will `chdir()` to it before execve.
+// Forks + execve's `path`, exposes the pipe ends non-blocking so the caller
+// can register them with its own poll()/epoll() and drive I/O only on
+// readiness. No internal blocking wait anywhere in this class.
+class CgiProcess {
+public:
+    CgiProcess(const std::string& path,
+               const std::vector<std::string>& args,
+               const std::map<std::string, std::string>& env,
+               const std::string& input,
+               const std::string& working_dir = "");
+    ~CgiProcess();
+
+    bool  valid() const; // false if pipe()/fork() failed
+    pid_t pid()   const;
+    int   stdinFd()  const; // -1 once the write end is closed
+    int   stdoutFd() const; // -1 once the read end is closed
+
+    bool wantsWrite() const;
+    bool wantsRead()  const;
+    bool isDone()     const; // both pipe ends closed and child reaped
+
+    void handleWritable(); // one non-blocking write attempt
+    void handleReadable(); // drain readable bytes until EAGAIN/EOF/error
+    bool tryReap(bool block = false); // waitpid; sets exit code once reaped
+
+    bool isExpired(time_t now) const;
+    void forceKill(); // SIGKILL; caller still needs to tryReap()
+
+    CGIResult result() const;
+
+private:
+    CgiProcess(const CgiProcess&);
+    CgiProcess& operator=(const CgiProcess&);
+
+    pid_t       _pid;
+    int         _stdin_fd;
+    int         _stdout_fd;
+    std::string _input;
+    size_t      _input_offset;
+    std::string _output;
+    bool        _reaped;
+    int         _exit_code;
+    time_t      _deadline;
+};
+
+// Blocking convenience wrapper around CgiProcess for standalone/offline use
+// (tests). The live server drives a CgiProcess from its own epoll loop
+// instead of calling this.
 CGIResult run_cgi(const std::string& path,
                   const std::vector<std::string>& args,
                   const std::map<std::string, std::string>& env,

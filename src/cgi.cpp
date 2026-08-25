@@ -13,7 +13,7 @@
 #include <algorithm>
 #include <sstream>
 
-static const int CGI_TIMEOUT_MS = 10000;
+static const int CGI_TIMEOUT_S = 10;
 
 static inline std::string to_lower(std::string s) {
     std::transform(s.begin(), s.end(), s.begin(), ::tolower);
@@ -28,36 +28,38 @@ static inline std::string trim(const std::string& s) {
     return s.substr(b, e-b);
 }
 
-CGIResult run_cgi(const std::string& path, const std::vector<std::string>& args, const std::map<std::string, std::string>& env, const std::string& input, const std::string& working_dir)
+CgiProcess::CgiProcess(const std::string& path, const std::vector<std::string>& args,
+                        const std::map<std::string, std::string>& env,
+                        const std::string& input, const std::string& working_dir)
+    : _pid(-1), _stdin_fd(-1), _stdout_fd(-1), _input(input), _input_offset(0),
+      _reaped(false), _exit_code(-1), _deadline(0)
 {
-    CGIResult result;
-
     int in_pipe[2];
     int out_pipe[2];
-    if (pipe(in_pipe) == -1 || pipe(out_pipe) == -1)
-        return result;
+    if (pipe(in_pipe) == -1)
+        return;
+    if (pipe(out_pipe) == -1) {
+        close(in_pipe[0]); close(in_pipe[1]);
+        return;
+    }
 
     pid_t pid = fork();
     if (pid == -1) {
         close(in_pipe[0]); close(in_pipe[1]);
         close(out_pipe[0]); close(out_pipe[1]);
-        return result;
+        return;
     }
 
     if (pid == 0) {
-        // Child process
-        // Redirect stdin/stdout
         close(in_pipe[1]);
         close(out_pipe[0]);
         if (dup2(in_pipe[0], STDIN_FILENO) == -1) _exit(127);
         if (dup2(out_pipe[1], STDOUT_FILENO) == -1) _exit(127);
         close(in_pipe[0]); close(out_pipe[1]);
-        // Change working directory if requested
         if (!working_dir.empty()) {
             if (chdir(working_dir.c_str()) != 0) _exit(126);
         }
 
-        // Build argv array in child
         std::vector<char*> argv;
         if (args.empty()) {
             argv.push_back(const_cast<char*>(path.c_str()));
@@ -67,7 +69,6 @@ CGIResult run_cgi(const std::string& path, const std::vector<std::string>& args,
         }
         argv.push_back(NULL);
 
-        // Build envp array in child
         std::vector<std::string> env_strings;
         env_strings.reserve(env.size());
         for (std::map<std::string, std::string>::const_iterator it = env.begin(); it != env.end(); ++it)
@@ -78,13 +79,10 @@ CGIResult run_cgi(const std::string& path, const std::vector<std::string>& args,
             envp.push_back(const_cast<char*>(env_strings[i].c_str()));
         envp.push_back(NULL);
 
-        // Execve
         execve(path.c_str(), argv.empty() ? NULL : &argv[0], envp.empty() ? NULL : &envp[0]);
-        // If execve fails
         _exit(127);
     }
 
-    // Parent: close unused ends and make the pipe endpoints non-blocking.
     close(in_pipe[0]);
     close(out_pipe[1]);
 
@@ -94,39 +92,174 @@ CGIResult run_cgi(const std::string& path, const std::vector<std::string>& args,
         close(out_pipe[0]);
         kill(pid, SIGKILL);
         waitpid(pid, NULL, 0);
-        return result;
+        return;
     }
 
-    // Write stdin and read stdout concurrently. Doing either operation to
-    // completion before the other can deadlock on a full pipe.
-    std::string out;
+    _pid = pid;
+    _stdin_fd = in_pipe[1];
+    _stdout_fd = out_pipe[0];
+    _deadline = time(NULL) + CGI_TIMEOUT_S;
+
+    if (_input.empty()) {
+        close(_stdin_fd);
+        _stdin_fd = -1;
+    }
+}
+
+CgiProcess::~CgiProcess() {
+    if (_stdin_fd != -1) close(_stdin_fd);
+    if (_stdout_fd != -1) close(_stdout_fd);
+    if (_pid != -1 && !_reaped) {
+        kill(_pid, SIGKILL);
+        waitpid(_pid, NULL, 0);
+    }
+}
+
+bool  CgiProcess::valid()     const { return _pid != -1; }
+pid_t CgiProcess::pid()       const { return _pid; }
+int   CgiProcess::stdinFd()   const { return _stdin_fd; }
+int   CgiProcess::stdoutFd()  const { return _stdout_fd; }
+bool  CgiProcess::wantsWrite() const { return _stdin_fd != -1; }
+bool  CgiProcess::wantsRead()  const { return _stdout_fd != -1; }
+bool  CgiProcess::isDone()     const { return _stdin_fd == -1 && _stdout_fd == -1 && _reaped; }
+bool  CgiProcess::isExpired(time_t now) const { return _pid != -1 && now >= _deadline; }
+
+void CgiProcess::handleWritable() {
+    if (_stdin_fd == -1)
+        return;
+    if (_input_offset >= _input.size()) {
+        close(_stdin_fd);
+        _stdin_fd = -1;
+        return;
+    }
+    ssize_t written = write(_stdin_fd, _input.data() + _input_offset, _input.size() - _input_offset);
+    if (written > 0)
+        _input_offset += (size_t)written;
+    else if (written == -1 && errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK) {
+        close(_stdin_fd);
+        _stdin_fd = -1;
+        return;
+    }
+    if (_input_offset == _input.size()) {
+        close(_stdin_fd);
+        _stdin_fd = -1;
+    }
+}
+
+void CgiProcess::handleReadable() {
+    if (_stdout_fd == -1)
+        return;
     const size_t BUF_SZ = 4096;
     char buf[BUF_SZ];
-    size_t input_offset = 0;
-    bool input_open = true;
-    bool output_open = true;
-    bool timed_out = false;
-    int elapsed = 0;
-    if (input.empty()) {
-        close(in_pipe[1]);
-        input_open = false;
+    while (true) {
+        ssize_t r = read(_stdout_fd, buf, BUF_SZ);
+        if (r > 0) {
+            _output.append(buf, buf + r);
+            continue;
+        }
+        if (r == -1 && errno == EINTR)
+            continue;
+        if (r == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))
+            return;
+        close(_stdout_fd);
+        _stdout_fd = -1;
+        return;
     }
-    while (input_open || output_open) {
+}
+
+bool CgiProcess::tryReap(bool block) {
+    if (_reaped)
+        return true;
+    if (_pid == -1) {
+        _reaped = true;
+        return true;
+    }
+    int status = 0;
+    pid_t w = waitpid(_pid, &status, block ? 0 : WNOHANG);
+    if (w == 0)
+        return false;
+    _reaped = true;
+    if (w == _pid) {
+        if (WIFEXITED(status)) _exit_code = WEXITSTATUS(status);
+        else if (WIFSIGNALED(status)) _exit_code = -WTERMSIG(status);
+        else _exit_code = -1;
+    }
+    return true;
+}
+
+void CgiProcess::forceKill() {
+    if (_pid != -1)
+        kill(_pid, SIGKILL);
+}
+
+CGIResult CgiProcess::result() const {
+    CGIResult res;
+    res.exit_code = _exit_code;
+    res.raw_output = _output;
+
+    size_t hdr_end = _output.find("\r\n\r\n");
+    size_t sep_len = 4;
+    if (hdr_end == std::string::npos) {
+        hdr_end = _output.find("\n\n");
+        sep_len = 2;
+    }
+    if (hdr_end == std::string::npos) {
+        res.body = _output;
+        return res;
+    }
+    res.body = _output.substr(hdr_end + sep_len);
+
+    std::istringstream ss(_output.substr(0, hdr_end));
+    std::string line;
+    while (std::getline(ss, line)) {
+        if (!line.empty() && line[line.size()-1] == '\r') line.resize(line.size()-1);
+        if (line.empty()) continue;
+        size_t colon = line.find(':');
+        if (colon == std::string::npos) continue;
+        std::string key = trim(line.substr(0, colon));
+        std::string val = trim(line.substr(colon+1));
+        std::string key_l = to_lower(key);
+        res.headers[key_l] = val;
+        if (key_l == "status") {
+            std::istringstream s2(val);
+            int st; s2 >> st;
+            if (s2) res.status = st;
+        }
+    }
+    return res;
+}
+
+// Blocking convenience wrapper (standalone/offline use only, e.g. tests).
+// The live server should drive a CgiProcess from its own epoll loop instead.
+CGIResult run_cgi(const std::string& path, const std::vector<std::string>& args,
+                   const std::map<std::string, std::string>& env,
+                   const std::string& input, const std::string& working_dir)
+{
+    CgiProcess proc(path, args, env, input, working_dir);
+    if (!proc.valid())
+        return CGIResult();
+
+    while (!proc.isDone()) {
+        if (!proc.wantsWrite() && !proc.wantsRead()) {
+            proc.tryReap(true);
+            break;
+        }
+
         struct pollfd fds[2];
         nfds_t count = 0;
-        int input_index = -1;
-        int output_index = -1;
+        int write_idx = -1;
+        int read_idx = -1;
 
-        if (input_open) {
-            input_index = (int)count;
-            fds[count].fd = in_pipe[1];
-            fds[count].events = (input_offset < input.size()) ? POLLOUT : 0;
+        if (proc.wantsWrite()) {
+            write_idx = (int)count;
+            fds[count].fd = proc.stdinFd();
+            fds[count].events = POLLOUT;
             fds[count].revents = 0;
             ++count;
         }
-        if (output_open) {
-            output_index = (int)count;
-            fds[count].fd = out_pipe[0];
+        if (proc.wantsRead()) {
+            read_idx = (int)count;
+            fds[count].fd = proc.stdoutFd();
             fds[count].events = POLLIN;
             fds[count].revents = 0;
             ++count;
@@ -138,101 +271,17 @@ CGIResult run_cgi(const std::string& path, const std::vector<std::string>& args,
             break;
         }
         if (ready == 0) {
-            elapsed += 100;
-            if (elapsed >= CGI_TIMEOUT_MS) {
-                timed_out = true;
-                break;
-            }
+            if (proc.isExpired(time(NULL)))
+                proc.forceKill();
             continue;
         }
-        elapsed = 0;
 
-        if (input_index != -1 && (fds[input_index].revents & (POLLOUT | POLLERR | POLLHUP))) {
-            if (input_offset < input.size()) {
-                ssize_t written = write(in_pipe[1], input.data() + input_offset,
-                                        input.size() - input_offset);
-                if (written > 0)
-                    input_offset += (size_t)written;
-                else if (written == -1 && errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK)
-                    input_open = false;
-            }
-            if (input_offset == input.size()) {
-                close(in_pipe[1]);
-                input_open = false;
-            }
-        }
-
-        if (output_index != -1 && (fds[output_index].revents & (POLLIN | POLLERR | POLLHUP))) {
-            while (true) {
-                ssize_t r = read(out_pipe[0], buf, BUF_SZ);
-                if (r > 0) out.append(buf, buf + r);
-                else if (r == -1 && errno == EINTR) continue;
-                else if (r == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) break;
-                else {
-                    output_open = false;
-                    close(out_pipe[0]);
-                    break;
-                }
-            }
-        }
+        if (write_idx != -1 && (fds[write_idx].revents & (POLLOUT | POLLERR | POLLHUP)))
+            proc.handleWritable();
+        if (read_idx != -1 && (fds[read_idx].revents & (POLLIN | POLLERR | POLLHUP)))
+            proc.handleReadable();
     }
 
-    if (input_open) close(in_pipe[1]);
-    if (output_open) close(out_pipe[0]);
-
-    // Wait for child
-    int status = 0;
-    if (timed_out) {
-        kill(pid, SIGKILL);
-        waitpid(pid, &status, 0);
-        result.exit_code = -SIGKILL;
-    }
-    pid_t w = timed_out ? pid : waitpid(pid, &status, 0);
-    if (w == pid) {
-        if (WIFEXITED(status)) result.exit_code = WEXITSTATUS(status);
-        else if (WIFSIGNALED(status)) result.exit_code = -WTERMSIG(status);
-        else result.exit_code = -1;
-    }
-
-    result.raw_output = out;
-
-    // Parse headers and body from CGI stdout
-    size_t hdr_end = out.find("\r\n\r\n");
-    size_t sep_len = 4;
-    if (hdr_end == std::string::npos) {
-        hdr_end = out.find("\n\n");
-        sep_len = 2;
-    }
-    std::string hdrs;
-    if (hdr_end != std::string::npos) {
-        hdrs = out.substr(0, hdr_end);
-        result.body = out.substr(hdr_end + sep_len);
-    } else {
-        // No headers found: entire output is body
-        result.body = out;
-        return result;
-    }
-
-    // Split header lines and parse
-    std::istringstream ss(hdrs);
-    std::string line;
-    while (std::getline(ss, line)) {
-        // Remove trailing CR
-        if (!line.empty() && line[line.size()-1] == '\r') line.resize(line.size()-1);
-        if (line.empty()) continue;
-        size_t colon = line.find(':');
-        if (colon == std::string::npos) continue;
-        std::string key = trim(line.substr(0, colon));
-        std::string val = trim(line.substr(colon+1));
-        std::string key_l = to_lower(key);
-        result.headers[key_l] = val;
-        if (key_l == "status") {
-            // Status: 201 Created OR Status: 200
-            std::istringstream s2(val);
-            int st; s2 >> st;
-            if (s2) result.status = st;
-        }
-    }
-
-    return result;
+    proc.tryReap(true);
+    return proc.result();
 }
