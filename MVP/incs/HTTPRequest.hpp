@@ -14,17 +14,14 @@
 #define HTTP_REQUEST_HPP
 
 #include "Config.hpp"
+// #include "Buffer.hpp"
 #include "HTTPResponse.hpp"
+#include "HTTPParameters.hpp"
 // #include "MultipartBody.hpp"
-#include <fstream>
+// #include <fstream>
 #include <sstream>
 #include <cstddef>
 #include <string>
-
-enum LineEnding {
-	LF,
-	CRLF
-};
 
 class HTTPRequest {
 
@@ -33,7 +30,12 @@ public:
 	HTTPRequest(void);
 	~HTTPRequest(void);
 
-	enum ParseState {
+	enum LineEnding {
+		LF,
+		CRLF
+	};
+
+	enum State {
 		READING_REQUEST_LINE,
 		READING_HEADERS,
 		READING_BODY,
@@ -43,23 +45,34 @@ public:
 		ERROR
 	};
 
-	enum MultiPartParseState {
+	enum CState {
+		READING_SIZE,
+		READING_DATA,
+		LINE_BREAK,
+		READING_TRAILERS,
+		END_OF_CHUNKS,
+		// ERROR
+	};
+
+	enum MPState {
+		READING_PREAMBLE,
 		READING_PART_HEADERS,
 		READING_PART_BODY,
 		READING_BOUNDARY,
-		ALL_PARTS,
-		FAILED
+		END_OF_PART,
+		FAILURE
 	};
 
 	struct ParsingContext {
-		ParseState							state;
-		MultiPartParseState					body_state;
+
+		State								state;
 		StatusCode							error_cause;
 		LineEnding							line_ending;
-		size_t								bytes_read_count;
+		size_t								line_end_pos;
 		size_t								line_end_size;
 		size_t								blank_line_size;
-		size_t								line_end_pos;
+		size_t								bytes_read_count;
+		size_t								bytes_written_count;
 		// size_t								old_buffer_fill_level;
 		// size_t								request_line_end_pos;
 		// size_t								headers_start_pos;
@@ -68,44 +81,157 @@ public:
 		// size_t								header_line_size;
 		// size_t								headers_end_pos;
 		size_t								headers_size;
+		size_t								body_size;
 		// size_t								body_start_pos;
-		size_t								content_length;
+		// size_t								content_length;
 		// size_t								request_size;
 		// std::string							buffer;
-		std::streamoff						old_stream_pos;
-		std::streamoff						full_body_size;
+		CState								chunk_state;
+		size_t								chunk_size;
+		size_t								chunk_read;
+		MPState								multipart_state;
+		// std::streamoff						old_stream_pos;
+		// std::streamoff						full_body_size;
+
+		ParsingContext(void)
+			:	state(READING_REQUEST_LINE),
+				error_cause(NO_STATUS),
+				line_ending(LF),
+				line_end_pos(0),
+				line_end_size(0),
+				blank_line_size(0),
+				bytes_read_count(0),
+				bytes_written_count(0),
+				headers_size(0),
+				body_size(0),
+				chunk_state(READING_SIZE),
+				chunk_size(0),
+				chunk_read(0),
+				multipart_state(READING_PREAMBLE) {}
+
 	};
+
+	// struct MIMEParameter {
+	// 	std::string										name;
+	// 	std::string										value;
+	// };
 
 	struct BodyPart {
-		std::string							filename;
-		std::string							filetype;
-		std::map<std::string, std::string>	headers;
-		std::ofstream						file;
-		int									file_fd;
-		std::string							file_path;
+
+		std::string										disposition;
+		std::string										name;
+		std::string										filename;
+		// std::string										extension;
+
+		std::string										type;
+		std::vector<HTTPParameters::MIMEParameter>		t_parameters;
+
+		std::string										temp;
+		std::string										path;
+		int												file;
+		// size_t											size;
+		Sink											sink;
+
+		const std::string*								getHeader(const std::string& key) const;
+		// const std::map<std::string, std::string>& 		getHeaders(void) const;
+		void											setHeader(const std::string& key,
+																  const std::string& value);
+
+		BodyPart(void)
+			:	disposition(""),
+				name(""),
+				filename(""),
+				// extension(""),
+				type(""),
+				temp(""),
+				path(""),
+				file(0),
+				sink(NONE) {
+			t_parameters.clear();
+			_headers.clear();
+		}
+
+	private:
+		std::map<std::string, std::string>				_headers;
+
 	};
+
+	// struct BodyChunk {
+	// 	size_t size = 0;
+	// 	size_t read = 0;
+	// };
 
 	struct RequestBody {
-		std::string							boundary;
-		std::stringstream					temp;
-		size_t								size;
-		Sink								sink;
-		std::vector<BodyPart>				parts;
-		int									file_fd;
-		std::string							file_path;
+
+		size_t											size;
+
+		std::string										type;
+		std::string										boundary;
+		std::vector<HTTPParameters::MIMEParameter>		t_parameters;
+
+		std::string										disposition;
+		std::string										name;
+		std::string										filename;
+		// std::string										extension;
+		std::string										filenameStar;
+		std::vector<HTTPParameters::MIMEParameter>		d_parameters;
+
+		std::string										temp;
+		std::string										path;
+		int												file;
+		// size_t											size;
+		Sink											sink;
+
+		std::vector<BodyPart>							parts;
+
+		const std::string*								getHeader(const std::string& key) const;
+		void											setHeader(const std::string& key,
+																  const std::string& value);
+
+		RequestBody(void)
+			:	size(0),
+				type(""),
+				boundary(""),
+				disposition(""),
+				name(""),
+				filename(""),
+				// extension(""),
+				filenameStar(""),
+				temp(""),
+				path(""),
+				file(0),
+				sink(NONE) {
+			t_parameters.clear();
+			d_parameters.clear();
+			parts.clear();
+			_trailers.clear();
+		}
+
+	private:
+		std::map<std::string, std::string>				_trailers;
+
 	};
 
+	// Buffer												decoded;
+
 	struct ResolvedRoute {
-		const Config::Domain*				domain;
-		const Config::Location*				location;
-		Method								method;
-		std::string							path;
+
+		Method											method;
+		const Config::Domain*							domain;
+		const Config::Location*							location;
+		std::string										path;
+
+		ResolvedRoute(void)
+			:	method(METHOD_COUNT),
+				domain(NULL),
+				location(NULL),
+				path("") {}
+
 	};
 
 	static const size_t						MAX_REQUEST_LINE_LENGTH = 4*1024;
 	static const size_t						MAX_HEADER_LINE_LENGTH = 8*1024;
 	static const size_t						MAX_TOTAL_HEADERS_SIZE = 32*1024;
-	static const size_t						SERVER_MAX_BODY_SIZE = std::size_t(16)*1024*1024*1024; // 16 GiB
 
 	ParsingContext							parsing;
 
@@ -114,6 +240,8 @@ public:
 	RequestBody								body;
 
 	bool									headers_only; // HEAD method
+	bool									is_multipart;
+	bool									body_chunked;
 	bool									created_file;
 	// std::string								debug;
 
@@ -127,11 +255,13 @@ public:
 	const std::string&						getPath(void) const;
 	const std::string&						getQuery(void) const;
 	const std::string&						getVersion(void) const;
-	const std::string&						getHeader(const std::string& key) const;
+	const std::string*						getHeader(const std::string& key) const;
+	// const std::map<std::string,
+	// 			   std::string>&			getHeaders(void) const;
 
 	const std::stringstream&				getBody(void) const;
 
-	bool									hasHeader(const std::string& key) const;
+	// bool									hasHeader(const std::string& key) const;
 
 	// size_t									getContentLength(void) const;
 
@@ -145,7 +275,11 @@ public:
 	// void									setBody(const std::string&);
 	void									setHeader(const std::string& key, const std::string& value);
 
+	void									extractBoundary(std::string value);
+
+	// bool									extractContentType(bool from_part);
 	bool									extractContentLength(void);
+	// bool									extractContentDisposition(void);
 
 	void									reset(void);
 
@@ -155,8 +289,7 @@ public:
 	// static unsigned long					global_count;
 	// unsigned long							HR_object_id;
 	// unsigned long							parses_count;
-	const std::string						getMethodName(void) const;
-	std::map<std::string, std::string>&		getHeaders(void);
+	// const std::string						getMethodName(void) const;
 // DEBUG END
 
 private:
@@ -170,7 +303,8 @@ private:
 	std::string								_query;
 	std::string								_version;
 
-	std::map<std::string, std::string>		_headers;
+	std::map<std::string,
+			 std::string>					_headers;
 
 	// std::string								_body;
 

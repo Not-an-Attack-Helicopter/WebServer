@@ -27,17 +27,33 @@
 address family."
 # define NFIND_CLIENT "Client not found."
 
+// struct Socket {
+// 	enum Type {
+// 		PIPE,
+// 		SOCKET
+// 	};
+// };
+
+struct FD {
+	enum Type {
+		PIPE,
+		SOCKET
+	};
+	int			fd;
+	Type		type;
+};
+
 class Server {
 
 	public:
 		static Server&							instance(void);
 
 		void									setNonblockFlag(int fd);
-		void									setPollInterest(int fd);
 		void									setRDWRInterest(int fd);
-		void									setRDONLYInterest(int fd);
-		void									setWRONLYInterest(int fd);
 		void									dropWriteInterest(int fd);
+		void									setPollInterest(FD fd);
+		void									setRDONLYInterest(FD fd);
+		void									setWRONLYInterest(FD fd);
 		// void									clearRDWRInterest(int fd);
 		// void									removeReadInterest(int fd);
 		// void									addWriteInterest(int fd);

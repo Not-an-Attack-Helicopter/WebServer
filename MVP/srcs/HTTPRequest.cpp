@@ -75,21 +75,22 @@
 // DEBUG BEGIN
 // unsigned long HTTPRequest::global_count = 0;
 
-const std::string HTTPRequest::getMethodName(void) const {
+// const std::string HTTPRequest::getMethodName(void) const {
+//
+// 	static const std::string valid_methods[
+// 		static_cast<int>(METHOD_COUNT)
+// 	] = {
+// 	   "GET", "HEAD", "DELETE", "POST", "PUT"
+// 	};
+// 	size_t method = static_cast<size_t>(_method);
+// 	if (method < static_cast<int>(METHOD_COUNT)) {
+// 		return valid_methods[method];
+// 	}
+// 	log.warn("HTTP Request: No method found");
+// 	return "N/A";
+//
+// }
 
-	static const std::string valid_methods[METHOD_COUNT] = {"GET", "HEAD", "DELETE", "POST", "PUT"};
-	size_t method = static_cast<size_t>(_method);
-	if (method < METHOD_COUNT) {
-		return valid_methods[method];
-	}
-	log.warn("HTTP Request: No method found");
-	return "N/A";
-
-}
-
-std::map<std::string, std::string>& HTTPRequest::getHeaders() {
-	return _headers;
-}
 // DEBUG END
 
 /*	@brief Constructor	*/
@@ -116,12 +117,14 @@ HTTPRequest::HTTPRequest(void) {
 	// 	request_size(0) {
 	log.debug("HTTPRequest Constructor called");
 	// buffer.clear();
-	std::memset(static_cast<void*>(&parsing), 0, sizeof(parsing));
-	resolved.domain = NULL;
-	resolved.location = NULL;
-	resolved.method = METHOD_COUNT;
-	body.file_fd = -1;
+	// std::memset(static_cast<void*>(&parsing), 0, sizeof(parsing));
+	// resolved.method = METHOD_COUNT;
+	// resolved.domain = NULL;
+	// resolved.location = NULL;
+	// body.file_fd = -1;
 	headers_only = false;
+	is_multipart = false;
+	body_chunked = false;
 	created_file = false;
 	// debug = randomHexString(4);
 	// log.error("I am " + debug);
@@ -143,6 +146,18 @@ HTTPRequest::HTTPRequest(void) {
 HTTPRequest::~HTTPRequest(void) {
 	log.debug("HTTPRequest Deconstructor called");
 	return;
+}
+
+const std::string* HTTPRequest::BodyPart::getHeader(const std::string& key) const {
+	std::map<std::string, std::string>::const_iterator it = _headers.find(key);
+	if (it == _headers.end()) return NULL;
+	return &it->second;
+}
+
+const std::string* HTTPRequest::RequestBody::getHeader(const std::string& key) const {
+	std::map<std::string, std::string>::const_iterator it = _trailers.find(key);
+	if (it == _trailers.end()) return NULL;
+	return &it->second;
 }
 
 //getters
@@ -170,21 +185,44 @@ const std::string& HTTPRequest::getVersion(void) const {
 	return _version;
 }
 
-bool HTTPRequest::hasHeader(const std::string& key) const {
-	return _headers.find(key) != _headers.end();
-}
+// bool HTTPRequest::hasHeader(const std::string& key/*, bool seek_in_part*/) const {
+//
+// 	// if (seek_in_part) {
+// 	// 	return body.parts.back().headers.find(key) !=  body.parts.back().headers.end();
+// 	// }
+// 	return _headers.find(key) != _headers.end();
+//
+// }
 
-const std::string& HTTPRequest::getHeader(const std::string& key) const {
+const std::string* HTTPRequest::getHeader(const std::string& key) const {
+
+	// std::map<std::string, std::string> headers = _headers;
+	// if (from_part) {
+	// 	headers = body.parts.back().headers;
+	// }
+
+	// const std::map<std::string, std::string> headers = getHeaders(from_part);
+
 	std::map<std::string, std::string>::const_iterator it = _headers.find(key);
-	static const std::string empty;
-	if (it == _headers.end()) return empty;
-	return it->second;
+	// static const std::string empty;
+	if (it == _headers.end()) return NULL;
+	return &it->second;
+
 }
 
-const std::stringstream& HTTPRequest::getBody(void) const{
-	// return _body;
-	return body.temp;
-};
+// const std::map<std::string, std::string>& HTTPRequest::getHeaders(void) const {
+// 	// if (from_part) {
+// 	// 	return body.parts.back().headers;
+// 	// } else {
+// 	// 	return _headers;
+// 	// }
+// 	return _headers;
+// }
+
+// // const std::stringstream& HTTPRequest::getBody(void) const{
+// // 	// return _body;
+// // 	return body.temp;
+// // };
 
 // size_t HTTPRequest::getBytesRead(void) {
 // 	return bytes_read_count;
@@ -193,6 +231,17 @@ const std::stringstream& HTTPRequest::getBody(void) const{
 // size_t HTTPRequest::getContentLength(void) const {
 // 	return content_length;
 // }
+
+// setters
+void HTTPRequest::BodyPart::setHeader(const std::string& key, const std::string& value) {
+	_headers[key] = value;
+	return;
+}
+
+void HTTPRequest::RequestBody::setHeader(const std::string& key, const std::string& value) {
+	_trailers[key] = value;
+	return;
+}
 
 // void HTTPRequest::setState(const ParseState& parse_state) {
 // 	parse_state = parse_state;
@@ -228,27 +277,192 @@ void HTTPRequest::setHeader(const std::string& key, const std::string& value) {
 // 	bytes_read_count = bytes_read_count;
 // }
 
+// void HTTPRequest::extractBoundary(std::string value) {
+//
+// 	const std::string prefix = "multipart/form-data; boundary=";
+// 	size_t pos = value.find(prefix);
+// 	body.boundary = "\r\n--" + body.type.substr(prefix.size());
+// 	log.error("boundary: " + body.boundary);
+// 	return;
+// }
+//
+// bool HTTPRequest::extractContentType(bool from_part) {
+//
+// 	// log.error("EXTRACTING CONTENT TYPE");
+// 	// std::map<std::string, std::string>& headers = _headers;
+// 	// if (from_part) {
+// 	// 	headers = body.parts.back().headers;
+// 	// }
+// 	// const std::map<std::string, std::string> headers = getHeaders(from_part);
+// 	// if (!includesHeader(headers, "content-type")) return false; // non-existent
+// 	// log.error("hasContentTypeHeader");
+//
+// 	std::string value = getHeader("content-type", from_part);
+// 	if (value.empty()) return false; // empty value
+//
+// 	size_t semi_colon = value.find(';');
+// 	if (semi_colon == 0) {
+// 		return false;
+// 	} else if (semi_colon == std::string::npos) {
+// 		if (from_part) {
+// 			body.parts.back().type = value;
+// 		} else {
+// 			body.type = value;
+// 		}
+// 	} else {
+// 		if (from_part) {
+// 			body.parts.back().type = trim(value.substr(0, semi_colon));
+// 		} else {
+// 			body.type = trim(value.substr(0, semi_colon));
+// 		}
+// 	}
+//
+// 	size_t pos = semi_colon + 1;
+// 	while (pos < value.size()) {
+//
+// 		std::string parameter;
+//
+// 		size_t next_semi = value.find(';', pos);
+// 		if (next_semi == std::string::npos) {
+// 			parameter = trim(value.substr(pos));
+// 		} else {
+// 			parameter = trim(value.substr(pos, next_semi - pos));
+// 		}
+//
+// 		size_t eq = parameter.find('=');
+// 		if (eq !=  std::string::npos) {
+//
+// 			std::string key = trim(parameter.substr(0, eq));
+// 			std::string val = unquote(trim(parameter.substr(eq + 1)));
+//
+// 			if (key == "boundary") {
+// 				body.parts.back().name = val;
+// 			} else if (key == "charset") {
+// 				body.parts.back().filename = val;
+// 			}
+// 		}
+//
+// 		if (next_semi ==  std::string::npos) {
+// 			break;
+// 		}
+//
+// 		pos = next_semi + 1;
+//
+// 	}
+//
+// 	return true;
+//
+//
+//
+//
+// 	// In case of multipart body, extract boundary string
+// 	size_t pos = value.find("multipart/form-data");
+// 	if (pos != std::string::npos) {
+//
+// 	}
+// 	if (std::strncmp(value.c_str(), "multipart/form-data; ",
+// 					 sizeof("multipart/form-data; ")) ==  0) {
+// 		extractBoundary(value);
+// 	}
+//
+// 	if (from_part) {
+// 		body.parts.back().type = trim(value.substr(0, semi_colon));
+// 		log.error("part content-type = " + body.parts.back().type);
+// 	} else {
+// 		body.type = value;
+// 	}
+// 	log.error("Content-Type: " + body.type);
+//
+// 	return true;
+//
+// }
+
 bool HTTPRequest::extractContentLength(void) {
 
-	// log.error("EXTRACTING CONTENT LENGTH");
+	// std::map<std::string, std::string>& headers = _headers;
+	// if (from_part) {
+	// 	headers = body.parts.back().headers;
+	// }
 
-	if (!hasHeader("content-length")) return false; // non-existent
+	// const std::map<std::string, std::string> headers = getHeaders(from_part);
+
+	// log.error("EXTRACTING CONTENT LENGTH");
+	// if (!includesHeader(headers, "content-length")) return false; // non-existent
 
 	// log.error("hasContentLengthHeader");
-	std::string value = getHeader("content-length");
-	if (value.empty())
-		return false; // empty value
+	const std::string* value = getHeader("content-length");
+	if (value == NULL) return false; // empty value
 
 	// log.error("Content-Length: " + value);
+	size_t size;
 	char* endptr;
-	parsing.content_length = static_cast<size_t>(strtoul(value.c_str(), &endptr, 10));
+	// parsing.content_length = static_cast<size_t>(strtoul(value.c_str(), &endptr, 10));
+	size = static_cast<size_t>(strtoul((*value).c_str(), &endptr, 10));
 	// log.error("parsing.content_length = " + i2a(parsing.content_length));
-	if (std::strcmp(endptr, value.c_str()) == 0 || *endptr != '\0')
+	if (std::strcmp(endptr, (*value).c_str()) == 0 || *endptr != '\0')
 		return false; // malformed content-length header
 
+	// if (from_part) {
+	// 	body.parts.back().size = size;
+	// } else {
+	// 	body.size = size;
+	// }
+	body.size = size;
 	return true;
 
 }
+
+// bool HTTPRequest::extractContentDisposition(void) {
+//
+// 	std::string value = getHeader("content-disposition", true);
+// 	if (value.empty()) return false; // empty value
+//
+// 	size_t semi_colon = value.find(';');
+// 	if (semi_colon == 0) {
+// 		return false;
+// 	} else if (semi_colon == std::string::npos) {
+// 		body.parts.back().disposition = value;
+// 		return true;
+// 	} else {
+// 		body.parts.back().disposition = trim(value.substr(0, semi_colon));
+// 	}
+//
+// 	size_t pos = semi_colon + 1;
+// 	while (pos < value.size()) {
+//
+// 		std::string parameter;
+//
+// 		size_t next_semi = value.find(';', pos);
+// 		if (next_semi == std::string::npos) {
+// 			parameter = trim(value.substr(pos));
+// 		} else {
+// 			parameter = trim(value.substr(pos, next_semi - pos));
+// 		}
+//
+// 		size_t eq = parameter.find('=');
+// 		if (eq !=  std::string::npos) {
+//
+// 			std::string key = trim(parameter.substr(0, eq));
+// 			std::string val = unquote(trim(parameter.substr(eq + 1)));
+//
+// 			if (key == "name") {
+// 				body.parts.back().name = val;
+// 			} else if (key == "filename") {
+// 				body.parts.back().filename = val;
+// 			}
+// 		}
+//
+// 		if (next_semi ==  std::string::npos) {
+// 			break;
+// 		}
+//
+// 		pos = next_semi + 1;
+//
+// 	}
+//
+// 	return true;
+//
+// }
 
 void HTTPRequest::reset(void) {
 
@@ -270,10 +484,10 @@ void HTTPRequest::reset(void) {
 	// request_size = 0;
 	// buffer.clear();
 	std::memset(static_cast<void*>(&parsing), 0, sizeof(parsing));
+	resolved.method = METHOD_COUNT;
 	resolved.domain = NULL;
 	resolved.location = NULL;
-	resolved.method = METHOD_COUNT;
-	body.file_fd = -1;
+	// body.file_fd = -1;
 	headers_only = false;
 	created_file = false;
 	// std::memset(static_cast<void*>(&body), 0, sizeof(body));

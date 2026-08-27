@@ -41,12 +41,14 @@ HTTPResponse::~HTTPResponse(void) {
 
 // Status
 unsigned int HTTPResponse::getStatusCode(void) const {
-	return _status_code;
+	return static_cast<unsigned int>(_status_code);
 }
 
 void HTTPResponse::setStatus(StatusCode code) {
+	// log.error("status set: " + i2a(code));
 	_status_code = code;
 	_status_reason = _getDefaultReason(code);
+	// log.error(_status_reason);
 	return;
 }
 
@@ -139,6 +141,7 @@ void HTTPResponse::setBody(const std::string& str,
 	}
 
 	_body = str;
+	// log.error(str);
 	return;
 
 }

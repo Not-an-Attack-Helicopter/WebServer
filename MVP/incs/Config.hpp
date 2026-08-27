@@ -41,6 +41,8 @@ class Config {
 
 public:
 
+	static const size_t						SERVER_MAX_BODY_SIZE = std::size_t(16)*1024*1024*1024; // 16 GiB
+
 	struct Location {
 		std::string								path;					// Location path (e.g., "/api", "/cgi-bin")
 		std::string								root;					// Root directory for this location
@@ -56,6 +58,21 @@ public:
 		// std::vector<std::string>				cgi_extensions;			// CGI file extensions (.py, .sh, etc.)
 		// std::vector<std::string>				cgi_paths;				// Corresponding CGI interpreter paths
 		std::map<std::string, std::string>		interpreters;			// CGI file ext -> CGI interpreter path
+
+		Location(void)
+			:	path(""),
+				root(""),
+				alias(""),
+				redirect(""),
+				autoindex(false),
+				upload_dir(""),
+				client_max_body_size(SERVER_MAX_BODY_SIZE) {
+			methods.clear();
+			index_files.clear();
+			error_pages.clear();
+			interpreters.clear();
+		}
+
 	};
 
 	struct Domain {
@@ -66,13 +83,32 @@ public:
 		std::map<int, std::string>				error_pages;			// Error code -> error page file mapping
 		size_t									client_max_body_size;	// Maximum request body size in bytes
 		std::vector<Location>					locations;				// Location blocks within this server
+
+		Domain(void)
+			:	root(""),
+				client_max_body_size(SERVER_MAX_BODY_SIZE) {
+			names.clear();
+			index_files.clear();
+			error_pages.clear();
+			locations.clear();
+		}
+
 	};
 
 	struct Socket {
+
 		in_port_t								port;					// Listen port (1–65535)
 		std::string								address;				// Bind host IP address
 		size_t									client_max_body_size;	// Maximum request body size in bytes
 		std::vector<Domain>						domains;				// Virtual hosts
+
+		Socket(void)
+			:	port(8080),
+				address(""),
+				client_max_body_size(SERVER_MAX_BODY_SIZE) {
+			domains.clear();
+		}
+
 	};
 
 	static Config&								instance(void);

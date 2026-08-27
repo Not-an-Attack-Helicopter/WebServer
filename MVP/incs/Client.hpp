@@ -14,7 +14,7 @@
 #define CLIENT_HPP
 
 #include "Config.hpp"
-// #include "Logger.hpp"
+#include "Buffer.hpp"
 #include "HTTPRequest.hpp"
 #include "HTTPResponse.hpp"
 // #include "templates.hpp"
@@ -73,49 +73,29 @@ public:
 	// 	ERROR
 	// };
 
-	struct Buffer {
-
-		std::vector<char> data;
-		size_t begin;
-		size_t mark;
-		size_t end;
-
-		// std::vector<char>::const_iterator begin_it = data.begin() + begin;
-		// std::vector<char>::const_iterator end_it = data.begin() + end;
-
-		std::string str(void) const;
-		std::string substr(ssize_t begin) const;
-		std::string substr(ssize_t begin, ssize_t end) const;
-
-		void sstream(std::stringstream& ss) const;
-		void sstream(std::stringstream& ss, ssize_t begin) const;
-		void sstream(std::stringstream& ss, ssize_t begin, ssize_t end) const;
-
-		void reset(void);
-		void compact(void);
-
-		size_t range(void) const;
-
-		ssize_t find(const char& pin) const;
-		ssize_t find(const std::string& needle) const;
-
-	};
-
 	struct Body {
+
 		std::stringstream			temp;
 		// bool						body_pending;
 		std::ifstream				file;
 		// bool						file_pending;
 		size_t						size;
 		Sink						sink;
+
+		Body(void) : size(0), sink(NONE) {temp.clear();file.close();}
+
 	};
 
 	struct Response {
+
 		std::stringstream			headers;
 		// std::stringstream			body;
 		// std::ifstream				file;
 		// bool						is_file;
 		Body						body;
+
+		Response(void) {headers.clear();}
+
 	};
 
 	// template<typename StreamType> // send data
@@ -251,7 +231,7 @@ private:
 	static const time_t				BODY_TIMEOUT_SECONDS		= 120;
 	static const time_t				REJECTED_TIMEOUT_SECONDS	= 10;
 
-	static const size_t				BUFFER_SIZE = 4 * 1024;
+	// static const size_t				BUFFER_SIZE = 4 * 1024;
 
 	// static const size_t				CONTENT_STREAM_BUFFER_SIZE = 4096;
 	// static const size_t				LOW_LATENCY_BUFFER_SIZE = 8192;

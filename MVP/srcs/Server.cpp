@@ -19,6 +19,7 @@
 #include <sys/epoll.h>
 #include <arpa/inet.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
 #include <stdexcept>
 #include <unistd.h>
 // #include <iostream>
@@ -50,56 +51,12 @@ void Server::setNonblockFlag(int fd) {
 	}
 
 	return;
-
-}
-
-void Server::setPollInterest(int fd) {
-
-	epoll_event e;
-	e.events = EPOLLIN | EPOLLRDHUP;
-	e.data.fd = fd;
-
-	int status = epoll_ctl(_epfd, EPOLL_CTL_ADD, fd, &e);
-	if (status == -1) {
-		throw std::runtime_error("epoll_ctl: " + std::string(strerror(errno)));
-	}
-
-	return;
 }
 
 void Server::setRDWRInterest(int fd) {
 
 	epoll_event e;
 	e.events = EPOLLIN | EPOLLOUT | EPOLLRDHUP;
-	e.data.fd = fd;
-
-	int status = epoll_ctl(_epfd, EPOLL_CTL_MOD, fd, &e);
-	if (status == -1) {
-		throw std::runtime_error("epoll_ctl: " + std::string(strerror(errno)));
-	}
-
-	return;
-}
-
-void Server::setRDONLYInterest(int fd) {
-
-	epoll_event e;
-	e.events = EPOLLIN | EPOLLRDHUP;
-	e.data.fd = fd;
-
-	int status = epoll_ctl(_epfd, EPOLL_CTL_MOD, fd, &e);
-	if (status == -1) {
-		throw std::runtime_error("epoll_ctl: " + std::string(strerror(errno)));
-	}
-
-	return;
-
-}
-
-void Server::setWRONLYInterest(int fd) {
-
-	epoll_event e;
-	e.events = EPOLLOUT | EPOLLRDHUP;
 	e.data.fd = fd;
 
 	int status = epoll_ctl(_epfd, EPOLL_CTL_MOD, fd, &e);
@@ -125,6 +82,99 @@ void Server::dropWriteInterest(int fd) {
 	return;
 }
 
+void Server::setPollInterest(FD fd) {
+
+	// struct stat sb;
+	// if (fstat(fd, &sb) != 0) {
+	// 	throw std::runtime_error("fstat: " + std::string(strerror(errno)));
+	// }
+
+	// epoll_event e;
+	// if (S_ISFIFO(sb.st_mode)) {
+	// 	e.events = 0;
+	// } else if (S_ISSOCK(sb.st_mode)) {
+	// 	e.events = EPOLLIN | EPOLLRDHUP;
+	// }
+	// e.data.fd = fd;
+	epoll_event e;
+	e.data.fd = fd.fd;
+	e.events = 0;
+	if (fd.type == FD::SOCKET) {
+		e.events = EPOLLIN | EPOLLRDHUP;
+	}
+
+	int status = epoll_ctl(_epfd, EPOLL_CTL_ADD, fd.fd, &e);
+	if (status == -1) {
+		throw std::runtime_error("epoll_ctl: " + std::string(strerror(errno)));
+	}
+
+	return;
+}
+
+void Server::setRDONLYInterest(FD fd) {
+
+	// struct stat sb;
+	// if (fstat(fd, &sb) != 0) {
+	// 	throw std::runtime_error("fstat: " + std::string(strerror(errno)));
+	// }
+
+	// epoll_event e;
+	// if (S_ISFIFO(sb.st_mode)) {
+	// 	e.events = EPOLLIN;
+	// } else if (S_ISSOCK(sb.st_mode)) {
+	// 	e.events = EPOLLIN | EPOLLRDHUP;
+	// }
+	// e.data.fd = fd;
+	epoll_event e;
+	e.data.fd = fd.fd;
+	if (fd.type == FD::PIPE) {
+		e.events = EPOLLIN;
+	} else if (fd.type == FD::SOCKET) {
+		e.events = EPOLLIN | EPOLLRDHUP;
+	} else {
+		e.events = 0;
+	}
+
+	int status = epoll_ctl(_epfd, EPOLL_CTL_MOD, fd.fd, &e);
+	if (status == -1) {
+		throw std::runtime_error("epoll_ctl: " + std::string(strerror(errno)));
+	}
+
+	return;
+}
+
+void Server::setWRONLYInterest(FD fd) {
+
+	// struct stat sb;
+	// if (fstat(fd, &sb) != 0) {
+	// 	throw std::runtime_error("fstat: " + std::string(strerror(errno)));
+	// }
+
+	// epoll_event e;
+	// if (S_ISFIFO(sb.st_mode)) {
+	// 	e.events = EPOLLOUT;
+	// } else if (S_ISSOCK(sb.st_mode)) {
+	// 	e.events = EPOLLOUT | EPOLLRDHUP;
+	// }
+	// e.data.fd = fd;
+	epoll_event e;
+	e.data.fd = fd.fd;
+	if (fd.type == FD::PIPE) {
+		e.events = EPOLLOUT;
+	} else if (fd.type == FD::SOCKET) {
+		e.events = EPOLLOUT | EPOLLRDHUP;
+	} else {
+		e.events = 0;
+	}
+
+	int status = epoll_ctl(_epfd, EPOLL_CTL_MOD, fd.fd, &e);
+	if (status == -1) {
+		throw std::runtime_error("epoll_ctl: " + std::string(strerror(errno)));
+	}
+
+	return;
+}
+
 void Server::prepareEPollInstance(void) {
 
 	_epfd = epoll_create(1);
@@ -135,7 +185,6 @@ void Server::prepareEPollInstance(void) {
 	log.debug("Prepared epoll instance epfd fd_" + i2a(_epfd));
 
 	return;
-
 }
 
 void Server::prepareListeningPort(const Config::Socket& soc) {
@@ -187,7 +236,11 @@ void Server::prepareListeningPort(const Config::Socket& soc) {
 		throw std::runtime_error("listen: " + std::string(strerror(errno)));
 	}
 
-	setPollInterest(_sockets.rbegin()->first);
+	// setPollInterest(_sockets.rbegin()->first);
+	// FileDescriptor FD = {_sockets.rbegin()->first, Type::SOCKET};
+	// setPollInterest(FD);
+	FD fildes = {_sockets.rbegin()->first, FD::SOCKET};
+	setPollInterest(fildes);
 
 	log.debug("Now listening on listen_fd fd_" + i2a(_sockets.rbegin()->first));
 
@@ -199,7 +252,8 @@ void Server::handleIncomingEvents(void) {
 
 	log.info("Awaiting new connection");
 
-	while (true) {
+	// while (true) {
+	for (;;) {
 
 		int nfds = epoll_wait(_epfd, _events, MAX_EPOLL_EVENTS, EPOLL_WAIT_TIMEOUT_MS);
 
@@ -275,13 +329,20 @@ void Server::handleIncomingEvents(void) {
 // DEBUG END
 				log.warn("Client fd_" + i2a(immediate->first) + " timed out");
 
-				if (immediate->second->getState() == Client::RECEIVING_HEADERS ||
-					immediate->second->getState() == Client::RECEIVING_BODY) {
+				if (immediate->second->getState() == Client::RECEIVING_HEADERS) {
+					// log.error("sending 408");
+					immediate->second->setState(Client::PENDING_RESPONSE);
+					immediate->second->pushResponse();
 					dispatch.errorPage(immediate->second->getCurrentRequest().resolved.location,
 									   immediate->second->getCurrentResponse(),
 									   immediate->second->getCurrentRequest().headers_only,
 									   REQUEST_TIMEOUT);
-					setWRONLYInterest(immediate->first);
+					immediate->second->popRequest();
+					// setWRONLYInterest(immediate->first);
+					FD fildes = {immediate->first, FD::SOCKET};
+					setWRONLYInterest(fildes);
+					immediate->second->markForTermination();
+					// setWRONLYInterest({immediate->first, FD::SOCKET});
 				} else {
 					cleanUpClient(immediate);
 				}
@@ -328,7 +389,8 @@ void Server::acceptConnectRequest(int listen_fd, const Config::Socket* socket) {
 	_clients[client_fd] = c;
 
 	setNonblockFlag(client_fd);
-	setPollInterest(client_fd);
+	FD fildes = {client_fd, FD::SOCKET};
+	setPollInterest(fildes);
 
 	log.info("Client fd_" + i2a(client_fd) + ", endpoint "
 				+ c->getHostAddress() + ":" + i2a(c->getHostPort()));
@@ -385,13 +447,15 @@ void Server::handleRemoteHangup(int fd) {
 		throw std::runtime_error("client lookup:: " + std::string(NFIND_CLIENT));
 	}
 
-	Client& client = *it->second;
-	if (client.hasPendingResponse() || client.hasPendingData()) {
-		client.markForTermination();
-		setWRONLYInterest(fd);
-	} else {
-		cleanUpClient(it);
-	}
+	cleanUpClient(it);
+	// Client& client = *it->second;
+	// if (client.hasPendingResponse() || client.hasPendingData()) {
+	// 	client.markForTermination();
+	// 	FD fildes = {fd, FD::SOCKET};
+	// 	setWRONLYInterest(fildes);
+	// } else {
+	// 	cleanUpClient(it);
+	// }
 	return;
 
 }
@@ -535,7 +599,8 @@ bool Server::handleReadEvent(int fd) {
 				// 	n = recv(fd, buf, sizeof(buf), 0);
 				// 	log.error(i2a(n));
 				// } while (n > 0);
-				setWRONLYInterest(fd);
+				FD fildes = {fd, FD::SOCKET};
+				setWRONLYInterest(fildes);
 			} else {
 				setRDWRInterest(fd);
 			}
@@ -587,7 +652,8 @@ void Server::handleWriteEvent(int fd) {
 	}
 
 	Client& client = *it->second;
-	if (client.getState() == Client::CONCLUDED || client.getState() == Client::REJECTED) {
+	if (client.getState() == Client::CONCLUDED ||
+		client.getState() == Client::REJECTED) {
 		return;
 	}
 
@@ -650,10 +716,12 @@ void Server::handleWriteEvent(int fd) {
 	// 	cleanUpClient(it);
 	// }
 
+	FD fildes = {fd, FD::SOCKET};
+
 	switch (client.getState()) {
 
 	case Client::IDLE:
-		setRDONLYInterest(fd);
+		setRDONLYInterest(fildes);
 		break;
 	case Client::ERROR:
 		cleanUpClient(it);

@@ -11,7 +11,7 @@
 /* ************************************************************************** */
 
 #include "../incs/Logger.hpp"
-#include "../incs/Parser.hpp"
+#include "../incs/ConfigLoader.hpp"
 #include "../incs/Server.hpp"
 #include "../incs/utils.hpp"
 #include <exception>
@@ -103,7 +103,7 @@ int main(int argc, char** argv) {
 
 	try {
 
-		parse.file(config_file);
+		load.config(config_file);
 		log.debug("Parsing configuration file: " + config_file);
 
 		sockets_count = configs.size();

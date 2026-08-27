@@ -12,12 +12,12 @@
 
 #include "../incs/Client.hpp"
 #include "../incs/Config.hpp"
-#include "../incs/Parser.hpp"
 #include "../incs/Logger.hpp"
+#include "../incs/HTTPRequestParser.hpp"
 #include "../incs/constexpr.hpp"
 #include "../incs/templates.hpp"
-// #include "../incs/utils.hpp"
-#include <algorithm>
+#include "../incs/utils.hpp"
+// #include <algorithm>
 #include <fstream>
 #include <sstream>
 #include <cstddef>
@@ -83,16 +83,16 @@ Client::Client(const Config::Socket* config)
 	_response.body.file.clear();
 	_response.body.size = 0;
 	_response.body.sink = NONE;
-	_instream.data.resize(BUFFER_SIZE);
+	// _instream.data.resize(BUFFER_SIZE);
 	// _instream.begin = 0;
 	// _instream.mark = 0;
 	// _instream.end = 0;
-	_instream.reset();
-	_outstream.data.resize(BUFFER_SIZE);
+	// _instream.reset();
+	// _outstream.data.resize(BUFFER_SIZE);
 	// _outstream.begin = 0;
 	// _outstream.mark = 0;
 	// _outstream.end = 0;
-	_outstream.reset();
+	// _outstream.reset();
 
 	// Create new request object in deque container
 	// HTTPRequest* request = new HTTPRequest();
@@ -134,68 +134,6 @@ Client::~Client(void) {
 
 	return;
 
-}
-
-std::string Client::Buffer::str(void) const {
-	return std::string(data.begin() + begin, data.begin() + end);
-}
-
-std::string Client::Buffer::substr(ssize_t offset) const {
-	return std::string(data.begin() + begin + offset, data.begin() + end);
-}
-
-std::string Client::Buffer::substr(ssize_t offset1, ssize_t offset2) const {
-	return std::string(data.begin() + begin + offset1, data.begin() + begin + offset2);
-}
-
-void Client::Buffer::sstream(std::stringstream& ss) const {
-	ss.write(&data[begin], range());
-}
-
-void Client::Buffer::sstream(std::stringstream& ss, ssize_t offset) const {
-	ss.write(&data[begin + offset], end - (begin + offset));
-}
-
-void Client::Buffer::sstream(std::stringstream& ss, ssize_t offset1, ssize_t offset2) const {
-	ss.write(&data[begin + offset1], offset2 - offset1);
-}
-
-void Client::Buffer::reset(void) {
-	end = 0;
-	mark = 0;
-	begin = 0;
-	// data.clear();
-	// data.resize(BUFFER_SIZE);
-}
-
-void Client::Buffer::compact(void) {
-	std::memmove(&data[0], &data[begin], range());
-	mark -= begin;
-	end -= begin;
-	begin = 0;
-}
-
-size_t Client::Buffer::range(void) const {
-	return end - begin;
-}
-
-ssize_t Client::Buffer::find(const char& pin) const {
-	std::vector<char>::const_iterator begin_it = data.begin() + begin;
-	std::vector<char>::const_iterator end_it = data.begin() + end;
-	std::vector<char>::const_iterator it = std::find(begin_it,
-													 end_it,
-													 pin);
-	return (it != end_it) ? std::distance(begin_it, it) : -1;
-}
-
-ssize_t Client::Buffer::find(const std::string& needle) const {
-	std::vector<char>::const_iterator end_it = data.begin() + end;
-	std::vector<char>::const_iterator begin_it = data.begin() + begin;
-	std::vector<char>::const_iterator it = std::search(begin_it, end_it,
-													   needle.begin(), needle.end()
-													   // , std::equal_to<char>()
-													   );
-	return (it != end_it) ? std::distance(begin_it, it) : -1;
 }
 
 // DEBUG BEGIN
@@ -298,7 +236,7 @@ HTTPResponse& Client::getCurrentResponse(void) {
 	return *_response_queue.front();
 }
 
-Client::Buffer& Client::getIncomingData(void) {
+Buffer& Client::getIncomingData(void) {
 	return _instream;
 }
 
@@ -341,7 +279,8 @@ bool Client::hasPendingData(void) const {
 	// return _hasPendingData;
 	// return !_outgoing_data.empty();
 	// return (_state != IDLE && _state != ERROR);
-	return (_state == SENDING_HEADERS || _state == SENDING_BODY);
+	return (_state == SENDING_HEADERS ||
+			_state == SENDING_BODY);
 }
 
 bool Client::blockedFromReceiving(void) const {
@@ -401,11 +340,15 @@ bool Client::isTimedOut(void) const {
 
 ssize_t Client::queueIncomingData(int fd) {
 
-	ssize_t bytes_received = 0;
-	// if (_instream.data.size() < BUFFER_SIZE) {
+	// size_t buffer_size = BUFFER_SIZE;
+	// if (_state == RECEIVING_BODY && _instream.data.size() == BUFFER_SIZE) {
+	// 	buffer_size = _adjustBufferSize(_request_queue.back()->body.size);
+	// 	_instream.data.resize(buffer_size);
+	// }
 	// 	_instream.data.resize(BUFFER_SIZE);
 	// } // No need as no resize-after-recv, data.size() stays at BUFFER_SIZE
 	// log.error("end=" + i2a(_instream.end) + " data.size()=" + i2a(_instream.data.size()));
+	ssize_t bytes_received = 0;
 	if (_instream.end < _instream.data.size()) {
 		// log.error("DING!");
 		bytes_received = recv(fd, &_instream.data[_instream.end], _instream.data.size() - _instream.end, 0);
@@ -421,6 +364,11 @@ ssize_t Client::queueIncomingData(int fd) {
 		// _instream.data.resize(bytes_received); // DOES !NOT! FIT CURRENT MODEL!!!
 	}
 	// log.error("bytes_received=" + i2a(bytes_received) + " " + &_instream.data[0]);
+	// if (_state == DISPATCHING && _instream.data.size() != BUFFER_SIZE) {
+	// 	log.error("buffer size: " + i2a(buffer_size));
+	// 	_instream.data.resize(BUFFER_SIZE);
+	// 	log.error("buffer size: " + i2a(buffer_size));
+	// }
 	return bytes_received;
 }
 
@@ -473,38 +421,47 @@ void Client::parseIncomingData(void) {
 	// log.error("I shall parse data for " + request.debug);
 	// HTTPResponse*	response;
 
+	if (request.parsing.state == HTTPRequest::READING_BODY &&
+		_instream.data.size() == BUFFER_SIZE) {
+		log.error("body size: " + i2a(request.body.size));
+		size_t buffer_size = _adjustBufferSize(request.body.size);
+		_instream.data.resize(buffer_size);
+		log.error("buffer size: " + i2a(_instream.data.size()));
+	}
+
 	// while (!_incoming_data.empty()) {
 	while (_instream.mark < _instream.end) {
 
-		// std::ostringstream oss;
+		log.error("DING!");
+		std::ostringstream oss;
 		size_t bytes_read = 0;
 		bool has_consumed_line = parse.buffer(_instream, request);
 		bytes_read = request.parsing.bytes_read_count;
-		// oss << "bytes_read=" << request.parsing.bytes_read_count
-		// 	<< " begin=" << _instream.begin
-		// 	<< " mark=" << _instream.mark
-		// 	<< " end=" << _instream.end
-		// 	<< std::endl;
-		// log.error(oss.str());
-		// oss.str("");
-		if (bytes_read == std::string::npos) return;
+		oss << "bytes_read=" << request.parsing.bytes_read_count
+			<< " begin=" << _instream.begin
+			<< " mark=" << _instream.mark
+			<< " end=" << _instream.end
+			<< std::endl;
+		log.error(oss.str());
+		oss.str("");
+		if (bytes_read == std::string::npos || bytes_read == 0) return;
 		_instream.mark += bytes_read;
-		// oss << "bytes_read=" << request.parsing.bytes_read_count
-		// 	<< " begin=" << _instream.begin
-		// 	<< " mark=" << _instream.mark
-		// 	<< " end=" << _instream.end
-		// 	<< std::endl;
-		// log.error(oss.str());
-		// oss.str("");
-		// if (has_consumed_line) log.error("DING!");
+		oss << "bytes_read=" << request.parsing.bytes_read_count
+			<< " begin=" << _instream.begin
+			<< " mark=" << _instream.mark
+			<< " end=" << _instream.end
+			<< std::endl;
+		log.error(oss.str());
+		oss.str("");
+		if (has_consumed_line) log.error("DONG!");
 		if (has_consumed_line == true) _instream.begin = _instream.mark;
-		// oss << "bytes_read=" << request.parsing.bytes_read_count
-		// 	<< " begin=" << _instream.begin
-		// 	<< " mark=" << _instream.mark
-		// 	<< " end=" << _instream.end
-		// 	<< std::endl;
-		// log.error(oss.str());
-		// oss.str("");
+		oss << "bytes_read=" << request.parsing.bytes_read_count
+			<< " begin=" << _instream.begin
+			<< " mark=" << _instream.mark
+			<< " end=" << _instream.end
+			<< std::endl;
+		log.error(oss.str());
+		oss.str("");
 		if (_instream.begin == _instream.end) _instream.reset();
 		else if (_instream.end == _instream.data.size()) {
 			if (_instream.begin > 0) {
@@ -514,15 +471,57 @@ void Client::parseIncomingData(void) {
 				request.parsing.state = HTTPRequest::ERROR;
 				request.parsing.error_cause = INTERNAL_SERVER_ERROR;
 				break;
-			};
+			}
 		}
-		// oss << "bytes_read=" << request.parsing.bytes_read_count
-		// 	<< " begin=" << _instream.begin
-		// 	<< " mark=" << _instream.mark
-		// 	<< " end=" << _instream.end
-		// 	<< std::endl;
-		// log.error(oss.str());
-		// oss.str("");
+		oss << "bytes_read=" << request.parsing.bytes_read_count
+			<< " begin=" << _instream.begin
+			<< " mark=" << _instream.mark
+			<< " end=" << _instream.end
+			<< std::endl;
+		log.error(oss.str());
+		oss.str("");
+
+		if (request.parsing.state == HTTPRequest::READING_BODY) {
+			request.parsing.body_size += bytes_read;
+			if (!request.body_chunked) {
+				if (request.parsing.body_size == request.body.size) {
+					request.parsing.state = HTTPRequest::COMPLETE;
+					log.error("FULL BODY RECEIVED!");
+					log.error("bytes received: " + i2a(request.parsing.body_size));
+					log.error("bytes expected: " + i2a(request.body.size));
+				} else if (request.parsing.body_size > request.body.size) {
+					log.error("parse error: received body exceeded advertised size");
+					log.error("bytes received: " + i2a(request.parsing.body_size));
+					log.error("bytes expected: " + i2a(request.body.size));
+					request.parsing.state = HTTPRequest::ERROR;
+					request.parsing.error_cause = BAD_REQUEST;
+					break;
+				} else {
+					log.error("NEED MOAR DATA!");
+					log.error("bytes received: " + i2a(request.parsing.body_size));
+					log.error("bytes expected: " + i2a(request.body.size));
+				// 	// log.error(_instream.str());
+				// 	// log.error(request.body.boundary);
+				// 	if (request.parsing.multipart_state == HTTPRequest::READING_BOUNDARY) {
+				// 		break;
+				// 	}
+				// 	continue;
+				}
+			}
+		}
+
+		if (/*!request.body_chunked && */request.parsing.state == HTTPRequest::COMPLETE) {
+			if (request.parsing.body_size < request.body.size) {
+				log.error("parse error: received body shorter than advertised size");
+				log.error("bytes received: " + i2a(request.parsing.body_size));
+				log.error("bytes expected: " + i2a(request.body.size));
+				request.parsing.state = HTTPRequest::ERROR;
+				request.parsing.error_cause = BAD_REQUEST;
+				break;
+			}
+			// log.error("bytes received: " + i2a(request.parsing.body_size));
+			// log.error("bytes expected: " + i2a(request.body.size));
+		}
 
 		if (request.parsing.state == HTTPRequest::DISPATCHING ||
 			request.parsing.state == HTTPRequest::COMPLETE ||
@@ -534,10 +533,20 @@ void Client::parseIncomingData(void) {
 
 	}
 
+	if (request.parsing.state == HTTPRequest::COMPLETE &&
+		_instream.data.size() != BUFFER_SIZE) {
+		log.error("buffer size: " + i2a(_instream.data.size()));
+		log.error("body size: " + i2a(_request_queue.back()->body.size));
+		_instream.data.resize(BUFFER_SIZE);
+		log.error("buffer size: " + i2a(_instream.data.size()));
+	}
+
 	// if (request.parsing.state == HTTPRequest::FINALIZING ||
 	// 	request.parsing.state == HTTPRequest::ERROR) {
 	// 	_instream.reset();
 	// }
+
+	// size_t buffer_size = BUFFER_SIZE;
 
 	switch (request.parsing.state) {
 
@@ -766,6 +775,7 @@ void Client::queueOutgoingData(void) {
 		}
 	}
 	_response.headers << http::CRLF;
+	// log.debug(_response.headers.str());
 
 	// if (_response_queue.front()->getBodySink() == HTTPResponse::HEAP) {
 		// _body_sink = HTTPResponse::TEXT;
@@ -778,7 +788,7 @@ void Client::queueOutgoingData(void) {
 	// if (_response.body.sink == HEAP) {
 	switch (_response.body.sink) {
 	case HEAP:
-		// log.debug("preparing send: body data read from heap");
+		log.debug("preparing send: body data read from heap");
 		_response.body.temp << _response_queue.front()->getBody();
 		_response.body.size = _response_queue.front()->getBodySize();
 		// log.error(_response.body.temp.str());
@@ -826,6 +836,7 @@ void Client::flushPendingData(int fd) {
 		log.info("client_" + i2a(fd) + " state: SENDING_HEADERS");
 		// fullySent = _sendNextChunk(fd, _response.headers);
 		// if (fullySent) {
+		// log.error(_response.headers.str());
 		if (_sendNextChunk(fd, _response.headers)) {
 			_clearStream(_response.headers);
 			log.info("client_" + i2a(fd) + ": all headers sent");

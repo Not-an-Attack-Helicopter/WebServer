@@ -1,22 +1,22 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   Parser.hpp                                         :+:      :+:    :+:   */
+/*   ConfigLoader.hpp                                   :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
 /*   By: sholz, bstorck <marvin@42.fr>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/30 18:41:59 by sholz             #+#    #+#             */
-/*   Updated: 2026/07/04 18:15:14 by bstorck          ###   ########.fr       */
+/*   Updated: 2026/08/24 21:49:19 by bstorck          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#ifndef PARSER_HPP
-#define PARSER_HPP
+#ifndef CONFIG_LOADER_HPP
+#define CONFIG_LOADER_HPP
 
 // #include "HTTPRequest.hpp"
 #include "HTTPResponse.hpp"
 #include "Config.hpp"
-#include "Client.hpp"
+// #include "Client.hpp"
 #include "utils.hpp"
 #include <stdexcept>
 #include <sstream>
@@ -28,13 +28,13 @@
 // #include <typeinfo>
 #include <sys/stat.h>
 
-#define parse Parser::instance()
+#define load ConfigLoader::instance()
 
-class Parser {
+class ConfigLoader {
 
 public:
 
-	static Parser&							instance(void);
+	static ConfigLoader&						instance(void);
 
 	// const std::vector<Config>&				getAllConfigs(void) const;
 
@@ -45,21 +45,17 @@ public:
 	// static const Location*					matchLocation(const std::vector<Location>& locations,
 	// 													  const std::string& location_path);
 
-	void									file(const std::string& config_file);
-	// HTTPRequest::ParseState					incomingData(const std::string& raw, HTTPRequest* request);
-	bool									buffer(const Client::Buffer& buff, HTTPRequest& request);
+	void										config(const std::string& config_file);
 
-	// bool									body(const Client::Buffer& buff, HTTPRequest& request);
+	Method										extractMethod(const std::string& name);
 
-	Method									extractMethod(const std::string& name);
-
-	typedef void (Parser::*locationDirectiveHandler) (const std::string& val,
+	typedef void (ConfigLoader::*locationDirectiveHandler) (const std::string& val,
 													  Config::Location& loc);
 
-	typedef void (Parser::*domainDirectiveHandler) (const std::string& val,
+	typedef void (ConfigLoader::*domainDirectiveHandler) (const std::string& val,
 													Config::Domain& domain);
 
-	typedef void (Parser::*socketDirectiveHandler) (const std::string& val,
+	typedef void (ConfigLoader::*socketDirectiveHandler) (const std::string& val,
 													Config::Socket& socket);
 
 	typedef std::map<std::string,
@@ -73,19 +69,13 @@ public:
 
 private:
 
-	Parser(void);
-	Parser(const Parser& other);
-	Parser& operator = (const Parser& other);
-	~Parser(void);
+	ConfigLoader(void);
+	ConfigLoader(const ConfigLoader& other);
+	ConfigLoader& operator = (const ConfigLoader& other);
+	~ConfigLoader(void);
 
 	static const unsigned short				MAX_REDIRECTS = 5;
 
-	static const size_t 					LF_SIZE = 1;
-	static const size_t 					CRLF_SIZE = 2;
-	static const size_t						LFLF_SIZE = 2;
-	static const size_t						CRLFCRLF_SIZE = 4;
-
-	// Config file parsing //
 	template<typename ConfigType>
 	void _handleRoot(const std::string& val, ConfigType& block) {
 
@@ -176,8 +166,8 @@ private:
 		int code = stringToInt(code_str);
 
 		// if (!isValidErrorCode(code)) {
-		if (code < BAD_REQUEST ||
-			NETWORK_AUTHENTICATION_REQUIRED < code) {
+		if (code < static_cast<int>(BAD_REQUEST) ||
+			static_cast<int>(NETWORK_AUTHENTICATION_REQUIRED) < code) {
 			throw std::runtime_error("parse error: invalid error code: " + code_str);
 		}
 
@@ -212,8 +202,9 @@ private:
 
 		size_t size = stringToSize(val);
 
-		if (size == 0) block.client_max_body_size = UINT64_MAX;
-		else block.client_max_body_size = size;
+		// if (size == 0) block.client_max_body_size = UINT64_MAX;
+		// else block.client_max_body_size = size;
+		if (size != 0) block.client_max_body_size = size;
 
 		return;
 
@@ -260,18 +251,6 @@ private:
 	void									_handleHost(const std::string& val, Config::Socket& soc);
 
 	void									_validateRedirectChains(void);
-
-	// HTTP request parsing //
-	size_t									_findRequestLineEnd(const Client::Buffer& buffer, HTTPRequest& request);
-
-	// bool									_matchMethod(const std::string& method);
-	bool									_extractTokens(const Client::Buffer& buffer, HTTPRequest& request);
-	bool									_parseHeaderLine(const Client::Buffer& buffer, HTTPRequest& request);
-	// bool									_extractContentLength(void);
-
-	bool									_parseRequestLine(const Client::Buffer& buffer, HTTPRequest& request);
-	bool									_parseHeaders(const Client::Buffer& buffer, HTTPRequest& request);
-	bool									_parseBody(const Client::Buffer& buffer, HTTPRequest& request);
 
 	// std::vector<Config>					_configs;
 

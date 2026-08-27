@@ -13,22 +13,22 @@
 #include "../incs/Dispatcher.hpp"
 #include "../incs/HTTPResponse.hpp"
 #include "../incs/HTTPRequest.hpp"
+// #include "../incs/HTTPGrammar.hpp"
 #include "../incs/constexpr.hpp"
 #include "../incs/templates.hpp"
 #include "../incs/Config.hpp"
-// #include "../incs/Parser.hpp"
 #include "../incs/Logger.hpp"
 #include "../incs/utils.hpp"
-// #include <ostream>
-#include <sys/stat.h>	// stat
-#include <sys/wait.h>	// waitpid
+// #include <sys/stat.h>	// stat
+// #include <sys/wait.h>	// waitpid
 #include <dirent.h>		// opendir, readdir, closedir
+#include <unistd.h>
 #include <fcntl.h>
 #include <vector>
-#include <sstream>
 #include <fstream>
+#include <sstream>
 #include <cstddef>
-#include <cstdlib>
+// #include <cstdlib>
 
 static bool isReadable(const std::string& path) {
 
@@ -184,7 +184,7 @@ static const Config::Domain* resolveDomain(const std::vector<Config::Domain>& do
 
 // static Method resolveMethod(const std::vector<Method>& config_methods,
 // 							const Method& requested_method) {
-static Method resolveMethod(const HTTPRequest& request) {
+static  Method resolveMethod(const HTTPRequest& request) {
 
 	const std::vector<Method>& config_methods = request.resolved.location->methods;
 	const Method& requested_method = request.getMethod();
@@ -214,33 +214,65 @@ static Method resolveMethod(const HTTPRequest& request) {
 	return METHOD_COUNT;
 }
 
-static std::string decodeURL(const std::string& input) {
+// static std::string decodeURL(const std::string& input) {
+//
+// 	std::string result;
+// 	for (std::size_t i = 0; i < input.size(); ++i) {
+//
+// 		if (input[i] == '%' && i + 2 < input.size()) {
+//
+// 			char hex[3];
+// 			hex[0] = input[i + 1];
+// 			hex[1] = input[i + 2];
+// 			hex[2] = '\0';
+//
+// 			char* end = 0;
+// 			long value = std::strtol(hex, &end, 16);
+//
+// 			if (*end == '\0') {
+// 				result += static_cast<char>(value);
+// 				i += 2;
+// 				continue;
+// 			}
+//
+// 		}
+//
+// 		result += input[i];
+// 	}
+//
+// 	return result;
+// }
 
-	std::string result;
-	for (std::size_t i = 0; i < input.size(); ++i) {
+static bool decodeURL(const std::string& input, std::string& result) {
 
-		if (input[i] == '%' && i + 2 < input.size()) {
+	result.clear();
 
-			char hex[3];
-			hex[0] = input[i + 1];
-			hex[1] = input[i + 2];
-			hex[2] = '\0';
+	size_t i = 0;
 
-			char* end = 0;
-			long value = std::strtol(hex, &end, 16);
+	while (i < input.size()) {
 
-			if (*end == '\0') {
-				result += static_cast<char>(value);
-				i += 2;
-				continue;
-			}
-
+		if (input[i] != '%') {
+			result += input[i];
+			++i;
+			continue;
 		}
 
-		result += input[i];
+		if (i + 2 >= input.size())
+			return false;
+
+		if (!isHexDigit(input[i + 1]) ||
+			!isHexDigit(input[i + 2]))
+			return false;
+
+		int hi = hexDigitValue(input[i + 1]);
+		int lo = hexDigitValue(input[i + 2]);
+
+		result += static_cast<char>((hi << 4) | lo);
+
+		i += 3;
 	}
 
-	return result;
+	return true;
 }
 
 static bool normalizePath(const std::string& path, std::string& result) {
@@ -371,95 +403,6 @@ static std::string matchContentType(const std::string& path) {
 // static StatusCode handlePOST(const Config::Location& location,
 // 							 const std::string& path,
 // 							 HTTPRequest& request) {
-static StatusCode createFile(const std::string& path,
-							 HTTPRequest& request) {
-
-	// // if (request.getMethod() != "POST") {
-	// // 	_applyErrorPage(client, &location, 405);
-	// // }
-
-	// // if (!location) {
-	// // 	_applyErrorPage(client, &location, 404);
-	// // }
-
-	// const HTTPRequest* request = &client.getCurrentRequest();
-	// HTTPResponse* response = &client.getCurrentResponse();
-
-	// if (request.getBody().size() > client_max_body_size) {
-	// 	// response.setStatus(PAYLOAD_TOO_LARGE);
-	// 	return PAYLOAD_TOO_LARGE;
-	// }
-
-	// struct stat sb;
-
-	// // if (stat(upload_dir.c_str(), &sb) == -1 || !S_ISDIR(sb.st_mode)) {
-	// // 	_applyErrorPage(client, &location, 403);
-	// // }
-	// if (!isWritable(upload_dir)) {
-	// 	// serveErrorPage(&location, response, FORBIDDEN);
-	// 	return FORBIDDEN;
-	// }
-
-	// if (request.getPath().find("..") != std::string::npos) {
-	// 	log.error("dispatch error: forbdden path");
-	// 	return BAD_REQUEST;
-	// }
-
-	// if (request.getBody().str().empty()) {
-	// 	// serveErrorPage(&location, response, BAD_REQUEST);
-	// 	log.error("dispatch error: empty body");
-	// 	return BAD_REQUEST;
-	// }
-
-	// request.parsing.state = HTTPRequest::READING_BODY;
-	// handleBody(buffer, request);
-	// if (request.parsing.state == HTTPRequest::READING_BODY) {
-	// 	return;
-	// }
-
-	// if (request.parsing.state == HTTPRequest::ERROR) {
-	// 	return request.parsing.error_cause;
-	// }
-
-	const Config::Location& location = *request.resolved.location;
-
-	// log.error(i2a(request.parsing.content_length));
-	// log.error(i2a(location.client_max_body_size));
-	// if (request.parsing.content_length > location.client_max_body_size) {
-	if (request.parsing.content_length > location.client_max_body_size) {
-		log.warn("payload size exceeds the maximum allowed");
-		// request.parsing.state = HTTPRequest::ERROR;
-		// request.parsing.error_cause = PAYLOAD_TOO_LARGE;
-		return PAYLOAD_TOO_LARGE;
-	}
-
-	// std::string path;
-	// if (request.resolved.method == POST) {
-	// 	path = request.resolved.path;
-	// } else if (request.resolved.method == PUT) {
-	// 	if (!request.resolved.location->root.empty()) {
-	// 		path = request.resolved.location->root;
-	// 	} else {
-	// 		path = request.resolved.location->alias;
-	// 	}
-	// }
-
-	// log.debug("path: " + path);
-	// request.body.file_fd = createFile(location, path, request);
-	unsigned short count = 0;
-	std::time_t timestamp = std::time(NULL);
-	do {
-		std::string unique_id = i2a(timestamp) + "-" + randomHexString(5);
-		std::string file_path = path + location.upload_dir + "/.upload_" + unique_id + ".part";
-		request.body.file_path = file_path;
-		log.debug("file_path: " + file_path);
-		request.body.file_fd = open(file_path.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0600);
-	} while (request.body.file_fd == -1 && errno == EEXIST && ++count < 11);
-	request.parsing.state = HTTPRequest::READING_BODY;
-	// log.error("request " + request.debug + " parsing state set to " + i2a(request.parsing.state));
-	return NO_STATUS;
-
-}
 
 // static void parseBuffer(Client::Buffer& buffer, HTTPRequest& request) {
 //
@@ -595,6 +538,96 @@ static StatusCode createFile(const std::string& path,
 // 		return;
 //
 // 	}
+//
+// }
+
+// static StatusCode createFile(const std::string& path,
+// 							 HTTPRequest& request) {
+//
+// 	// // if (request.getMethod() != "POST") {
+// 	// // 	_applyErrorPage(client, &location, 405);
+// 	// // }
+//
+// 	// // if (!location) {
+// 	// // 	_applyErrorPage(client, &location, 404);
+// 	// // }
+//
+// 	// const HTTPRequest* request = &client.getCurrentRequest();
+// 	// HTTPResponse* response = &client.getCurrentResponse();
+//
+// 	// if (request.getBody().size() > client_max_body_size) {
+// 	// 	// response.setStatus(PAYLOAD_TOO_LARGE);
+// 	// 	return PAYLOAD_TOO_LARGE;
+// 	// }
+//
+// 	// struct stat sb;
+//
+// 	// // if (stat(upload_dir.c_str(), &sb) == -1 || !S_ISDIR(sb.st_mode)) {
+// 	// // 	_applyErrorPage(client, &location, 403);
+// 	// // }
+// 	// if (!isWritable(upload_dir)) {
+// 	// 	// serveErrorPage(&location, response, FORBIDDEN);
+// 	// 	return FORBIDDEN;
+// 	// }
+//
+// 	// if (request.getPath().find("..") != std::string::npos) {
+// 	// 	log.error("dispatch error: forbdden path");
+// 	// 	return BAD_REQUEST;
+// 	// }
+//
+// 	// if (request.getBody().str().empty()) {
+// 	// 	// serveErrorPage(&location, response, BAD_REQUEST);
+// 	// 	log.error("dispatch error: empty body");
+// 	// 	return BAD_REQUEST;
+// 	// }
+//
+// 	// request.parsing.state = HTTPRequest::READING_BODY;
+// 	// handleBody(buffer, request);
+// 	// if (request.parsing.state == HTTPRequest::READING_BODY) {
+// 	// 	return;
+// 	// }
+//
+// 	// if (request.parsing.state == HTTPRequest::ERROR) {
+// 	// 	return request.parsing.error_cause;
+// 	// }
+//
+// 	const Config::Location& location = *request.resolved.location;
+//
+// 	// log.error(i2a(request.parsing.content_length));
+// 	// log.error(i2a(location.client_max_body_size));
+// 	// if (request.parsing.content_length > location.client_max_body_size) {
+// 	if (request.body.size > location.client_max_body_size) {
+// 		log.warn("payload size exceeds the maximum allowed");
+// 		// request.parsing.state = HTTPRequest::ERROR;
+// 		// request.parsing.error_cause = PAYLOAD_TOO_LARGE;
+// 		return PAYLOAD_TOO_LARGE;
+// 	}
+//
+// 	// std::string path;
+// 	// if (request.resolved.method == POST) {
+// 	// 	path = request.resolved.path;
+// 	// } else if (request.resolved.method == PUT) {
+// 	// 	if (!request.resolved.location->root.empty()) {
+// 	// 		path = request.resolved.location->root;
+// 	// 	} else {
+// 	// 		path = request.resolved.location->alias;
+// 	// 	}
+// 	// }
+//
+// 	// log.debug("path: " + path);
+// 	// request.body.file_fd = createFile(location, path, request);
+// 	unsigned short count = 0;
+// 	std::time_t timestamp = std::time(NULL);
+// 	do {
+// 		std::string unique_id = i2a(timestamp) + "-" + randomHexString(5);
+// 		std::string file_path = path + location.upload_dir + "/.upload_" + unique_id + ".part";
+// 		request.body.file_path = file_path;
+// 		log.debug("file_path: " + file_path);
+// 		request.body.file_fd = open(file_path.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0600);
+// 	} while (request.body.file_fd == -1 && errno == EEXIST && ++count < 11);
+// 	request.parsing.state = HTTPRequest::READING_BODY;
+// 	// log.error("request " + request.debug + " parsing state set to " + i2a(request.parsing.state));
+// 	return NO_STATUS;
 //
 // }
 
@@ -893,15 +926,6 @@ static StatusCode handleGET(const HTTPRequest& request,
 static StatusCode handlePUT(HTTPRequest& request,
 							HTTPResponse& response) {
 
-	write(request.body.file_fd, request.getBody().str().c_str(), request.getBody().str().size());
-	close(request.body.file_fd);
-
-	std::string new_path = request.resolved.path;
-	if (std::rename(request.body.file_path.c_str(), new_path.c_str()) != 0) {
-		log.warn("dispatch error: " + std::string(strerror(errno)));
-		// return INTERNAL_SERVER_ERROR;
-	}
-
 	response.setHeader("Connection", "keep-alive");
 	response.setBodySink(HEAP);
 	response.setBody("Uploaded\n", "text/plain", request.headers_only);
@@ -939,20 +963,6 @@ static StatusCode handlePOST(const HTTPRequest& request,
 	// // file.write(request.getBody().str().c_str(), request.parsing.content_length);
 	// file.close();
 
-	write(request.body.file_fd, request.getBody().str().c_str(), request.getBody().str().size());
-	close(request.body.file_fd);
-
-	const std::string& path = request.resolved.path;
-	const Config::Location& location = *request.resolved.location;
-
-	// std::string old_path = "/home/ben/Public/example.com/satan/prayers/prayer-" + randomHexString(4);
-	std::string new_path = path + location.upload_dir + "/prayer-" + randomHexString(4);
-	log.error(new_path);
-	if (std::rename(request.body.file_path.c_str(), new_path.c_str()) != 0) {
-		log.warn("dispatch error: " + std::string(strerror(errno)));
-		// return INTERNAL_SERVER_ERROR;
-	}
-
 	response.setStatus(CREATED);
 	response.setHeader("Connection", "keep-alive");
 
@@ -971,7 +981,7 @@ static StatusCode handleRegularFile(HTTPRequest& request,
 
 	const Method& method = request.resolved.method;
 	const std::string& path = request.resolved.path;
-	std::string directory;
+	// std::string directory;
 
 	StatusCode status_code = NO_STATUS;
 
@@ -983,7 +993,7 @@ static StatusCode handleRegularFile(HTTPRequest& request,
 			return METHOD_NOT_ALLOWED;
 			// break;
 		case DELETE:
-			return removeFile(path, response); // TEST // TODO //
+			return removeFile(path, response); // TEST
 			// break;
 		case PUT:
 		// 	// return replaceFile(location, path, buffer, request, response);
@@ -991,17 +1001,25 @@ static StatusCode handleRegularFile(HTTPRequest& request,
 			if (status_code >= BAD_REQUEST) {
 				return status_code;
 			}
-			if (!request.resolved.location->root.empty()) {
-				directory = request.resolved.location->root;
-				// log.error("directory: " + directory);
-				// log.debug("root: " + request.resolved.location->root);
-			} else {
-				directory = request.resolved.location->alias;
-				// log.error("directory: " + directory);
-				// log.debug("alias: " + request.resolved.location->alias);
+			if (!request.is_multipart && request.body.size != 0) {
+				// TEST create file
+				if (!createFile(request)) {
+					return PAYLOAD_TOO_LARGE;
+				}
 			}
-			// log.error("directory: " + directory);
-			return createFile(directory, request);
+			// if (!request.resolved.location->root.empty()) {
+			// 	directory = request.resolved.location->root;
+			// 	// log.error("directory: " + directory);
+			// 	// log.debug("root: " + request.resolved.location->root);
+			// } else {
+			// 	directory = request.resolved.location->alias;
+			// 	// log.error("directory: " + directory);
+			// 	// log.debug("alias: " + request.resolved.location->alias);
+			// }
+			// // log.error("directory: " + directory);
+			// return createFile(directory, request);
+			request.parsing.state = HTTPRequest::READING_BODY;
+			return NO_STATUS;
 		// 	// break;
 		case HEAD:
 			return serveFile(path, request, response);
@@ -1023,8 +1041,8 @@ static StatusCode handleDirectory(HTTPRequest& request,
 
 	const Method& method = request.resolved.method;
 	// const Config::Location& location = *request.resolved.location;
-	const std::string& path = request.resolved.path;
-	std::string directory;
+	// const std::string& path = request.resolved.path;
+	// std::string directory;
 
 	// int file_fd;
 	switch (method) {
@@ -1033,27 +1051,44 @@ static StatusCode handleDirectory(HTTPRequest& request,
 		return handleGET(request, response);
 		// break;
 	case POST:
+		if (!request.is_multipart &&
+		   (request.body.size != 0 || request.body_chunked)) {
+			// TEST create file
+			if (!createFile(request)) {
+				return PAYLOAD_TOO_LARGE;
+			}
+		}
 		// return handlePOST(request, response); // TEST // TODO //
 		// return handlePOST(location, path, request);
-		return createFile(path, request);
+		// return createFile(path, request);
+		request.parsing.state = HTTPRequest::READING_BODY;
+		return NO_STATUS;
 		// break;
 	case DELETE:
 		return METHOD_NOT_ALLOWED;
 		// break;
 	case PUT:
 		// return METHOD_NOT_ALLOWED;
-		request.created_file = true;
-		if (!request.resolved.location->root.empty()) {
-			directory = request.resolved.location->root;
-			// log.error("directory: " + directory);
-			// log.debug("root: " + request.resolved.location->root);
-		} else {
-			directory = request.resolved.location->alias;
-			// log.error("directory: " + directory);
-			// log.debug("alias: " + request.resolved.location->alias);
+		if (!request.is_multipart && request.body.size != 0) {
+			// TEST create file
+			if (!createFile(request)) {
+				return PAYLOAD_TOO_LARGE;
+			}
 		}
-		// log.error("directory: " + directory);
-		return createFile(directory, request);
+		request.created_file = true;
+		// if (!request.resolved.location->root.empty()) {
+		// 	directory = request.resolved.location->root;
+		// 	// log.error("directory: " + directory);
+		// 	// log.debug("root: " + request.resolved.location->root);
+		// } else {
+		// 	directory = request.resolved.location->alias;
+		// 	// log.error("directory: " + directory);
+		// 	// log.debug("alias: " + request.resolved.location->alias);
+		// }
+		// // log.error("directory: " + directory);
+		// return createFile(directory, request);
+		request.parsing.state = HTTPRequest::READING_BODY;
+		return NO_STATUS;
 	// 	break;
 	case HEAD:
 		return handleGET(request, response);
@@ -1256,18 +1291,22 @@ static StatusCode resolveRequestRoute(Client& client) {
 	const Config::Socket& socket = client.getConfig();
 	HTTPResponse& response = client.getCurrentResponse();
 	HTTPRequest& request = client.getCurrentRequest();
-	std::string version = request.getVersion();
+	const std::string& version = request.getVersion();
 
 	// log.error("Dispatcher: processing " + request.debug);
+
 	// Check HTTP version
-	// std::string version = request.getVersion();
+	// const std::map<std::string, std::string>& headers = request.getHeaders();
+	const std::string* connection = request.getHeader("connection");
 	if (version == http::V_1_1) {
-		if (request.hasHeader("connection") && request.getHeader("connection") == "close") {
+		// if (includesHeader(headers, "connection") && *request.getHeader("connection") == "close") {
+		if (connection != NULL && *connection == "close") {
 			response.setHeader("Connection", "close");
 			client.markForTermination();
 		}
 	} else if (version ==  http::V_1_0) {
-		if (!request.hasHeader("connection") || request.getHeader("connection") !=  "keep-alive") {
+		// if (!includesHeader(headers, "connection") || *request.getHeader("connection") !=  "keep-alive") {
+		if (connection != NULL && *connection == "keep-alive") {
 			response.setHeader("Connection", "close");
 			client.markForTermination();
 		}
@@ -1276,7 +1315,7 @@ static StatusCode resolveRequestRoute(Client& client) {
 	// Match domain by name
 	// if (!matchDomain(socket->domains, request->getHeader("host"), domain)) {
 	// const Config::Domain* dom_ptr = matchDomain(socket.domains, request.getHeader("host"));
-	request.resolved.domain = resolveDomain(socket.domains, request.getHeader("host"));
+	request.resolved.domain = resolveDomain(socket.domains, *request.getHeader("host"));
 	// if (!dom_ptr) {
 	if (!request.resolved.domain) {
 		// client.markForTermination();
@@ -1342,7 +1381,11 @@ static StatusCode resolveRequestRoute(Client& client) {
 	// Decode and normalize path, then check for traversal attempts
 	// (verify that the resulting path remains inside location's root)
 	// log.error("requested path: " + request.getPath());
-	std::string decoded = decodeURL(request.getPath());
+	std::string decoded;
+	if (!decodeURL(request.getPath(), decoded)) {
+		log.error("dispatch error: malformed target URL");
+		return BAD_REQUEST;
+	}
 	// log.error("decoded path: " + decoded);
 	std::string normalized;
 	if (!normalizePath(decoded, normalized)) {
@@ -1588,7 +1631,7 @@ void Dispatcher::errorPage(const Config::Location* location,
 	std::string error_page_path;
 	// Check location error_page first, then server error_page
 	if (location != NULL && !location->error_pages.empty()) {
-		std::map<int, std::string>::const_iterator it = location->error_pages.find(code);
+		std::map<int, std::string>::const_iterator it = location->error_pages.find(static_cast<int>(code));
 		if (it != location->error_pages.end()) {
 			error_page_path = it->second;
 		}
