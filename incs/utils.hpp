@@ -1,0 +1,54 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   utils.hpp                                          :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: sholz + bstorck <marvin@42.fr>             +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2026/06/30 18:39:31 by sholz             #+#    #+#             */
+/*   Updated: 2026/06/30 18:39:32 by bstorck          ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
+#ifndef UTILS_HPP
+#define UTILS_HPP
+
+#include "HTTPRequest.hpp"
+#include "Client.hpp"
+#include <string>
+# include <cstddef>
+#include <sys/epoll.h>
+// #include <vector>
+
+// DEBUG
+void			warnHighEventLoad(int nfds, int max_capacity);
+void			dumpEvents(int nfds, epoll_event* events);
+void			dumpClientConfig(const Client* client);
+void			dumpRequest(const HTTPRequest* request);
+// DEBUG
+
+unsigned short	stringToUnsignedShort(const std::string& str);
+// long			stringToLong(const std::string& str);
+size_t			stringToSize(const std::string& str);
+int				stringToInt(const std::string& str);
+int				hexDigitValue(char c);
+
+std::string		trim(const std::string& str);
+std::string		unquote(const std::string& str);
+std::string		randomHexString(size_t width);
+
+bool			isHexDigit(char c);
+bool			isRegularFile(const std::string& path);
+bool			isDirectory(const std::string& path);
+
+bool			createFile(HTTPRequest& request);
+bool			promoteFile(HTTPRequest& request);
+
+void			dumpConfigs(const std::vector<Config::Socket>& config);
+
+#endif
+
+// bool			isReadable(const std::string& path);
+// bool			isValidErrorCode(const int code);
+
+// bool			includesHeader(std::map<std::string, std::string> headers, const std::string& key);
