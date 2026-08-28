@@ -54,6 +54,16 @@ static std::string stripInlineComment(std::string line) {
 	return line;
 
 }
+/*
+static bool isSupportedCGIExtension(const std::string& ext) {
+
+	const std::string valid_exts[] = {".py", ".sh"};
+	const size_t size = arraySize(valid_exts);
+
+	return (std::find(valid_exts, valid_exts + size, ext) != valid_exts + size);
+
+}
+*/
 
 // static bool isSupportedMethod(const std::string& method) {
 //
@@ -1183,7 +1193,11 @@ void ConfigLoader::_handleInterpreter(const std::string& val, Config::Location& 
 	if (!(iss >> ext >> path)) {
 		throw std::runtime_error("config error: interpreter requires both extension and path");
 	}
-
+	/*
+	if (!isSupportedCGIExtension(ext)) {
+		throw std::runtime_error("config error: unsupported CGI extension: " + ext);
+	}
+	*/
 	if (ext.empty() || ext[0] != '.' || ext.find('/') != std::string::npos) {
 		throw std::runtime_error("config error: invalid CGI extension: " + ext);
 	}
