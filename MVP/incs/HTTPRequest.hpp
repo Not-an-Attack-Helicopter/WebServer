@@ -186,12 +186,14 @@ public:
 		const Config::Domain*							domain;
 		const Config::Location*							location;
 		std::string										path;
+		std::string										interpreter;
 
 		ResolvedRoute(void)
 			:	method(METHOD_COUNT),
 				domain(NULL),
 				location(NULL),
-				path("") {}
+				path(""),
+				interpreter("") {}
 
 	};
 
