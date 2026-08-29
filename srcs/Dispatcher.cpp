@@ -40,7 +40,7 @@ static bool isReadable(const std::string& path) {
 
 }
 
-static bool hasCGIExtension(const HTTPRequest& request) {
+static bool hasCGIExtension(HTTPRequest& request) {
 
 	const Config::Location& location = *request.resolved.location;
 	const std::string& path = request.resolved.path;
@@ -50,9 +50,17 @@ static bool hasCGIExtension(const HTTPRequest& request) {
 		return false;
 	}
 
-	std::string ext = path.substr(dot);
-	if (location.interpreters.count(ext) == 1) {
-		return true;
+	const std::string ext = path.substr(dot);
+
+	// if (location.interpreters.count(ext) == 1) {
+	// 	return true;
+	// }
+	std::map<std::string, std::string>::const_iterator it = location.interpreters.begin();
+	while (it != location.interpreters.end()) {
+		if (it->first == ext) {
+			request.resolved.interpreter = it->second;
+			return true;
+		}
 	}
 
 	return false;
