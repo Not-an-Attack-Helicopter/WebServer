@@ -1,57 +1,50 @@
-CXX         := c++
-CXXFLAGS    := -Wall -Wextra -Werror -std=c++98 -I./includes
+# **************************************************************************** #
+#                                                                              #
+#                                                         :::      ::::::::    #
+#    Makefile                                           :+:      :+:    :+:    #
+#                                                     +:+ +:+         +:+      #
+#    By: bstorck <marvin@42.fr>                     +#+  +:+       +#+         #
+#                                                 +#+#+#+#+#+   +#+            #
+#    Created: 2026/03/23 23:48:24 by bstorck           #+#    #+#              #
+#    Updated: 2026/03/23 23:48:25 by bstorck          ###   ########.fr        #
+#                                                                              #
+# **************************************************************************** #
 
-# Directories
-SRC_DIR     := src
-OBJ_DIR     := obj
+NAME		=	webserv
 
-# Files
-SRCS        := $(wildcard $(SRC_DIR)/*.cpp)
-OBJS        := $(SRCS:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o)
-NAME        := webserv
+CXX			=	c++
+CXXFLAGS	=	-Werror -Wextra -Wall -g -O3 -std=c++98
 
-TOTAL       := $(words $(SRCS))
-COUNT       := 0
+SRCS_DIR	=	./srcs/
+OBJS_DIR	=	./objs/
+INCS_DIR	=	./incs/
 
-# Rules
+SRCS		=	main.cpp Config.cpp ConfigLoader.cpp Buffer.cpp Server.cpp \
+			Client.cpp HTTPRequest.cpp HTTPRequestParser.cpp HTTPGrammar.cpp \
+			HTTPParameters.cpp HTTPContentType.cpp HTTPContentDisposition.cpp \
+			HTTPResponse.cpp Dispatcher.cpp Logger.cpp utils.cpp
+
+OBJS		=	$(addprefix $(OBJS_DIR), $(SRCS:.cpp=.o))
+
+INCS		=	-I $(INCS_DIR)
+
 all: $(NAME)
 
 $(NAME): $(OBJS)
-	@echo "\n-------------------- Building $(NAME) --------------------"
-	$(CXX) $(CXXFLAGS) $(OBJS) -o $(NAME)
-	@echo "-------------------- We Still Use Wildcard Please Change!!!!!!!!! --------------------"
-	@echo "-------------------- We Still Use Wildcard Please Change!!!!!!!!! --------------------"
-	@echo "-------------------- We Still Use Wildcard Please Change!!!!!!!!! --------------------"
-	@echo "-------------------- We Still Use Wildcard Please Change!!!!!!!!! --------------------"
-	@echo "-------------------- We Still Use Wildcard Please Change!!!!!!!!! --------------------"
-	@echo "-------------------- We Still Use Wildcard Please Change!!!!!!!!! --------------------"
-	@echo "-------------------- We Still Use Wildcard Please Change!!!!!!!!! --------------------"
-	@echo "-------------------- We Still Use Wildcard Please Change!!!!!!!!! --------------------"
+	$(CXX) $(CXXFLAGS) $(OBJS) -o $@ $(INCS)
 
-# Compile .cpp -> obj/.o with progress
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
-	@mkdir -p $(OBJ_DIR)
-	$(eval COUNT=$(shell echo $$(($(COUNT)+1))))
-	@printf "\rCompiling: [%-50s] %d/%d" \
-	"$$(printf '#%.0s' $$(seq 1 $(COUNT)))" $(COUNT) $(TOTAL)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+$(OBJS_DIR)%.o: $(SRCS_DIR)%.cpp | $(OBJS_DIR)
+	$(CXX) $(CXXFLAGS) -c $< -o $@ $(INCS)
 
-# Tester – compiles every source except main.cpp, then links tester.cpp
-TESTER_NAME := tester
-TESTER_SRCS := $(filter-out $(SRC_DIR)/main.cpp, $(wildcard $(SRC_DIR)/*.cpp))
-TESTER_OBJS := $(TESTER_SRCS:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o)
-
-tester: $(TESTER_OBJS)
-	@echo "\n-------------------- Building $(TESTER_NAME) --------------------"
-	$(CXX) $(CXXFLAGS) $(TESTER_OBJS) -o $(TESTER_NAME)
-	@echo "-------------------- Done --------------------"
+$(OBJS_DIR):
+	@mkdir -p $@
 
 clean:
-	rm -rf $(OBJ_DIR)
+	@rm -rf $(OBJS_DIR)
 
 fclean: clean
-	rm -f $(NAME) $(TESTER_NAME)
+	@rm -f $(NAME)
 
 re: fclean all
 
-.PHONY: all clean fclean re tester
+.PHONY: all re clean fclean
