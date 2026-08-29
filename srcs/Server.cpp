@@ -221,6 +221,7 @@ void Server::handleEvents(void) {
 		case -1:
 			// throw std::runtime_error("epoll_wait: " + std::string(strerror(errno)));
 			log.error("epoll_wait: " + std::string(strerror(errno)));
+			break;
 // DEBUG BEGIN
 		case 0:
 			log.debug("Timeout: no events");

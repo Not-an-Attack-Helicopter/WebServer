@@ -84,6 +84,10 @@ const std::string* HTTPRequest::getHeader(const std::string& key) const {
 
 }
 
+const std::map<std::string, std::string>& HTTPRequest::getHeaders(void) const {
+	return _headers;
+}
+
 // setters
 void HTTPRequest::BodyPart::setHeader(const std::string& key, const std::string& value) {
 	_headers[key] = value;

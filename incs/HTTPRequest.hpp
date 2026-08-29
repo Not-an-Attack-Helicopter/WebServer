@@ -216,6 +216,7 @@ public:
 	const std::string&						getQuery(void) const;
 	const std::string&						getVersion(void) const;
 	const std::string*						getHeader(const std::string& key) const;
+	const std::map<std::string, std::string>&	getHeaders(void) const;
 
 	const std::stringstream&				getBody(void) const;
 
