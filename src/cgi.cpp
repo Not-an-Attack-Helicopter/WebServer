@@ -79,7 +79,7 @@ CgiProcess::CgiProcess(const std::string& path, const std::vector<std::string>& 
             envp.push_back(const_cast<char*>(env_strings[i].c_str()));
         envp.push_back(NULL);
 
-        execve(path.c_str(), argv.empty() ? NULL : &argv[0], envp.empty() ? NULL : &envp[0]);
+        execve(path.c_str(), &argv[0], &envp[0]);
         _exit(127);
     }
 
