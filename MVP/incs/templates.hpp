@@ -13,8 +13,8 @@
 #ifndef TEMPLATES_HPP
 #define TEMPLATES_HPP
 
-#include <cstddef>
-#include <string>
+// #include <cstddef>
+// #include <string>
 #include <sstream>
 #include <vector>
 
@@ -25,18 +25,18 @@ inline std::string i2a(const T input) {
 	return convert.str();
 }
 
-template<typename T, size_t N>
-inline size_t arraySize(const T (&)[N]) {
+template<typename T, std::size_t N>
+inline std::size_t arraySize(const T (&)[N]) {
 	return N;
 }
 
 template<typename T>
-inline typename std::vector<T>::iterator pos2it(std::vector<T>& vec, size_t pos) {
+inline typename std::vector<T>::iterator pos2it(std::vector<T>& vec, std::size_t pos) {
 	return vec.begin() + pos;
 }
 
 template<typename T>
-inline typename std::vector<T>::const_iterator pos2it(const std::vector<T>& vec, size_t pos) {
+inline typename std::vector<T>::const_iterator pos2it(const std::vector<T>& vec, std::size_t pos) {
 	return vec.begin() + pos;
 }
 

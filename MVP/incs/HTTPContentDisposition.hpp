@@ -43,10 +43,6 @@ namespace HTTPContentDisposition {
 	* ================================================================
 	*/
 
-	// bool parseContentDisposition(const std::string& headerValue,
-	// 	ContentDispositionContext context,
-	// 	HTTPParameters::MIMEValue& result);
-
 	bool extractContentDisposition(const std::string& headerValue,
 								   Context context,
 								   std::string& disposition,

@@ -12,6 +12,7 @@
 
 #include "../incs/HTTPParameters.hpp"
 #include "../incs/HTTPGrammar.hpp"
+#include "../incs/utils.hpp"
 
 namespace HTTPParameters {
 
@@ -25,7 +26,7 @@ namespace HTTPParameters {
 	*/
 
 	static bool parseParameterValue(const std::string& s,
-									size_t& pos,
+									std::size_t& pos,
 									std::string& value,
 									bool& quoted) {
 
@@ -90,9 +91,9 @@ namespace HTTPParameters {
 	*/
 
 	bool parseParameters(const std::string& s,
-								size_t& pos,
-								std::vector<MIMEParameter>& parameters,
-								ParameterSyntax syntax) {
+						std::size_t& pos,
+						std::vector<MIMEParameter>& parameters,
+						ParameterSyntax syntax) {
 
 		parameters.clear();
 
@@ -213,10 +214,10 @@ namespace HTTPParameters {
 	// static const MIMEParameter* findParameter(const std::vector<MIMEParameter>& parameters,
 	// 										  const char* name) {
  //
-	// 	size_t i;
+	// 	std::size_t i;
  //
 	// 	for (i = 0; i < parameters.size(); ++i) {
-	// 		if (HTTPGrammar::equalCI(parameters[i].name,name)) {
+	// 		if (equalCI(parameters[i].name,name)) {
 	// 		return &parameters[i];
 	// 		}
 	// 	}
@@ -235,14 +236,13 @@ namespace HTTPParameters {
 							const char* name,
 							std::string& value) {
 
-		size_t i;
-		size_t count = 0;
+		std::size_t count = 0;
 
 		value.clear();
 
-		for (i = 0; i < parameters.size(); ++i) {
+		for (std::size_t i = 0; i < parameters.size(); ++i) {
 
-			if (HTTPGrammar::equalCI(parameters[i].name, name)) {
+			if (equalCI(parameters[i].name, name)) {
 
 				++count;
 

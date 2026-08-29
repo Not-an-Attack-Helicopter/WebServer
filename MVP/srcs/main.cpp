@@ -10,18 +10,15 @@
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "../incs/Logger.hpp"
 #include "../incs/ConfigLoader.hpp"
 #include "../incs/Server.hpp"
+#include "../incs/Logger.hpp"
 #include "../incs/utils.hpp"
 #include <exception>
 #include <cstring>
-// #include <iostream>
-// #include "../incs/colors.hpp"
 
 int main(int argc, char** argv) {
 
-	// std::srand(std::time(NULL));
 	std::string config_file;
 	std::string av[argc];
 
@@ -60,7 +57,6 @@ int main(int argc, char** argv) {
 
 		} else if (av[1] == "-l" || av[1] == "--log-level") {
 			log.setLevel(av[2]);
-			// log.info("Using Default Configuration");
 			config_file = "configs/default.conf";
 
 		} else {
@@ -74,7 +70,6 @@ int main(int argc, char** argv) {
 
 		if (av[1] == "-q" || av[1] == "--quiet") {
 			log.setLevel(Logger::LEVEL_OFF);
-			// log.info("Using Default Configuration");
 			config_file = "configs/default.conf";
 
 		} else {
@@ -85,7 +80,6 @@ int main(int argc, char** argv) {
 
 	case 1:
 
-		// log.info("Using Default Configuration");
 		config_file = "configs/default.conf";
 		break;
 
@@ -99,7 +93,7 @@ int main(int argc, char** argv) {
 	log.info("Using configuration file: " + config_file);
 
 	// Parse phase: parse through config file and extract server setup
-	size_t sockets_count = 0;
+	std::size_t sockets_count = 0;
 
 	try {
 
@@ -135,12 +129,10 @@ int main(int argc, char** argv) {
 
 	}
 
-	for (size_t i = 0; i < sockets_count; ++i) {
+	for (std::size_t i = 0; i < sockets_count; ++i) {
 
 		try {
-			// std::string address = parser.getConfig(i).host;
-			// unsigned short port = parser.getConfig(i).port;
-			// server.prepareListeningPort(address, port);
+
 			server.prepareListeningPort(configs.get(i));
 
 		} catch (const std::exception& e) {
@@ -154,7 +146,7 @@ int main(int argc, char** argv) {
 	// Run phase: listen on all sockets for events
 	try {
 
-		server.handleIncomingEvents();
+		server.handleEvents();
 
 	} catch (const std::exception& e) {
 		log.error(e.what());
@@ -164,13 +156,3 @@ int main(int argc, char** argv) {
 	return 0;
 
 }
-
-	// Server* server = NULL;
-	// try {
-	// 	server = new Server();
-	// } catch (std::exception& e) {
-	// 	// std::cerr << ERROR << e.what() << RESET << std::endl;
-	// 	log.error(e.what());
-	// 	delete server;
-	// 	return 1;
-	// }

@@ -11,8 +11,6 @@
 /* ************************************************************************** */
 
 #include "../incs/Logger.hpp"
-// #include "../incs/colors.hpp"
-// #include <unistd.h>
 #include <iostream>
 
   //~~~~~~~~~~//
@@ -89,7 +87,6 @@ void Logger::error(const std::string& msg) {
 }
 
 void Logger::notice(const std::string& msg) {
-	// _logMessage(LEVEL_NOTICE, msg);
 	if (LEVEL_NOTICE < _log_level) return;
 	std::string color = getLevelColor(LEVEL_NOTICE);
 	std::cout << color << msg << COLOR_RESET << std::endl;
@@ -101,20 +98,20 @@ void Logger::notice(const std::string& msg) {
 //~~~~~~~~~~~//
 
 /*	@brief Constructor	*/
-Logger::Logger(void) : _log_level(LEVEL_NOTICE) {
+Logger::Logger(void) : _log_level(LEVEL_OFF) {
 	// std::cerr << DEBUG << "[DEBUG] Logger Constructor called" << RESET << std::endl;
 	return;
 }
 
-/*	@brief Deconstructor	*/
+/*	@brief Destructor	*/
 Logger::~Logger(void) {
-	// std::cerr << DEBUG << "[DEBUG] Logger Deconstructor called" << RESET << std::endl;
+	// std::cerr << DEBUG << "[DEBUG] Logger Destructor called" << RESET << std::endl;
 	return;
 }
 
 /*	@brief Copy Constructor	*/
 Logger::Logger(const Logger& other) {
-	// std::cerr << DEBUG << "[DEBUG] Logger Deconstructor called" << RESET << std::endl;
+	// std::cerr << DEBUG << "[DEBUG] Logger Destructor called" << RESET << std::endl;
 	*this = other;
 	return;
 }
@@ -130,7 +127,6 @@ Logger& Logger::operator = (const Logger& other) {
 void Logger::_logMessage(Level lvl, const std::string& msg) {
 	if (lvl < _log_level || lvl == LEVEL_OFF) return;
 
-	// std::cout << "DONG!" << std::endl;
 	std::string name = getLevelName(lvl);
 	std::string color = getLevelColor(lvl);
 
@@ -145,13 +141,13 @@ void Logger::_logMessage(Level lvl, const std::string& msg) {
 
 // if (lvl == LEVEL_INFO) {
 // 	std::cout << color << "[" << name << "] ";
-// 	for (size_t i = 0; i < msg.size(); ++i) {
+// 	for (std::size_t i = 0; i < msg.size(); ++i) {
 // 		std::cout << msg[i];
 // 	}
 // 	std::cout << COLOR_RESET << std::endl;
 // } else {
 // 	std::cerr << color << "[" << name << "] ";
-// 	for (size_t i = 0; i < msg.size(); ++i) {
+// 	for (std::size_t i = 0; i < msg.size(); ++i) {
 // 		std::cerr << msg[i];
 // 	}
 // 	std::cerr << COLOR_RESET << std::endl;
@@ -161,7 +157,7 @@ void Logger::_logMessage(Level lvl, const std::string& msg) {
 // 	stream = &std::cout;
 // }
 // *stream << color << "[" << name << "] ";
-// for (size_t i = 0; i < msg.size(); ++i) {
+// for (std::size_t i = 0; i < msg.size(); ++i) {
 // 	*stream << msg[i];
 // }
 // *stream << COLOR_RESET << std::endl;

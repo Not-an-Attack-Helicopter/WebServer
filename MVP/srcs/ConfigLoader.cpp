@@ -13,27 +13,24 @@
 #include "../incs/ConfigLoader.hpp"
 #include "../incs/Dispatcher.hpp"
 #include "../incs/templates.hpp"
-// #include "../incs/constexpr.hpp"
-#include "../incs/Config.hpp"
+// #include "../incs/Config.hpp"
 #include "../incs/Logger.hpp"
-#include "../incs/utils.hpp"
-#include <fcntl.h>
-#include <sys/stat.h>
+// #include "../incs/utils.hpp"
+// #include <sys/stat.h>
 #include <unistd.h>
+#include <fcntl.h>
+// #include <cstddef>
+// #include <cctype>
+// #include <vector>
+// #include <fstream>
+// #include <iostream>
 #include <algorithm>
-#include <stdexcept>
-#include <iostream>
-#include <fstream>
-// #include <sstream>
-#include <vector>
-#include <cstddef>
-// #include <climits>
-#include <cctype>
+// #include <stdexcept>
 
 // Config file parsing helpers
 static bool isConfigFile(const std::string& filename) {
 
-	size_t dot = filename.rfind('.');
+	std::size_t dot = filename.rfind('.');
 
 	if (dot == std::string::npos || dot == filename.size() - 1) {
 		return false;
@@ -46,7 +43,7 @@ static bool isConfigFile(const std::string& filename) {
 
 static std::string stripInlineComment(std::string line) {
 
-	size_t commentPos = line.find('#');
+	std::size_t commentPos = line.find('#');
 	if (commentPos != std::string::npos) {
 		line = line.substr(0, commentPos);
 	}
@@ -55,72 +52,14 @@ static std::string stripInlineComment(std::string line) {
 
 }
 
-// static bool isSupportedMethod(const std::string& method) {
-//
-// 	const std::string valid_methods[METHOD_COUNT] = {"GET", "HEAD", "DELETE", "POST", "PUT"};
-// 	// const size_t size = arraySize(valid_methods);
-// 	if (std::find(valid_methods, valid_methods + METHOD_COUNT, method) != valid_methods + METHOD_COUNT) {
-// 		return true;
-// 	} else {
-// 		return false;
-// 	}
-// 	// return (std::find(valid_methods, valid_methods + METHOD_COUNT, method) != valid_methods + METHOD_COUNT);
-// }
-
 static bool isSupportedCGIExtension(const std::string& ext) {
 
 	const std::string valid_exts[] = {".py", ".sh"};
-	const size_t size = arraySize(valid_exts);
+	const std::size_t size = arraySize(valid_exts);
 
 	return (std::find(valid_exts, valid_exts + size, ext) != valid_exts + size);
 
 }
-
-// static bool isRegularFile(const std::string& path) {
-
-// 	// if (access(path.c_str(), F_OK) == -1) {
-// 	// 	return false;
-// 	// } // redundant
-
-// 	struct stat sb;
-// 	if (stat(path.c_str(), &sb) != 0) {
-// 		return false;
-// 	}
-
-// 	return S_ISREG(sb.st_mode);
-
-// }
-
-// static bool isDirectory(const std::string& path) {
-
-// 	// if (access(path.c_str(), F_OK) == -1) {
-// 	// 	return false;
-// 	// }
-
-// 	struct stat sb;
-// 	if (stat(path.c_str(), &sb) != 0) {
-// 		return false;
-// 	}
-
-// 	return S_ISDIR(sb.st_mode);
-
-// }
-
-// static bool isReadable(const std::string& path) {
-// 	if (!isRegularFile(path)) {
-// 		return false;
-// 	}
-// 	return access(path.c_str(), R_OK) == 0;
-// }
-
-// static bool isTchar(char c) {
-// 	return std::isalnum(static_cast<unsigned char>(c)) ||
-// 	c == '!' || c == '#' || c == '$' ||
-// 	c == '%' || c == '&' || c == '\'' ||
-// 	c == '*' || c == '+' || c == '-' ||
-// 	c == '.' || c == '^' || c == '_' ||
-// 	c == '`' || c == '|' || c == '~';
-// }
 
 static bool isReadable(const std::string& path) {
 
@@ -133,21 +72,11 @@ static bool isReadable(const std::string& path) {
 
 }
 
-// static bool isWritable(const std::string& path) {
-//
-// 	// if (!isRegularFile(path)) { // checking directory!
-// 	// 	return false;
-// 	// }
-//
-// 	return access(path.c_str(), W_OK) == 0;
-//
-// }
-
 static bool isExecutable(const std::string& path) {
 
 	if (!isRegularFile(path)) return false;
 
-	return /*isRegularFile(path) && */access(path.c_str(), X_OK) == 0;
+	return access(path.c_str(), X_OK) == 0;
 
 }
 
@@ -177,7 +106,7 @@ static bool isValidIPAddress(const std::string& ip) {
 			return false;
 		}
 
-		for (size_t i = 0; i < token.size(); ++i) {
+		for (std::size_t i = 0; i < token.size(); ++i) {
 
 			if (!std::isdigit(static_cast<unsigned char>(token[i]))) {
 				return false;
@@ -198,22 +127,10 @@ static bool isValidIPAddress(const std::string& ip) {
 
 }
 
-// static bool isValidBodySize(const int size) {
-//
-// 	return size >= 0;
-//
-// }
-
-// static bool isValidErrorCode(const int code) {
-//
-// 	return code >= 400 && code < 600;
-//
-// }
-
 static bool isDuplicateSocket(const std::vector<Config::Socket>& sockets,
 							  const std::string& address, int port) {
 
-	for (size_t i = 0; i < sockets.size(); ++i) {
+	for (std::size_t i = 0; i < sockets.size(); ++i) {
 		if (sockets[i].port == port && sockets[i].address == address) {
 			return true;
 		}
@@ -225,8 +142,8 @@ static bool isDuplicateSocket(const std::vector<Config::Socket>& sockets,
 static bool isDuplicateDomain(const std::vector<Config::Domain>& domains,
 							  std::string& name) {
 
-	for (size_t i = 0; i < domains.size(); ++i) {
-		for (size_t j = 0; j < domains[i].names.size(); ++j) {
+	for (std::size_t i = 0; i < domains.size(); ++i) {
+		for (std::size_t j = 0; j < domains[i].names.size(); ++j) {
 			if (domains[i].names[j] == name) {
 				return true;
 			}
@@ -238,40 +155,17 @@ static bool isDuplicateDomain(const std::vector<Config::Domain>& domains,
 static bool isDuplicateLocation(const std::vector<Config::Location>& locations,
 								const std::string& path) {
 
-	for (size_t i = 0; i < locations.size(); ++i) {
+	for (std::size_t i = 0; i < locations.size(); ++i) {
 		if (locations[i].path == path) {
 			return true;
 		}
 	}
 	return false;
 }
-/*
-static int createFile(const Config::Location& location,
-					  const std::string& path,
-					  HTTPRequest& request) {
-
-	log.debug("absolute path: " + path);
-
-	int fd = -1;
-	unsigned short count = 0;
-	std::time_t timestamp = std::time(NULL);
-	do {
-		std::string unique_id = i2a(timestamp) + "-" + randomHexString(8);
-		std::string file_path = path + location.upload_dir + "/.upload_" + unique_id + ".tmp";
-		request.body.file_path = file_path;
-		log.debug("file_path: " + file_path);
-		fd = open(file_path.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0600);
-	} while (fd == -1 && errno == EEXIST && ++count < 11);
-
-	return fd;
-
-}
-	request.body.file_fd = createFile(location, path, request);
-*/
 
 static std::string extractDirectiveKey(const std::string& line) {
 
-	size_t space = line.find(' ');
+	std::size_t space = line.find(' ');
 	if (space == std::string::npos) {
 		return line;
 	}
@@ -281,7 +175,7 @@ static std::string extractDirectiveKey(const std::string& line) {
 
 static std::string extractDirectiveValue(const std::string& line) {
 
-	size_t space = line.find(' ');
+	std::size_t space = line.find(' ');
 	if (space == std::string::npos) {
 		return "";
 	}
@@ -299,8 +193,8 @@ static void extractDomainNames(const std::string& header, Config::Domain& dom) {
 		throw std::runtime_error("config error: domain directive requires at least one name");
 	}
 
-	size_t first_pos = header.find(' ');
-	size_t last_pos  = header.rfind(' ');
+	std::size_t first_pos = header.find(' ');
+	std::size_t last_pos  = header.rfind(' ');
 	std::string names;
 	if (first_pos != std::string::npos && last_pos != std::string::npos && first_pos != last_pos) {
 		names = trim(header.substr(first_pos + 1, last_pos - first_pos - 1));
@@ -334,17 +228,13 @@ static void extractDomainNames(const std::string& header, Config::Domain& dom) {
 			throw std::runtime_error(oss.str());
 		}
 
-		// if (name.find("..") != std::string::npos) {
-		// 	throw std::runtime_error("config error: domain name contains \"..\"");
-		// }
-
 		// Split by '.' and validate each label
-		size_t dot_pos = 0;
+		std::size_t dot_pos = 0;
 		while (dot_pos < name.length()) {
-			size_t next = name.find('.', dot_pos);
+			std::size_t next = name.find('.', dot_pos);
 			if (next == std::string::npos) next = name.length();
 
-			size_t label_len = next - dot_pos;
+			std::size_t label_len = next - dot_pos;
 			if (label_len == 0) {
 				throw std::runtime_error("config error: domain name contains \"..\"");
 			} else if (label_len > 63) {
@@ -354,7 +244,7 @@ static void extractDomainNames(const std::string& header, Config::Domain& dom) {
 			}
 
 			// Check characters and hyphens
-			for (size_t i = dot_pos; i < next; ++i) {
+			for (std::size_t i = dot_pos; i < next; ++i) {
 				if (!isalnum(static_cast<unsigned char>(name[i])) && name[i] != '-') {
 					oss << "config error: domain name allowed characters: [a-zA-Z0-9.-]";
 					throw std::runtime_error(oss.str());
@@ -372,26 +262,12 @@ static void extractDomainNames(const std::string& header, Config::Domain& dom) {
 
 	}
 
-	// size_t first_space = header.find(' ');
-	// size_t last_space  = header.rfind(' ');
-	// if (first_space != std::string::npos && last_space != std::string::npos && first_space != last_space) {
-	// 	dom.name = trim(header.substr(first_space + 1, last_space - first_space - 1));
-	// }
-	// if (dom.name.empty()) {
-	// 	throw std::runtime_error("config error: domain name directive requires a value");
-	// }
-	// if (dom.name.size() > 1 && dom.name[0] == '/') {
-	// 	throw std::runtime_error("config error: domain name must not start with '/': " + dom.name);
-	// }
-	// if (dom.name.size() > 1 && dom.name[dom.name.size() - 1] == '/') {
-	// 	throw std::runtime_error("config error: domain name must not end with '/': " + dom.name);
-	// }
 }
 
-static void extractLocationPath(/*const std::string& root, */const std::string& header, Config::Location& loc) {
+static void extractLocationPath(const std::string& header, Config::Location& loc) {
 
-	size_t first_space = header.find(' ');
-	size_t last_space  = header.rfind(' ');
+	std::size_t first_space = header.find(' ');
+	std::size_t last_space  = header.rfind(' ');
 
 	if (first_space != std::string::npos && last_space != std::string::npos && first_space != last_space) {
 		loc.path = trim(header.substr(first_space + 1, last_space - first_space - 1));
@@ -418,17 +294,6 @@ static void extractLocationPath(/*const std::string& root, */const std::string& 
 		throw std::runtime_error(oss.str());
 	}
 
-	// if (!isDirectory(root + loc.path)) {
-	// 	oss << "config error: location path does not exist or is not a directory: "
-	// 	<< root + loc.path << std::endl;
-	// 	throw std::runtime_error(oss.str());
-	// }
-	// if (mkdir((root + loc.path).c_str(), 0755) == -1 && errno != EEXIST) {
-	// 	oss << "config error: no write access (location path): "
-	// 		<< root + loc.path << std::endl;
-	// 	throw std::runtime_error(oss.str());
-	// }
-
 	return;
 
 }
@@ -437,82 +302,14 @@ static void extractLocationPath(/*const std::string& root, */const std::string& 
  /*  Public  */
 //~~~~~~~~~~//
 
-// unsigned long Parser::global_count = 0;
-
 /*	@brief Instance	*/
 ConfigLoader& ConfigLoader::instance(void) {
 	static ConfigLoader instance;
 	return instance;
 }
 
-// const std::vector<Config>& Parser::getAllConfigs() const {
-// 	return _configs;
-// }
-
-// const Config& Parser::getConfig(size_t index) const {
-// 	return _configs[index];
-// }
-
-// size_t Parser::getNumConfigs(void) const {
-// 	return _configs.size();
-// }
-
-// const Location* Parser::matchLocation(const std::vector<Location>& locations,
-// 									  const std::string& location_path) {
-//
-// 	// Look for exact match
-// 	for (size_t i = 0; i < locations.size(); ++i) {
-// 		if (location_path == locations[i].path) {
-// 			return &locations[i];
-// 		}
-// 	}
-//
-// 	// Longest prefix match wins
-// 	const Location*	matched_location = NULL;
-// 	size_t matched_location_path_len = 0;
-//
-// 	for (size_t i = 0; i < locations.size(); ++i) {
-//
-// 		const Location* config_location = &locations[i];
-// 		std::string config_location_path = config_location->path;
-// 		size_t config_location_path_len = config_location_path.length();
-// 		size_t location_path_len = location_path.length();
-// 		// log.error(config_location_path + " " + i2a(config_location_path_len));
-// 		// log.error(location_path + " " + i2a(location_path_len));
-// 		if (startsWith(location_path,
-// 			config_location_path,
-// 			location_path_len,
-// 			config_location_path_len)) {
-//
-// 			// log.error("A config location matches with requested location.");
-// 			config_location_path_len =	config_location_path.length();
-// 			bool is_valid_boundary =	(config_location_path_len == location_path_len ||
-// 										location_path[config_location_path_len] == '/' ||
-// 										config_location_path == "/");
-// 			// log.error(std::string("") + (requested_location_path[config_location_path_len]));
-// 			// log.error(is_valid_boundary ? "valid boundary" : "invalid boundary");
-// 			// log.error(i2a(config_location_path_len) + " vs " + i2a(matched_location_path_len));
-//
-// 			if (is_valid_boundary && config_location_path_len > matched_location_path_len) {
-// 				matched_location_path_len = config_location_path_len;
-// 				matched_location = config_location;
-// 				// log.error("New match found! " + matched_location->path + " " + i2a(config_location_path_len));
-// 			}
-// 		}
-// 	}
-//
-// 	// if (matched_location != NULL)
-// 	// 	log.error("HERE > " + matched_location->path + " < HERE");
-// 	return matched_location;
-//
-// }
-
 // Read line-by-line; fills config object
 void ConfigLoader::config(const std::string& config_file) {
-
-	// if (!validMethodsArrayValid()) {
-	// 	throw std::runtime_error("valid methods enumeration mismatch");
-	// }
 
 	if(!isConfigFile(config_file)) {
 		throw std::runtime_error("config error: invalid file extension: " + config_file);
@@ -523,7 +320,6 @@ void ConfigLoader::config(const std::string& config_file) {
 		throw std::runtime_error("permission denied: " + config_file);
 	}
 
-	// bool foundServer = false;
 	bool found_endpoint = false;
 
 	std::string line;
@@ -539,10 +335,6 @@ void ConfigLoader::config(const std::string& config_file) {
 		// Strip line from inline comments
 		std::string stripped = stripInlineComment(trimmed);
 		trimmed = trim(stripped);
-
-		// if (trimmed == "server {") {
-		// 	_parseServerBlock(file);
-		// 	foundServer = true;
 
 		if (trimmed == "socket {") {
 			_parseSocketBlock(file);
@@ -563,8 +355,6 @@ void ConfigLoader::config(const std::string& config_file) {
 
 	file.close();
 
-	// configs.validateRedirectChains();
-	// Config::validateRedirectChains();
 	_validateRedirectChains();
 
 	return;
@@ -578,16 +368,11 @@ Method ConfigLoader::extractMethod(const std::string& method) {
 	] = {
 		"GET", "HEAD", "DELETE", "POST", "PUT"
 	};
-	for (size_t i = 0; i < static_cast<int>(METHOD_COUNT); ++i) {
-		// log.error(valid_methods[i]);
+	for (std::size_t i = 0; i < static_cast<int>(METHOD_COUNT); ++i) {
 		if (valid_methods[i] == method) {
-			// log.error("SET METHOD: " + valid_methods[i]);
-			// _method = static_cast<Method>(i);
-			// return;
 			return static_cast<Method>(i);
 		}
 	}
-	// log.error("OH NO! NO METHOD!! WHAT SHOULD WE DO??");
 	return METHOD_COUNT;
 
 }
@@ -603,7 +388,7 @@ ConfigLoader::ConfigLoader(void) {
 };
 
 /*	@brief Copy Constructor	*/
-ConfigLoader::ConfigLoader(const ConfigLoader& other)/* : _configs(other._configs) */{
+ConfigLoader::ConfigLoader(const ConfigLoader& other) {
 	log.debug("Parser Copy Constructor called");
 	*this = other;
 	return;
@@ -613,14 +398,13 @@ ConfigLoader::ConfigLoader(const ConfigLoader& other)/* : _configs(other._config
 ConfigLoader& ConfigLoader::operator=(const ConfigLoader& other) {
 	if (this != &other) {
 		log.debug("Parser Copy Assignment Operator called");
-		// this->_configs = other._configs;
 	}
 	return *this;
 };
 
-/*	@brief Deconstructor	*/
+/*	@brief Destructor	*/
 ConfigLoader::~ConfigLoader() {
-	log.debug("Parser Deconstructor called");
+	log.debug("Parser Destructor called");
 	return;
 };
 
@@ -635,8 +419,6 @@ ConfigLoader::location_directive_handler_map ConfigLoader::_initLocationDirectiv
 	handlers["autoindex"] = &ConfigLoader::_handleAutoindex;
 	handlers["index"] = &ConfigLoader::_handleIndexFile;
 	handlers["upload_dir"] = &ConfigLoader::_handleUploadDirectory; // equivalent to nginx client_body_temp_path
-	// handlers["cgi_ext"] = &Parser::_handleCGIExt;
-	// handlers["cgi_path"] = &Parser::_handleCGIPath;
 	handlers["interpreter"] = &ConfigLoader::_handleInterpreter;
 	handlers["error_page"] = &ConfigLoader::_handleErrorPage;
 	handlers["client_max_body_size"] = &ConfigLoader::_handleClientMaxBodySize;
@@ -690,9 +472,6 @@ void ConfigLoader::_parseLocationBlock(std::ifstream& config_file_stream,
 		if (trimmed == "}") {
 
 			// Block is complete — now finalize and validate
-			// if (loc.cgi_extensions.size() != loc.cgi_paths.size()) {
-			// 	throw std::runtime_error("config error: cgi_ext and cgi_path count mismatch in location '" + loc.path + "'");
-			// }
 			// Check for alias
 			if (!loc.alias.empty() && !loc.root.empty()) {
 				throw std::runtime_error("config error: \"alias\" and \"root\" directives are incompatible");
@@ -703,17 +482,11 @@ void ConfigLoader::_parseLocationBlock(std::ifstream& config_file_stream,
 			}
 			std::string path = loc.alias;
 			if (!loc.root.empty()) path = loc.root;
-			// else path = loc.alias;
+
 			// Check for location index file(s): if empty, substitute domain index file(s)
 			if (loc.index_files.empty()) {
 				loc.index_files = dom.index_files;
 			}
-			// TODO
-			// for (size_t i = 0; i < loc.index_files.size(); ++i) {
-			// 	if (!isReadable(path + "/" + loc.index_files[i])) {
-			// 		throw std::runtime_error("parse error: no read access: " + path + "/" + loc.index_files[i]);
-			// 	}
-			// }
 
 			// Check for location error pages: if empty, substitute domain error pages
 			if (loc.error_pages.empty()) {
@@ -727,18 +500,6 @@ void ConfigLoader::_parseLocationBlock(std::ifstream& config_file_stream,
 				++err_it;
 			}
 
-			// Check for upload directory if POST method allowed // TODO
-			// for (size_t i = 0; i < loc.methods.size(); ++i) {
-			// 	if (loc.methods[i] == POST && loc.upload_dir.empty()) {
-			// 		std::ostringstream oss;
-			// 		oss << "config error: location at path '" << loc.path
-			// 			<< "' (under domain '" << dom.names[0]
-			// 			<< "') allows POST, but upload directory is not set"
-			// 			<< std::endl;
-			// 		throw std::runtime_error(oss.str());
-			// 	}
-			// }
-
 			// If client body treshold too high, set to global maximum
 			if (loc.client_max_body_size > Config::SERVER_MAX_BODY_SIZE) {
 				loc.client_max_body_size = Config::SERVER_MAX_BODY_SIZE;
@@ -746,10 +507,6 @@ void ConfigLoader::_parseLocationBlock(std::ifstream& config_file_stream,
 
 			// Check for duplicate paths
 			if (isDuplicateLocation(dom.locations, loc.path)) {
-				// std::ostringstream oss;
-				// oss	<< "config error: location path " << loc.path
-				// << " is already registered by another location block";
-				// throw std::runtime_error(oss.str());
 				throw std::runtime_error("config error: duplicate location path '" + loc.path + "'");
 			}
 			dom.locations.push_back(loc);
@@ -781,9 +538,6 @@ void ConfigLoader::_parseDomainBlock(std::ifstream& config_file_stream,
 
 	static const domain_directive_handler_map handlers = _initDomainDirectiveHandlerMap();
 
-	// Config::Domain dom_block;
-	// server_block.port = 80;
-
 	// Falls back to socket treshold, if not specified for location
 	dom.client_max_body_size = soc.client_max_body_size;
 
@@ -806,12 +560,6 @@ void ConfigLoader::_parseDomainBlock(std::ifstream& config_file_stream,
 				throw std::runtime_error("config error: missing root directive");
 			}
 			const std::string path = dom.root + "/";
-			// Check domain index file(s) // TODO
-			// for (size_t i = 0; i < dom.index_files.size(); ++i) {
-			// 	if (!isReadable(path + dom.index_files[i])) {
-			// 		throw std::runtime_error("parse error: no read access: " + path + dom.index_files[i]);
-			// 	}
-			// }
 
 			// Check domain error pages
 			std::map<int, std::string>::const_iterator err_it = dom.error_pages.begin();
@@ -828,17 +576,8 @@ void ConfigLoader::_parseDomainBlock(std::ifstream& config_file_stream,
 			}
 
 			// Check for duplicate domain names
-			for (size_t i = 0; i < dom.names.size(); ++i) {
+			for (std::size_t i = 0; i < dom.names.size(); ++i) {
 				if (isDuplicateDomain(soc.domains, dom.names[i])) {
-					// std::ostringstream oss;
-					// oss	<< "config error: one of the following domain names: ";
-					// for (size_t i = 0; i < dom.names.size(); ++i) {
-					// 	oss << "'" << dom.names[i] << "'";
-					// }
-					// oss << " is already registered by another domain block";
-					// oss	<< "config error: domain name " << dom.name
-					// 	<< " is already registered by another domain block";
-					// throw std::runtime_error(oss.str());
 					throw std::runtime_error("config error: duplicate domain name '" + dom.names[i] + "'");
 				}
 			}
@@ -856,7 +595,7 @@ void ConfigLoader::_parseDomainBlock(std::ifstream& config_file_stream,
 			Config::Location loc;
 			loc.autoindex = false;
 			// Read the location header line
-			extractLocationPath(/*dom.root, */trimmed, loc);
+			extractLocationPath(trimmed, loc);
 			// Read the location block
 			_parseLocationBlock(config_file_stream, dom, loc);
 			continue;
@@ -869,7 +608,7 @@ void ConfigLoader::_parseDomainBlock(std::ifstream& config_file_stream,
 	// If we exit the loop without finding }, throw
 	// If we get here, the domain block was never closed
 	std::ostringstream oss;
-	for (size_t i = 0; i < dom.names.size(); ++i) {
+	for (std::size_t i = 0; i < dom.names.size(); ++i) {
 		oss << "'" << dom.names[i] << "'";
 	}
 	oss << std::endl;
@@ -884,8 +623,6 @@ void ConfigLoader::_parseSocketBlock(std::ifstream& config_file_stream) {
 	static const socket_directive_handler_map handlers = _initSocketDirectiveHandlerMap();
 
 	Config::Socket soc;
-	// soc.port = 8080; // If no port set, set to 8080
-	// soc.client_max_body_size = UINT64_MAX; // If client body treshold not set, set to 2^64
 
 	std::string line;
 	while (std::getline(config_file_stream, line)) {
@@ -903,7 +640,6 @@ void ConfigLoader::_parseSocketBlock(std::ifstream& config_file_stream) {
 			// Block is complete — now finalize and validate
 			// Check host address
 			if (soc.address.empty()) {
-				// soc.address = "0.0.0.0";
 				throw std::runtime_error("config error: no host address set");
 			}
 
@@ -914,11 +650,6 @@ void ConfigLoader::_parseSocketBlock(std::ifstream& config_file_stream) {
 
 			// Check for duplicate sockets
 			if (isDuplicateSocket(configs.get(), soc.address, soc.port)) {
-				// std::ostringstream oss;
-				// oss	<< "config error: host " << soc.address
-				// << " port " << soc.port
-				// << " is already in use by another server block";
-				// throw std::runtime_error(oss.str());
 				throw std::runtime_error("config error: duplicate socket " + soc.address + ":" + i2a(soc.port));
 			}
 
@@ -932,12 +663,6 @@ void ConfigLoader::_parseSocketBlock(std::ifstream& config_file_stream) {
 
 		if (handlers.find(key) != handlers.end()) {
 			(this->*handlers.at(key))(val, soc);
-		// if (key == "listen") {
-		// 	_handleListen(val, soc);
-		// } else if (key == "host") {
-		// 	_handleHost(val, soc);
-		// } else if (key == "client_max_body_size") {
-		// 	_handleClientMaxBodySize(val, soc);
 		} else if (key == "domain") {
 			Config::Domain dom;
 			// Read the domain header line
@@ -958,31 +683,7 @@ void ConfigLoader::_parseSocketBlock(std::ifstream& config_file_stream) {
 
 }
 
-// void Parser::_handleRoot(const std::string& val, Location& loc) {
-
-// 	if (val.empty()) {
-// 		throw std::runtime_error("config error: root directive requires a value");
-// 	}
-
-// 	if (val[0] != '/') {
-// 		throw std::runtime_error("config error: root path must start with '/': " + val);
-// 	}
-
-// 	if (val[val.size() - 1] == '/') {
-// 		throw std::runtime_error("config error: root path must not end with '/': " + val);
-// 	}
-
-// 	loc.root = val;
-
-// 	return;
-
-// }
-
 void ConfigLoader::_handleAlias(const std::string& val, Config::Location& loc) {
-
-	// if (!loc.root.empty()) {
-	// 	throw std::runtime_error("config error: \"alias\" and \"root\" directives are incompatible");
-	// }
 
 	if (val.empty()) {
 		throw std::runtime_error("config error: alias directive requires a value");
@@ -1028,15 +729,11 @@ void ConfigLoader::_handleRedirect(const std::string& val, Config::Location& loc
 
 void ConfigLoader::_handleAllowedMethods(const std::string& val, Config::Location& loc) {
 
-	// if (!loc.methods.empty())
-		// log.debug(loc.methods.back());
-
 	std::istringstream iss(val);
 	std::string token;
 
 	while (iss >> token) {
 
-		// if (!isSupportedMethod(token)) {
 		const Method method = extractMethod(token);
 		if (method >= METHOD_COUNT) {
 			throw std::runtime_error("config error: invalid HTTP method: " + token);
@@ -1060,41 +757,6 @@ void ConfigLoader::_handleAutoindex(const std::string& val, Config::Location& lo
 
 }
 
-// void Parser::_handleIndexFile(const std::string& val, Location& loc) {
-
-// 	if (val.empty()) {
-// 		throw std::runtime_error("config error: index_files directive requires at least one file");
-// 	}
-
-// 	std::istringstream iss(val);
-// 	std::string path;
-
-// 	while (iss >> path) {
-
-// 		// if (val.empty()) {
-// 		// 	throw std::runtime_error("config error: index file directive requires a value");
-// 		// } // redundant, see "if (!(iss >> path))"
-
-// 		if (val[0] == '/') {
-// 			throw std::runtime_error("config error: index file path must not start with '/': " + val);
-// 		}
-
-// 		if (val[val.size() - 1] == '/') {
-// 			throw std::runtime_error("config error: index file path must not end with '/': " + val);
-// 		}
-
-// 		if (!isReadable(loc.root + "/" + path)) {
-// 			throw std::runtime_error("config error: no read access: " + path);
-// 		}
-
-// 		loc.index_files.push_back(path);
-
-// 	}
-
-// 	return;
-
-// }
-
 void ConfigLoader::_handleUploadDirectory(const std::string& val, Config::Location& loc) {
 
 	if (val.empty()) {
@@ -1109,13 +771,9 @@ void ConfigLoader::_handleUploadDirectory(const std::string& val, Config::Locati
 		throw std::runtime_error("config error: upload directory path must not end with '/': " + val);
 	}
 
-	// if (!isWritable(val)) {
-	// 	throw std::runtime_error("config error: no write access (upload directory): " + val);
-	// }
 	std::string path = loc.alias;
 	if (!loc.root.empty()) path = loc.root + loc.path;
-	if (((mkdir((path + val).c_str(), 0755) != 0) && (errno != EEXIST))/* ||
-		((mkdir((path + val + "/temp").c_str(), 0755) != 0) && (errno != EEXIST))*/) {
+	if (((mkdir((path + val).c_str(), 0755) != 0) && (errno != EEXIST))) {
 		throw std::runtime_error("config error: no write access (upload directory): " + val);
 	}
 
@@ -1124,60 +782,6 @@ void ConfigLoader::_handleUploadDirectory(const std::string& val, Config::Locati
 	return;
 
 }
-
-// void Parser::_handleCGIExt(const std::string& val, Location& loc) {
-
-// 	if (val.empty()) {
-// 		throw std::runtime_error("config error: cgi_ext directive requires at least one extension");
-// 	}
-
-// 	std::istringstream iss(val);
-// 	std::string ext;
-
-// 	while (iss >> ext) {
-
-// 		if (!isSupportedCGIExtension(ext)) {
-// 			throw std::runtime_error("config error: invalid CGI extension: " + ext);
-// 		}
-
-// 		loc.cgi_extensions.push_back(ext);
-
-// 	}
-
-// 	return;
-
-// }
-
-// void Parser::_handleCGIPath(const std::string& val, Location& loc) {
-
-// 	if (val.empty()) {
-// 		throw std::runtime_error("config error: cgi_path directive requires at least one path");
-// 	}
-
-// 	std::istringstream iss(val);
-// 	std::string path;
-
-// 	while (iss >> path) {
-
-// 		if (path[0] != '/') {
-// 			throw std::runtime_error("config error: CGI path must start with '/': " + path);
-// 		}
-
-// 		if (path[path.size() - 1] == '/') {
-// 			throw std::runtime_error("config error: CGI path must not end with '/': " + path);
-// 		}
-
-// 		if (!isExecutable(path)) {
-// 			throw std::runtime_error("config error: invalid CGI path (not executable): " + path);
-// 		}
-
-// 		loc.cgi_paths.push_back(path);
-
-// 	}
-
-// 	return;
-
-// }
 
 void ConfigLoader::_handleInterpreter(const std::string& val, Config::Location& loc) {
 
@@ -1196,10 +800,6 @@ void ConfigLoader::_handleInterpreter(const std::string& val, Config::Location& 
 	if (!isSupportedCGIExtension(ext)) {
 		throw std::runtime_error("config error: unsupported CGI extension: " + ext);
 	}
-
-	// if (path.empty()) {
-	// 	throw std::runtime_error("config error: interpreter directive requires a value");
-	// } // redundant, see "if (!(iss >> ext >> path))"
 
 	if (path[0] != '/') {
 		throw std::runtime_error("config error: interpreter path must start with '/': " + path);
@@ -1223,48 +823,6 @@ void ConfigLoader::_handleInterpreter(const std::string& val, Config::Location& 
 	return;
 
 }
-
-// void Parser::_handleErrorPage(const std::string& val, Location& loc) {
-//
-// 	if (val.empty()) {
-// 		throw std::runtime_error("config error: error_page directive requires code and path");
-// 	}
-//
-// 	std::istringstream iss(val);
-// 	std::string code_str;
-// 	std::string path;
-//
-// 	if (!(iss >> code_str >> path)) {
-// 		throw std::runtime_error("config error: error_page directive requires both code and path");
-// 	}
-//
-// 	int code = stringToInt(code_str);
-//
-// 	if (!isValidErrorCode(code)) {
-// 		throw std::runtime_error("config error: invalid error code: " + code_str);
-// 	}
-//
-// 	// if (path.empty()) {
-// 	// 	throw std::runtime_error("config error: error page directive requires a value");
-// 	// } // redundant, see "if (!(iss >> code_str >> path))"
-//
-// 	if (path[0] == '/') {
-// 		throw std::runtime_error("config error: error page file path must not start with '/': " + path);
-// 	}
-//
-// 	if (path[path.size() - 1] == '/') {
-// 		throw std::runtime_error("config error: error page file path must not end with '/': " + path);
-// 	}
-//
-// 	if (!isReadable(path)) {
-// 		throw std::runtime_error("config error: no read access: " + path);
-// 	}
-//
-// 	loc.error_pages[code] = path;
-//
-// 	return;
-//
-// }
 
 void ConfigLoader::_handleListen(const std::string& val, Config::Socket& config) {
 
@@ -1290,145 +848,6 @@ void ConfigLoader::_handleHost(const std::string& val, Config::Socket& config) {
 
 }
 
-// void Parser::_handleServerNames(const std::string& val, Config& config) {
-//
-// 	if (val.empty()) {
-// 		throw std::runtime_error("config error: server_name directive requires at least one name");
-// 	}
-//
-// 	std::istringstream iss(val);
-// 	std::string name;
-//
-// 	while (iss >> name) {
-//
-// 		if (name.empty()) {
-// 			throw std::runtime_error("config error: empty server_name");
-// 		}
-//
-// 		config.server_names.push_back(name);
-//
-// 	}
-//
-// 	return;
-//
-// }
-
-// void Parser::_handleRoot(const std::string& val, Config& config) {
-
-// 	if (val.empty()) {
-// 		throw std::runtime_error("config error: root directive requires a value");
-// 	}
-
-// 	if (val[0] != '/') {
-// 		throw std::runtime_error("config error: root path must start with '/': " + val);
-// 	}
-
-// 	if (val[val.size() - 1] == '/') {
-// 		throw std::runtime_error("config error: root path must not end with '/': " + val);
-// 	}
-
-// 	config.root = val;
-
-// 	return;
-
-// }
-
-// void Parser::_handleIndexFile(const std::string& val, Config& config) {
-
-// 	if (val.empty()) {
-// 		throw std::runtime_error("config error: index_files directive requires at least one file");
-// 	}
-
-// 	std::istringstream iss(val);
-// 	std::string path;
-
-// 	while (iss >> path) {
-
-// 		// if (val.empty()) {
-// 		// 	throw std::runtime_error("config error: index file directive requires a value");
-// 		// } // redundant, see "if (!(iss >> path))"
-
-// 		if (val[0] == '/') {
-// 			throw std::runtime_error("config error: index file path must not start with '/': " + val);
-// 		}
-
-// 		if (val[val.size() - 1] == '/') {
-// 			throw std::runtime_error("config error: index file path must not end with '/': " + val);
-// 		}
-
-// 		if (!isReadable(config.root + "/" + path)) {
-// 			throw std::runtime_error("config error: no read access: " + path);
-// 		}
-
-// 		config.index_files.push_back(path);
-
-// 	}
-
-// 	return;
-
-// }
-
-// void Parser::_handleErrorPage(const std::string& val, Config& config) {
-//
-// 	if (val.empty()) {
-// 		throw std::runtime_error("config error: error_page directive requires code and path");
-// 	}
-//
-// 	std::istringstream iss(val);
-// 	std::string code_str;
-// 	std::string path;
-//
-// 	if (!(iss >> code_str >> path)) {
-// 		throw std::runtime_error("config error: error_page requires both status code and path");
-// 	}
-//
-// 	int code = stringToInt(code_str);
-//
-// 	if (!isValidErrorCode(code)) {
-// 		throw std::runtime_error("config error: invalid error code: " + code_str);
-// 	}
-//
-// 	// if (path.empty()) {
-// 	// 	throw std::runtime_error("config error: error page directive requires a value");
-// 	// } // redundant, see "if (!(iss >> code_str >> path))"
-//
-// 	if (path[0] == '/') {
-// 		throw std::runtime_error("config error: error page file path must not start with '/': " + path);
-// 	}
-//
-// 	if (path[path.size() - 1] == '/') {
-// 		throw std::runtime_error("config error: error page file path must not end with '/': " + path);
-// 	}
-//
-// 	if (!isReadable(path)) {
-// 		throw std::runtime_error("config error: no read access: " + path);
-// 	}
-//
-// 	config.error_pages[code] = path;
-//
-// 	return;
-//
-// }
-
-// void Parser::_handleClientMaxBodySize(const std::string& val, Config::Domain& dom) {
-//
-// 	if (val.empty()) {
-// 		throw std::runtime_error("config error: client_max_body_size requires a value");
-// 	}
-//
-// 	size_t size = stringToSize(val);
-//
-// 	if (!isValidBodySize(size)) {
-// 		throw std::runtime_error("config error: invalid client_max_body_size: " + val);
-// 	}
-//
-// 	if (size == 0) dom.client_max_body_size = ULONG_MAX;
-// 	else dom.client_max_body_size = size;
-//
-// 	return;
-//
-// }
-
 void ConfigLoader::_validateRedirectChains(void) {
 
 	std::ostringstream oss;
@@ -1448,19 +867,9 @@ void ConfigLoader::_validateRedirectChains(void) {
 					if (redirect == loc->redirect) {
 						throw std::runtime_error("config error: self-redirect at '" + loc->path + "'");
 					}
-					// if (redirects.count(loc->redirect)) {
 					if (std::find(redirects.begin(), redirects.end(), loc->redirect) != redirects.end()) {
-						// log.error("config error: circular redirect detected at '" + loc->redirect + "'");
-						// log.error("redirect chain: ");
-						// // for (std::vector<std::string>::iterator it = redirects.begin(); it != redirects.end(); ++it) {
-						// // std::cerr << "\e[31m" << *it << " -> \e[0m";
-						// // log.error(*it);
-						// for (size_t i = 0; i < redirects.size(); ++i) {
-						// 	log.error(redirects[i]);
-						// }
-						// throw std::runtime_error(loc->redirect + " (LOOP)");
 						oss << "config error: circular redirect detected at '" << loc->redirect << "'\nredirect chain:\n";
-						for (size_t i = 0; i < redirects.size(); ++i) {
+						for (std::size_t i = 0; i < redirects.size(); ++i) {
 							oss << redirects[i] << "\n";
 						}
 						oss << loc->redirect << " (LOOP)" << std::endl;
@@ -1468,18 +877,8 @@ void ConfigLoader::_validateRedirectChains(void) {
 					}
 					++redirection_count;
 					if (redirection_count > MAX_REDIRECTS) {
-						// log.error("config error: too many consecutive redirects");
-						// log.error("redirect chain: ");
-						// // for (std::vector<std::string>::iterator it = redirects.begin(); it != redirects.end(); ++it) {
-						// // std::cerr << "\e[31m" << *it << " -> \e[0m";
-						// // log.error(*it);
-						// for (size_t i = 0; i < redirects.size(); ++i) {
-						// 	log.error(redirects[i]);
-						// }
-						// log.error(loc->redirect);
-						// throw std::runtime_error(i2a(redirects.size()) + "/" + i2a(MAX_REDIRECTS) + " hops");
 						oss << "config error: too many consecutive redirects\nredirect chain:\n";
-						for (size_t i = 0; i < redirects.size(); ++i) {
+						for (std::size_t i = 0; i < redirects.size(); ++i) {
 							oss << redirects[i] << "\n";
 						}
 						oss << loc->redirect << "\n";
@@ -1488,7 +887,6 @@ void ConfigLoader::_validateRedirectChains(void) {
 					}
 					redirects.push_back(loc->redirect);
 					loc = const_cast<Config::Location*>(Dispatcher::resolveLocation(dom_it->locations, loc->redirect));
-					// if (!Dispatcher::matchLocation(dom_it->locations, loc->redirect, *loc)) {
 					if (loc == NULL) {
 						log.error("config error: no matching location");
 						return;
@@ -1500,6 +898,5 @@ void ConfigLoader::_validateRedirectChains(void) {
 		}
 		++conf_it;
 	}
-	// return true;
 	return;
 }

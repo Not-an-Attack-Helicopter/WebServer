@@ -20,20 +20,6 @@ namespace HTTPContentType {
 
 	/*
 	* ================================================================
-	* RFC 9110 Content-Type
-	* ================================================================
-	*
-	* media-type = type "/" subtype parameters
-	*
-	* type       = token
-	* subtype    = token
-	* ================================================================
-	*/
-
-	// bool parseContentType(const std::string& headerValue, HTTPParameters::MIMEValue& result);
-
-	/*
-	* ================================================================
 	* extractContentType()
 	* ================================================================
 	*

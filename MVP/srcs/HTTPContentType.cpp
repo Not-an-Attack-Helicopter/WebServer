@@ -12,6 +12,7 @@
 
 #include "../incs/HTTPContentType.hpp"
 #include "../incs/HTTPGrammar.hpp"
+#include "../incs/utils.hpp"
 
 namespace HTTPContentType {
 
@@ -93,7 +94,7 @@ namespace HTTPContentType {
 		/*
 		* Every character MUST be a bchars.
 		*/
-		for (size_t i = 0; i < boundary.size(); ++i) {
+		for (std::size_t i = 0; i < boundary.size(); ++i) {
 			if (!isBChar(boundary[i])) {
 				return false;
 			}
@@ -135,7 +136,7 @@ namespace HTTPContentType {
 		result.value.clear();
 		result.parameters.clear();
 
-		size_t pos = 0;
+		std::size_t pos = 0;
 
 		HTTPGrammar::skipOWS(headerValue, pos);
 
@@ -169,7 +170,7 @@ namespace HTTPContentType {
 		/*
 		* Type and subtype are case-insensitive.
 		*/
-		result.value = HTTPGrammar::tolowerASCII(type) + "/" + HTTPGrammar::tolowerASCII(subtype);
+		result.value = tolowerASCII(type) + "/" + tolowerASCII(subtype);
 
 		/*
 		* Parameters.
@@ -242,7 +243,7 @@ namespace HTTPContentType {
 		/*
 		* Normal non-multipart Content-Type.
 		*/
-		if (!HTTPGrammar::equalCI(parsed.value, "multipart/form-data")) {
+		if (!equalCI(parsed.value, "multipart/form-data")) {
 			if (boundary != NULL) {
 				boundary->clear();
 			}
@@ -254,13 +255,11 @@ namespace HTTPContentType {
 		*
 		* boundary is REQUIRED.
 		*/
-		size_t i;
-		size_t boundaryCount = 0;
-
 		std::string boundaryValue;
+		std::size_t boundaryCount = 0;
 
-		for (i = 0; i < parsed.parameters.size(); ++i) {
-			if (HTTPGrammar::equalCI(parsed.parameters[i].name, "boundary")) {
+		for (std::size_t i = 0; i < parsed.parameters.size(); ++i) {
+			if (equalCI(parsed.parameters[i].name, "boundary")) {
 				++boundaryCount;
 				if (boundaryCount == 1) boundaryValue = parsed.parameters[i].value;
 			}

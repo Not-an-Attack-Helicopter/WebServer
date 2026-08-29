@@ -107,7 +107,7 @@ namespace HTTPParameters {
 	* ================================================================
 	*/
 
-	bool parseParameters(const std::string& s, size_t& pos,
+	bool parseParameters(const std::string& s, std::size_t& pos,
 						 std::vector<MIMEParameter>& parameters,
 						 ParameterSyntax syntax);
 

@@ -31,8 +31,6 @@ namespace tag {
 	static const char DOC[] = "<!DOCTYPE html>";
 	static const char HTML[] = "<html lang=\"en\">";
 	static const char HEAD[] = "<head>";
-	// static const char META[] = "<meta>";
-	// static const char LINK[] = "<link ";
 	static const char TITLE[] = "<title>";
 	static const char BODY[] = "<body>";
 	static const char H1[] = "<h1>";
@@ -44,8 +42,6 @@ namespace tag {
 	static const char TAB[] = "<span style=\"display:inline-block; width: 4em;\"></span>";
 	static const char _HTML[] = "</html>";
 	static const char _HEAD[] = "</head>";
-	// static const char _META[] = "</meta>";
-	// static const char _LINK[] = ">";
 	static const char _TITLE[] = "</title>";
 	static const char _BODY[] = "</body>";
 	static const char _H1[] = "</h1>";

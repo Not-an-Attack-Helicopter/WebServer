@@ -13,23 +13,10 @@
 #ifndef HTTP_GRAMMAR_HPP
 #define HTTP_GRAMMAR_HPP
 
-#include <cstddef>
+// #include <cstddef>
 #include <string>
 
 namespace HTTPGrammar {
-
-	/*
-	* ================================================================
-	* ASCII helpers
-	* ================================================================
-	*/
-
-	char tolowerASCII(char c);
-
-	std::string tolowerASCII(const std::string& s);
-
-	bool equalCI(const std::string& a,
-				const std::string& b);
 
 	/*
 	* ================================================================
@@ -44,15 +31,6 @@ namespace HTTPGrammar {
 
 	void skipOWS(const std::string& s,
 				std::size_t& pos);
-
-	/*
-	* tchar
-	*
-	* tchar = "!" / "#" / "$" / "%" / "&" / "'"
-	*       / "*" / "+" / "-" / "." / "^" / "_"
-	*       / "`" / "|" / "~" / DIGIT / ALPHA
-	*/
-	bool isTChar(char c);
 
 	/*
 	* token = 1*tchar
@@ -77,11 +55,6 @@ namespace HTTPGrammar {
 	bool isQDText(char c);
 
 	/*
-	* quoted-pair character.
-	*/
-	// bool isQuotedPairChar(char c);
-
-	/*
 	* quoted-string
 	*
 	* quoted-string =
@@ -91,8 +64,8 @@ namespace HTTPGrammar {
 	* quoted-pair escaping is removed.
 	*/
 	bool parseQuotedString(const std::string& s,
-						std::size_t& pos,
-						std::string& value);
+						   std::size_t& pos,
+						   std::string& value);
 
 } // namespace HTTPGrammar
 

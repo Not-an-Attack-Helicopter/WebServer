@@ -14,19 +14,11 @@
 #define HTTP_REQUEST_PARSER_HPP
 
 #include "HTTPRequest.hpp"
-// #include "HTTPResponse.hpp"
-#include "Config.hpp"
+// #include "Config.hpp"
 #include "Buffer.hpp"
-// #include "utils.hpp"
-// #include <stdexcept>
-// #include <sstream>
-// #include <vector>
-#include <string>
-// #include <map>
-// #include <climits>
-#include <cstddef>
-// #include <typeinfo>
-#include <sys/stat.h>
+// #include <string>
+// #include <cstddef>
+// #include <sys/stat.h>
 
 #define parse Parser::instance()
 
@@ -36,11 +28,9 @@ public:
 
 	static Parser&							instance(void);
 
-	// HTTPRequest::ParseState					incomingData(const std::string& raw, HTTPRequest* request);
 	bool									buffer(Buffer& buff, HTTPRequest& request);
-	// bool									body(const Client::Buffer& buff, HTTPRequest& request);
 
-	Method									extractMethod(const std::string& name);
+	Method									matchMethod(const std::string& name);
 
 private:
 
@@ -49,17 +39,15 @@ private:
 	Parser& operator = (const Parser& other);
 	~Parser(void);
 
-	static const size_t 					LF_SIZE = 1;
-	static const size_t 					CRLF_SIZE = 2;
-	static const size_t						LFLF_SIZE = 2;
-	static const size_t						CRLFCRLF_SIZE = 4;
+	static const std::size_t 				LF_SIZE = 1;
+	static const std::size_t 				CRLF_SIZE = 2;
+	static const std::size_t				LFLF_SIZE = 2;
+	static const std::size_t				CRLFCRLF_SIZE = 4;
 
-	size_t									_findRequestLineEnd(const Buffer& buffer, HTTPRequest& request);
+	ssize_t									_findRequestLineEnd(const Buffer& buffer, HTTPRequest& request);
 
-	// bool									_matchMethod(const std::string& method);
 	bool									_extractTokens(const Buffer& buffer, HTTPRequest& request);
 	bool									_parseHeaderLine(const Buffer& buffer, HTTPRequest& request);
-	// bool									_extractContentLength(void);
 
 	bool									_parseRequestLine(const Buffer& buffer, HTTPRequest& request);
 	bool									_parseHeaders(const Buffer& buffer, HTTPRequest& request);
@@ -74,7 +62,5 @@ private:
 	bool									_parseBody(const Buffer& buffer, HTTPRequest& request);
 
 };
-
-// #include "Parser.tpp"
 
 #endif

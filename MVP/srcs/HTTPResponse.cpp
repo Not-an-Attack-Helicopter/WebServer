@@ -33,9 +33,9 @@ HTTPResponse::HTTPResponse(void)
 	return;
 }
 
-/*	@brief Deconstructor	*/
+/*	@brief Destructor	*/
 HTTPResponse::~HTTPResponse(void) {
-	log.debug("HTTPResponse Deconstructor called");
+	log.debug("HTTPResponse Destructor called");
 	return;
 }
 
@@ -66,21 +66,10 @@ const std::map<std::string, std::string>& HTTPResponse::getHeaders(void) const {
 	return _headers;
 }
 
-// const std::string& HTTPResponse::getHeader(const std::string& key) const {
-// 	std::map<std::string, std::string>::const_iterator it = _headers.find(key);
-// 	static const std::string empty;
-// 	if (it == _headers.end()) return empty;
-// 	return it->second;
-// }
-
 void HTTPResponse::setHeader(const std::string& key, const std::string& value) {
 	_headers[key] = value;
 	return;
 }
-
-// bool HTTPResponse::hasHeader(const std::string& key) const {
-// 	return _headers.find(key) != _headers.end();
-// }
 
 // Body, Content-Type, and Content-Length
 Sink HTTPResponse::getBodySink(void) const {
@@ -101,38 +90,26 @@ void HTTPResponse::setBody(const std::string& str,
 	setHeader("Content-Type", content_type);
 
 	std::ifstream file;
-	// std::ostringstream oss;
 	switch (_body_sink) {
 
-	// if (_body_sink == HEAP) {
 	case HEAP:
 		_body_size = str.size();
-		// oss << _body_size
 		break;
-	// } else if (_body_sink == DISK) {
 	case DISK:
 		log.error("set body: data read from file: " + str);
-		// std::ifstream file;
 		file.open(str.c_str(), std::ios::binary);
 		if (!file.is_open()) {
 			log.error("set body: unable to open file");
 		}
 		file.seekg(0, std::ios::end);
-		_body_size = static_cast<size_t>(file.tellg());
-		// oss << file.tellg();
-		// oss << _body_size;
-		// file.seekg(0, std::ios::beg);  // reset to start // necessary?
+		_body_size = static_cast<std::size_t>(file.tellg());
 		file.close();
 		break;
-	// } else {
 	default:
 		log.warn("HTTP Response: body type undefined");
 		_body_size = 0;
-		// oss << _body_size;
 	}
 
-	// log.debug("Content-Length: " + oss.str() + " or " + i2a(_content_length));
-	// setHeader("Content-Length", oss.str());
 	setHeader("Content-Length", i2a(_body_size));
 
 	if (headers_only) {
@@ -141,73 +118,11 @@ void HTTPResponse::setBody(const std::string& str,
 	}
 
 	_body = str;
-	// log.error(str);
 	return;
 
 }
 
-// void HTTPResponse::setFilePath(const std::string& file_path, const std::string& content_type) {
-//
-// 	_body = file_path;
-//
-// 	setHeader("Content-Type", content_type);
-//
-// 	std::ifstream file;
-// 	std::ostringstream oss;
-//
-// 	file.open(file_path.c_str(), std::ios::binary);
-// 	file.seekg(0, std::ios::end);
-// 	oss << file.tellg();
-// 	// file.seekg(0, std::ios::beg);  // reset to start // necessary?
-// 	file.close();
-//
-// 	setHeader("Content-Length", oss.str());
-//
-// 	return;
-// }
-
-// const std::string& HTTPResponse::getFilePath(void) const {
-// 	return _body;
-// }
-
-// Produce the raw HTTP/1.1 string ready to write to the socket
-// std::string HTTPResponse::serialize(void) const {
-//
-// 	std::ostringstream oss;
-// 	oss << _status_code;
-//
-// 	std::string response = "HTTP/1.1 " + oss.str() + " " + _status_reason + "\r\n";
-//
-// 	// for (std::map<std::string, std::string>::const_iterator it = _headers.begin(); it != _headers.end(); ++it) {
-// 	// 	response += it->first + ": " + it->second + "\r\n";
-// 	// }
-// 	if (!_headers.empty()) {
-// 		std::map<std::string, std::string>::const_iterator it = _headers.begin();
-// 		while (it != _headers.end()) {
-// 			response += it->first + ": " + it->second + "\r\n";
-// 			++it;
-// 		}
-// 	}
-//
-// 	// response += "\r\n";
-//
-// 	if (!_body.empty()) {
-// 		response += "\r\n" + _body + "\r\n";
-// 	}
-//
-// 	log.notice(response);
-// 	return response;
-//
-// }
-
-// void HTTPResponse::setContentLength(void) {
-// 	_file.seekg(0, std::ios::end);
-// 	content_length = _file.tellg();
-// 	_file.seekg(0, std::ios::beg);
-// 	return;
-// }
-
-size_t HTTPResponse::getBodySize(void) const {
+std::size_t HTTPResponse::getBodySize(void) const {
 	return _body_size;
 }
 

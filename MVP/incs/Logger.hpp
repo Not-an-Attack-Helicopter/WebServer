@@ -27,41 +27,41 @@
 
 class Logger {
 
-	public:
-		static Logger&		instance(void);
+public:
+	static Logger&		instance(void);
 
-		enum Level {
-			LEVEL_DEBUG,
-			LEVEL_INFO,
-			LEVEL_WARNING,
-			LEVEL_ERROR,
-			LEVEL_NOTICE,
-			LEVEL_OFF
-		};
+	enum Level {
+		LEVEL_DEBUG,
+		LEVEL_INFO,
+		LEVEL_WARNING,
+		LEVEL_ERROR,
+		LEVEL_NOTICE,
+		LEVEL_OFF
+	};
 
-		void				setLevel(Level lvl);
-		void				setLevel(const std::string& name);
+	void				setLevel(Level lvl);
+	void				setLevel(const std::string& name);
 
-		Level				getLevel(void) const;
+	Level				getLevel(void) const;
 
-		const char*			getLevelName(Level lvl) const;
-		const char*			getLevelColor(Level lvl) const;
+	const char*			getLevelName(Level lvl) const;
+	const char*			getLevelColor(Level lvl) const;
 
-		void				debug(const std::string& msg);
-		void				info(const std::string& msg);
-		void				warn(const std::string& msg);
-		void				error(const std::string& msg);
-		void				notice(const std::string& msg);
+	void				debug(const std::string& msg);
+	void				info(const std::string& msg);
+	void				warn(const std::string& msg);
+	void				error(const std::string& msg);
+	void				notice(const std::string& msg);
 
-	private:
-		Logger(void);
-		~Logger(void);
-		Logger(const Logger&);
-		Logger& operator=(const Logger&);
+private:
+	Logger(void);
+	~Logger(void);
+	Logger(const Logger&);
+	Logger& operator=(const Logger&);
 
-		void				_logMessage(Level lvl, const std::string& msg);
+	void				_logMessage(Level lvl, const std::string& msg);
 
-		Level				_log_level;
+	Level				_log_level;
 
 };
 

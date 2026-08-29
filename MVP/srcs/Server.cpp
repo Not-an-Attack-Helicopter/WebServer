@@ -15,18 +15,18 @@
 #include "../incs/templates.hpp"
 #include "../incs/Logger.hpp"
 #include "../incs/utils.hpp"
-#include <sys/socket.h>
-#include <sys/epoll.h>
+// #include <sys/socket.h>
+// #include <sys/epoll.h>
 #include <arpa/inet.h>
-#include <sys/wait.h>
-#include <sys/stat.h>
-#include <stdexcept>
+// #include <sys/wait.h>
+// #include <sys/stat.h>
+// #include <stdexcept>
 #include <unistd.h>
 // #include <iostream>
 #include <fcntl.h>
-#include <cstring>
-#include <cstdlib>
-#include <cerrno>
+// #include <cstring>
+// #include <cstdlib>
+// #include <cerrno>
 
   //~~~~~~~~~~//
  /*  Public  */
@@ -71,7 +71,6 @@ void Server::dropWriteInterest(int fd) {
 
 	epoll_event e;
 	e.events = EPOLLRDHUP;
-	// e.events = 0;
 	e.data.fd = fd;
 
 	int status = epoll_ctl(_epfd, EPOLL_CTL_MOD, fd, &e);
@@ -84,18 +83,6 @@ void Server::dropWriteInterest(int fd) {
 
 void Server::setPollInterest(FD fd) {
 
-	// struct stat sb;
-	// if (fstat(fd, &sb) != 0) {
-	// 	throw std::runtime_error("fstat: " + std::string(strerror(errno)));
-	// }
-
-	// epoll_event e;
-	// if (S_ISFIFO(sb.st_mode)) {
-	// 	e.events = 0;
-	// } else if (S_ISSOCK(sb.st_mode)) {
-	// 	e.events = EPOLLIN | EPOLLRDHUP;
-	// }
-	// e.data.fd = fd;
 	epoll_event e;
 	e.data.fd = fd.fd;
 	e.events = 0;
@@ -113,18 +100,6 @@ void Server::setPollInterest(FD fd) {
 
 void Server::setRDONLYInterest(FD fd) {
 
-	// struct stat sb;
-	// if (fstat(fd, &sb) != 0) {
-	// 	throw std::runtime_error("fstat: " + std::string(strerror(errno)));
-	// }
-
-	// epoll_event e;
-	// if (S_ISFIFO(sb.st_mode)) {
-	// 	e.events = EPOLLIN;
-	// } else if (S_ISSOCK(sb.st_mode)) {
-	// 	e.events = EPOLLIN | EPOLLRDHUP;
-	// }
-	// e.data.fd = fd;
 	epoll_event e;
 	e.data.fd = fd.fd;
 	if (fd.type == FD::PIPE) {
@@ -145,18 +120,6 @@ void Server::setRDONLYInterest(FD fd) {
 
 void Server::setWRONLYInterest(FD fd) {
 
-	// struct stat sb;
-	// if (fstat(fd, &sb) != 0) {
-	// 	throw std::runtime_error("fstat: " + std::string(strerror(errno)));
-	// }
-
-	// epoll_event e;
-	// if (S_ISFIFO(sb.st_mode)) {
-	// 	e.events = EPOLLOUT;
-	// } else if (S_ISSOCK(sb.st_mode)) {
-	// 	e.events = EPOLLOUT | EPOLLRDHUP;
-	// }
-	// e.data.fd = fd;
 	epoll_event e;
 	e.data.fd = fd.fd;
 	if (fd.type == FD::PIPE) {
@@ -236,9 +199,6 @@ void Server::prepareListeningPort(const Config::Socket& soc) {
 		throw std::runtime_error("listen: " + std::string(strerror(errno)));
 	}
 
-	// setPollInterest(_sockets.rbegin()->first);
-	// FileDescriptor FD = {_sockets.rbegin()->first, Type::SOCKET};
-	// setPollInterest(FD);
 	FD fildes = {_sockets.rbegin()->first, FD::SOCKET};
 	setPollInterest(fildes);
 
@@ -248,11 +208,10 @@ void Server::prepareListeningPort(const Config::Socket& soc) {
 
 }
 
-void Server::handleIncomingEvents(void) {
+void Server::handleEvents(void) {
 
 	log.info("Awaiting new connection");
 
-	// while (true) {
 	for (;;) {
 
 		int nfds = epoll_wait(_epfd, _events, MAX_EPOLL_EVENTS, EPOLL_WAIT_TIMEOUT_MS);
@@ -260,7 +219,8 @@ void Server::handleIncomingEvents(void) {
 		switch (nfds) {
 
 		case -1:
-			throw std::runtime_error("epoll_wait: " + std::string(strerror(errno)));
+			// throw std::runtime_error("epoll_wait: " + std::string(strerror(errno)));
+			log.error("epoll_wait: " + std::string(strerror(errno)));
 // DEBUG BEGIN
 		case 0:
 			log.debug("Timeout: no events");
@@ -278,7 +238,6 @@ void Server::handleIncomingEvents(void) {
 			uint32_t events = ev.events;
 			bool is_listen_socket = false;
 			bool is_socket_closed = false;
-			// bool isReadyForWrite = true;
 			std::map<int, const Config::Socket*>::iterator it = _sockets.begin();
 
 			while (it != _sockets.end()) {
@@ -319,8 +278,6 @@ void Server::handleIncomingEvents(void) {
 		while (it != _clients.end()) {
 			immediate = it;
 			++it;
-			// if (!immediate->second->getIncomingData().empty())
-			// 	immediate->second->parseIncomingData();
 
 			if (immediate->second->isTimedOut()) {
 // DEBUG BEGIN
@@ -330,7 +287,6 @@ void Server::handleIncomingEvents(void) {
 				log.warn("Client fd_" + i2a(immediate->first) + " timed out");
 
 				if (immediate->second->getState() == Client::RECEIVING_HEADERS) {
-					// log.error("sending 408");
 					immediate->second->setState(Client::PENDING_RESPONSE);
 					immediate->second->pushResponse();
 					dispatch.errorPage(immediate->second->getCurrentRequest().resolved.location,
@@ -338,11 +294,9 @@ void Server::handleIncomingEvents(void) {
 									   immediate->second->getCurrentRequest().headers_only,
 									   REQUEST_TIMEOUT);
 					immediate->second->popRequest();
-					// setWRONLYInterest(immediate->first);
 					FD fildes = {immediate->first, FD::SOCKET};
 					setWRONLYInterest(fildes);
 					immediate->second->markForTermination();
-					// setWRONLYInterest({immediate->first, FD::SOCKET});
 				} else {
 					cleanUpClient(immediate);
 				}
@@ -363,14 +317,10 @@ void Server::handleIncomingEvents(void) {
 
 void Server::acceptConnectRequest(int listen_fd, const Config::Socket* socket) {
 
-	// int listen_fd = it->first;
-	// const Config* config= it->second;
-
 	log.info("New connection on socket fd_" + i2a(listen_fd));
 
 	Client* c = new Client(socket);
 
-	// int client_fd = accept(listen_fd, c->getAddrPointer(), c->getAddrlenPointer());
 	int client_fd = accept(listen_fd, &c->getAddr(), &c->getAddrlen());
 	if (client_fd == -1) {
 
@@ -381,7 +331,8 @@ void Server::acceptConnectRequest(int listen_fd, const Config::Socket* socket) {
 		if (err_no == EAGAIN || err_no == EWOULDBLOCK) {
 			return;
 		} else {
-			throw std::runtime_error("accept: " + std::string(strerror(errno)));
+			// throw std::runtime_error("accept: " + std::string(strerror(errno)));
+			log.error("accept: " + std::string(strerror(errno)));
 		}
 
 	}
@@ -394,12 +345,6 @@ void Server::acceptConnectRequest(int listen_fd, const Config::Socket* socket) {
 
 	log.info("Client fd_" + i2a(client_fd) + ", endpoint "
 				+ c->getHostAddress() + ":" + i2a(c->getHostPort()));
-	// dumpClientConfig(c);
-
-// TEST We don't care about potential DoS attack vectors here
-	// forking_around(listen_fd, client_fd);
-// TEST
-
 	return;
 
 }
@@ -418,7 +363,8 @@ void Server::handleSocketError(int fd) {
 	std::map<int, Client*>::iterator it = _clients.find(fd);
 
 	if (it == _clients.end() || it->second == NULL) {
-		throw std::runtime_error("client lookup:: " + std::string(NFIND_CLIENT));
+		// throw std::runtime_error("client lookup:: " + std::string(NFIND_CLIENT));
+		log.warn("client lookup:: " + std::string(NFIND_CLIENT));
 	}
 
 	cleanUpClient(it);
@@ -431,7 +377,8 @@ void Server::handleHangup(int fd) {
 	std::map<int, Client*>::iterator it = _clients.find(fd);
 
 	if (it == _clients.end() || it->second == NULL) {
-		throw std::runtime_error("client lookup:: " + std::string(NFIND_CLIENT));
+		// throw std::runtime_error("client lookup:: " + std::string(NFIND_CLIENT));
+		log.warn("client lookup:: " + std::string(NFIND_CLIENT));
 	}
 
 	cleanUpClient(it);
@@ -444,18 +391,11 @@ void Server::handleRemoteHangup(int fd) {
 	std::map<int, Client*>::iterator it = _clients.find(fd);
 
 	if (it == _clients.end() || it->second == NULL) {
-		throw std::runtime_error("client lookup:: " + std::string(NFIND_CLIENT));
+		// throw std::runtime_error("client lookup:: " + std::string(NFIND_CLIENT));
+		log.warn("client lookup:: " + std::string(NFIND_CLIENT));
 	}
 
 	cleanUpClient(it);
-	// Client& client = *it->second;
-	// if (client.hasPendingResponse() || client.hasPendingData()) {
-	// 	client.markForTermination();
-	// 	FD fildes = {fd, FD::SOCKET};
-	// 	setWRONLYInterest(fildes);
-	// } else {
-	// 	cleanUpClient(it);
-	// }
 	return;
 
 }
@@ -465,7 +405,8 @@ bool Server::handleReadEvent(int fd) {
 	std::map<int, Client*>::iterator it = _clients.find(fd);
 
 	if (it == _clients.end() || it->second == NULL) {
-		throw std::runtime_error("client lookup:: " + std::string(NFIND_CLIENT));
+		// throw std::runtime_error("client lookup:: " + std::string(NFIND_CLIENT));
+		log.warn("client lookup:: " + std::string(NFIND_CLIENT));
 	}
 
 	Client& client = *it->second;
@@ -480,7 +421,6 @@ bool Server::handleReadEvent(int fd) {
 		return true;
 // DEBUG END
 	case -1:
-		// throw std::runtime_error("recv: " + std::string(strerror(errno)));
 		log.warn("recv: " + std::string(strerror(errno)));
 		return true;
 	case 0:
@@ -493,88 +433,9 @@ bool Server::handleReadEvent(int fd) {
 // DEBUG END
 		return true;
 	default:
-// // DEBUG BEGIN
-// 		std::string buff = client.getBuffer();
-// 		if (static_cast<size_t>(bytes_received) >= buff.size()) {
-// 			bytes_received = buff.size();
-// 		}
-// 		buff.erase(bytes_received); // remove AT LEAST this line for production
-//
-// 		log.debug("Read " + i2a(bytes_received) + " bytes from client fd_" + i2a(fd) + ":");
-// 		log.notice(buff);
-// 		// log.debug("Current data in buffer:");
-// 		// log.notice(client.getIncomingData());
-// // DEBUG END
 // TEST >>
 
 		client.parseIncomingData();
-		// HTTPRequest& request = client.getRecentRequest();
-		// HTTPRequest& request = client.getCurrentRequest();
-		// HTTPRequest::ParseState parse_state = request.parsing.state;
-		// log.error("request " + request.debug + " parsing state is set to " + i2a(request.parsing.state));
-		// if (request.parsing.state == HTTPRequest::READING_REQUEST_LINE ||
-		// 	request.parsing.state == HTTPRequest::READING_HEADERS ||
-		// 	request.parsing.state == HTTPRequest::READING_BODY) {
-
-			// client.parseIncomingData(request);
-
-			// parse_state = request.parsing.state;
-
-		// switch (request.parsing.state) {
-  //
-		// 	case HTTPRequest::READING_REQUEST_LINE:
-		// 		client.setState(Client::RECEIVING_HEADERS);
-		// 		break;
-		// 	case HTTPRequest::READING_HEADERS:
-		// 		client.setState(Client::RECEIVING_HEADERS);
-		// 		break;
-		// 	case HTTPRequest::READING_BODY:
-		// 		client.setState(Client::RECEIVING_BODY);
-		// 		break;
-		// 	case HTTPRequest::DISPATCHING:
-		// 		log.info("All HTTP request headers received");
-		// 		client.setState(Client::DISPATCHING);
-		// 		// Create new response object in deque container
-		// 		client.pushResponse();
-		// 		break;
-		// 	case HTTPRequest::FINALIZING:
-		// 		log.info("Valid HTTP request received");
-		// 		client.setState(Client::DISPATCHING);
-		// 		// client.pushRequest();
-		// 		break;
-		// 	case HTTPRequest::ERROR:
-		// 		log.warn("HTTP request parser returned error");
-		// 		client.setState(Client::DISPATCHING);
-		// 		// Create new response object in deque container
-		// 		client.pushResponse();
-		// 		// client.pushRequest();
-		// 		break;
-		// 	case HTTPRequest::COMPLETE:
-		// 		break;
-  //
-		// }
-
-		// }
-
-		// READING_REQUEST_LINE,
-		// READING_HEADERS,
-		// READING_BODY,
-		// DISPATCHING,
-		// FINALIZING,
-		// COMPLETE,
-		// ERROR
-
-		// IDLE,
-		// RECEIVING_HEADERS,
-		// RECEIVING_BODY,
-		// DISPATCHING,
-		// PENDING_RESPONSE,
-		// SENDING_HEADERS,
-		// SENDING_BODY,
-		// CONCLUDED,
-		// REJECTED,
-		// ERROR
-
 		if (client.getState() == Client::DISPATCHING) {
 			dispatch.currentRequest(client);
 		}
@@ -588,17 +449,12 @@ bool Server::handleReadEvent(int fd) {
 		}
 
 		if (client.getState() == Client::PENDING_RESPONSE) {
+
 			// Delete processed request from deque container
 			client.popRequest();
 			client.pushRequest();
 
 			if (client.blockedFromReceiving()) {
-				// char buf[256*1024];
-				// int n;
-				// do {
-				// 	n = recv(fd, buf, sizeof(buf), 0);
-				// 	log.error(i2a(n));
-				// } while (n > 0);
 				FD fildes = {fd, FD::SOCKET};
 				setWRONLYInterest(fildes);
 			} else {
@@ -607,35 +463,6 @@ bool Server::handleReadEvent(int fd) {
 
 		}
 
-		// // parse_state = client.getCurrentRequest().parsing.state;
-		// HTTPRequest& request = client.getCurrentRequest();
-		// log.error("request " + request.debug + " parsing state is set to " + i2a(request.parsing.state));
-		// // if (client.getState() == Client::DISPATCHING &&
-		// // 	parse_state != HTTPRequest::READING_BODY) {
-		// if (request.parsing.state == HTTPRequest::DISPATCHING ||
-		// 	request.parsing.state == HTTPRequest::FINALIZING ||
-		// 	request.parsing.state == HTTPRequest::ERROR) {
-  //
-		// 	// Dispatch current request and build response
-		// 	dispatcher.handleRequest(client);
-		// }
-  //
-		// log.error("request " + request.debug + " parsing state is set to " + i2a(request.parsing.state));
-		// // parse_state = client.getCurrentRequest().parsing.state;
-		// if (request.parsing.state == HTTPRequest::COMPLETE ||
-		// 	request.parsing.state == HTTPRequest::ERROR) {
-  //
-		// 	client.setState(Client::PENDING_RESPONSE);
-		// 	// Delete processed request from deque container
-		// 	client.popRequest();
-		// 	client.pushRequest();
-  //
-		// 	if (client.blockedFromReceiving()) {
-		// 		setWRONLYInterest(fd);
-		// 	} else {
-		// 		setRDWRInterest(fd);
-		// 	}
-		// }
 // << TEST
 		return false;
 
@@ -648,7 +475,8 @@ void Server::handleWriteEvent(int fd) {
 	std::map<int, Client*>::iterator it = _clients.find(fd);
 
 	if (it == _clients.end() || it->second == NULL) {
-		throw std::runtime_error("client lookup: " + std::string(NFIND_CLIENT));
+		// throw std::runtime_error("client lookup: " + std::string(NFIND_CLIENT));
+		log.warn("client lookup:: " + std::string(NFIND_CLIENT));
 	}
 
 	Client& client = *it->second;
@@ -658,63 +486,16 @@ void Server::handleWriteEvent(int fd) {
 	}
 
 // TEST BEGIN
-	// if (client.hasPendingResponse()) {
 	if (client.getState() == Client::PENDING_RESPONSE) {
 		client.queueOutgoingData();
-		// client.pop<HTTPResponse>();
 		client.popResponse();
+		client.pushResponse();
 	}
 // TEST END
-// DEBUG BEGIN
-	// if (!client.hasPendingData) {
-	// 	std::string message = "Data Received. Ctrl+D to close the connection.\n";
-	// 	client.queueOutgoingData(message);
-	// }
-// DEBUG END
 	if (client.hasPendingData()) {
 
-		// ssize_t bytes_sent = 0;
-		// const Client::OutgoingData* outgoing_data = client.getOutgoingData();
-		// const Client::State client_state = client.getClientState();
-		// switch (client_state) {
-		// case Client::SENDING_HEADERS:
-		// 	bytes_sent = client.flushPendingData(fd, outgoing_data->headers);
-		// 	break;
-		// case Client::SENDING_BODY:
-		// 	bytes_sent = client.flushPendingData(fd, outgoing_data->body);
-		// 	break;
-		// case Client::SENDING_FILE:
-		// 	bytes_sent = client.flushPendingData(fd, outgoing_data->file);
-		// 	break;
-		// case Client::IDLE:
-		// 	client.setBytesRead(0);
-		// 	break;
-		// }
 		client.flushPendingData(fd);
-		// log.error("bytes_sent: " + i2a(status));
-		// if (bytes_sent == -1) {
-		// 	// throw std::runtime_error("send: " + std::string(strerror(errno)));
-		// 	log.error("send: " + std::string(strerror(errno)));
-		// }
-		// if (bytes_sent == 0) {
-		// 	log.warn("send: 0 bytes sent");
-		// }
 	}
-	// log.error(client.hasPendingData() ? "There is pending Data!" : "No more pending data!");
-	// if (!client.hasPendingData()) {
-	// 	// log.error("No more pending data!");
-	// 	if (client.markedForTermination()) {
-	// 		cleanUpClient(it);
-	// 	} else {
-	// 		setRDONLYInterest(fd);
-	// 	}
-	// }
-	// if (!client.hasPendingData() && !client.markedAsRejected()) {
-	// 	setRDONLYInterest(fd);
-	// }
-	// if (!client.hasPendingData() && client.markedForTermination()) {
-	// 	cleanUpClient(it);
-	// }
 
 	FD fildes = {fd, FD::SOCKET};
 
@@ -735,20 +516,6 @@ void Server::handleWriteEvent(int fd) {
 		break;
 
 	}
-
-	// if (client.getState() == Client::ERROR) {
-	// 	cleanUpClient(it);
-	// } else if (client.getState() == Client::IDLE) {
-	// 	if (client.markedForTermination()) {
-	// 		cleanUpClient(it);
-	// 	// } else if (client.markedAsRejected()) {
-	// 	// 	dropWriteInterest(fd);
-	// 	} else {
-	// 		setRDONLYInterest(fd);
-	// 	}
-	// } else if (client.getState() == Client::REJECTED) {
-	// 	dropWriteInterest(fd);
-	// }
 
 	return;
 
@@ -823,7 +590,6 @@ void Server::cleanUpClient(std::map<int, Client*>::iterator it) {
 	}
 
 	if (it->second != NULL) {
-		// log.debug("Deleting client #" + i2a(it->first - _sockets.rbegin()->first));
 		delete it->second;
 		it->second = NULL;
 	}
@@ -865,9 +631,9 @@ Server::Server(void) {
 	return;
 }
 
-/*	@brief Deconstructor	*/
+/*	@brief Destructor	*/
 Server::~Server(void) {
-	log.debug("Server Deconstructor called");
+	log.debug("Server Destructor called");
 	// if (_epfd != -1 || !_sockfd.empty() || !_clients.empty()) {
 	if (_epfd != -1 || !_sockets.empty() || !_clients.empty()) {
 		cleanUpAllRessources();
@@ -890,149 +656,3 @@ Server& Server::operator = (const Server& other) {
 	return *this;
 }
 
-// TEST
-// void Server::forking_around(int listen_fd, int client_fd) {
-// 	pid_t pid = fork();
-// 	// const char* argv[] = {"echo", "Hello from the child process!", NULL};
-// 	const char* argv[] = {"/home/ben/NotAnAttackHelicopter/MVP/observ", NULL};
-// 	switch(pid) {
-// 		case -1:
-// 			log.error("fork: " + std::string(strerror(errno)));
-// 			break;
-// 		case 0:
-// 			// cleanUpAllRessources();							// This is bad! Because all clients will be deleted
-// 			// and all interests will be wiped from all sockets!
-// 			// if (!_clients.empty()) {							// This is bad! The client object will be deconstructed.
-// 			// 	std::map<int, Client*>::iterator immediate;
-// 			// 	std::map<int, Client*>::iterator it = _clients.begin();
-// 			// 	while (it != _clients.end()) {
-// 			// 		immediate = it;
-// 			// 		++it;
-// 			// 		cleanUpClient(immediate);
-// 			// 	}
-// 			// }
-// 			_clients.clear();
-// 			for (int i = 0; i < MAX_EPOLL_EVENTS; ++i) {
-// 				_events[i].events = 0;
-// 				_events[i].data.fd = 0;
-// 				_events[i].data.u32 = 0;
-// 				_events[i].data.u64 = 0;
-// 				_events[i].data.ptr = NULL;
-// 			}
-// 			// _sockfd.clear();
-// 			_addr.clear();
-// 			// epoll_ctl(_epfd, EPOLL_CTL_DEL, listen_fd, NULL);
-// 			// This is potentially bad, because in the case
-// 			// of disconnecting before sending 'STOP' it will
-// 			// not be possible to reconnect!
-// 			close(listen_fd);
-// 			close(client_fd);
-// 			close(_epfd);
-// 			// if (execvp(argv[0], (char* const*)argv) == -1) {
-// 			// 	log.error("Oh no! " + std::string(strerror(errno)));
-// 			// 	_exit(EXIT_FAILURE);
-// 			// }
-// 			if (execvp(argv[0], (char* const*)argv) == -1) {
-// 				log.error("Oh no! " + std::string(strerror(errno)));
-// 				_exit(EXIT_FAILURE);
-// 			}
-// 			_exit(EXIT_SUCCESS);
-// 			break;
-// 			// Because above "statement may fall through". - The Compiler, having no clue; it's bog wash.
-// 		default:
-// 			// std::cout << "Hello from the parent process!" << std::endl;
-// 			while (waitpid(-1, NULL, WNOHANG) > 0) {}
-// 	}
-// 	// while (waitpid(-1, NULL, WNOHANG) > 0) {}
-// 	return;
-// }
-// TEST
-
-// const char* Server::AFNotSupportedException::what(void) const throw () {
-// 	// return "AFNotSupportedException\n";
-// 	std::cerr << ERROR << "Error: inet_pton: ";
-// 	return strerror(errno);
-// }
-//
-// const char* Server::InvalidAddressException::what(void) const throw () {
-// 	std::cerr << ERROR << "Error: inet_pton: ";
-// 	return INVALID_ADDR;
-// }
-//
-// const char* Server::SocketException::what(void) const throw () {
-// 	// return "SocketException\n";
-// 	std::cerr << ERROR << "Error: socket: ";
-// 	return strerror(errno);
-// }
-//
-// const char* Server::SetSockOptionException::what(void) const throw () {
-// 	// return "SetSockOptionException\n";
-// 	std::cerr << ERROR << "Error: socket: ";
-// 	return strerror(errno);
-// }
-//
-// const char* Server::BindException::what(void) const throw () {
-// 	// return "BindException\n";
-// 	std::cerr << ERROR << "Error: bind: ";
-// 	return strerror(errno);
-// }
-//
-// const char* Server::ListenException::what(void) const throw () {
-// 	// return "ListenException\n";
-// 	std::cerr << ERROR << "Error: listen: ";
-// 	return strerror(errno);
-// }
-//
-// const char* Server::CreateEPollException::what(void) const throw () {
-// 	// return "CreateEPollException\n";
-// 	std::cerr << ERROR << "Error: epoll_create: ";
-// 	return strerror(errno);
-// }
-//
-// const char* Server::ModifyEPollException::what(void) const throw () {
-// 	// return "ModifyEPollException\n";
-// 	std::cerr << ERROR << "Error: epoll_ctl: ";
-// 	return strerror(errno);
-// }
-//
-// const char* Server::EventPollingException::what(void) const throw () {
-// 	// return "EventPollingException\n";
-// 	std::cerr << ERROR << "Error: epoll_wait: ";
-// 	return strerror(errno);
-// }
-//
-// const char* Server::GetFileStatusException::what(void) const throw () {
-// 	// return "GetFileStatusException\n";
-// 	std::cerr << ERROR << "Error: fcntl(F_GETFL): ";
-// 	return strerror(errno);
-// }
-//
-// const char* Server::SetFileStatusException::what(void) const throw () {
-// 	// return "SetFileStatusException\n";
-// 	std::cerr << ERROR << "Error: fcntl(F_SETFL): ";
-// 	return strerror(errno);
-// }
-//
-// const char* Server::AcceptException::what(void) const throw () {
-// 	// return "AcceptException\n";
-// 	std::cerr << ERROR << "Error: accept: ";
-// 	return strerror(errno);
-// }
-//
-// const char* Server::MissingClientException::what(void) const throw () {
-// 	// return "MissingClientException\n";
-// 	std::cerr << ERROR << "Error: client lookup: ";
-// 	return NFIND_CLIENT;
-// }
-//
-// const char* Server::ReadDataException::what(void) const throw () {
-// 	// return "ReadDataException\n";
-// 	std::cerr << ERROR << "Error: recv: ";
-// 	return strerror(errno);
-// }
-//
-// const char* Server::FlushDataException::what(void) const throw () {
-// 	// return "FlushDataException\n";
-// 	std::cerr << ERROR << "Error: send: ";
-// 	return strerror(errno);
-// }

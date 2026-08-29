@@ -87,11 +87,11 @@ namespace HTTPContentDisposition {
 	*/
 	static bool validateExtValue(const std::string& value) {
 
-		size_t firstQuote = value.find('\'');
+		std::size_t firstQuote = value.find('\'');
 
 		if (firstQuote == std::string::npos) return false;
 
-		size_t secondQuote = value.find('\'', firstQuote + 1);
+		std::size_t secondQuote = value.find('\'', firstQuote + 1);
 
 		if (secondQuote == std::string::npos) return false;
 
@@ -100,10 +100,10 @@ namespace HTTPContentDisposition {
 		*/
 		if (firstQuote == 0) return false;
 
-		size_t i;
+		std::size_t i;
 
 		for (i = 0; i < firstQuote; ++i) {
-			if (!HTTPGrammar::isTChar(value[i])) return false;
+			if (!isTChar(value[i])) return false;
 		}
 
 		/*
@@ -182,12 +182,12 @@ namespace HTTPContentDisposition {
 
 		if (!validateExtValue(extValue)) return false;
 
-		size_t firstQuote = extValue.find('\'');
-		size_t secondQuote = extValue.find('\'', firstQuote + 1);
+		std::size_t firstQuote = extValue.find('\'');
+		std::size_t secondQuote = extValue.find('\'', firstQuote + 1);
 
 		decoded.clear();
 
-		size_t i = secondQuote + 1;
+		std::size_t i = secondQuote + 1;
 		while (i < extValue.size()) {
 
 		char c = extValue[i];
@@ -237,7 +237,7 @@ namespace HTTPContentDisposition {
 		result.value.clear();
 		result.parameters.clear();
 
-		size_t pos = 0;
+		std::size_t pos = 0;
 
 		HTTPGrammar::skipOWS(headerValue, pos);
 
@@ -250,7 +250,7 @@ namespace HTTPContentDisposition {
 			return false;
 		}
 
-		disposition = HTTPGrammar::tolowerASCII(disposition);
+		disposition = tolowerASCII(disposition);
 
 		/*
 		* RFC 7578:
@@ -259,7 +259,7 @@ namespace HTTPContentDisposition {
 		* Content-Disposition with disposition-type "form-data".
 		*/
 		if (context == MULTIPART_FORM_DATA &&
-			!HTTPGrammar::equalCI(disposition, "form-data")) {
+			!equalCI(disposition, "form-data")) {
 			return false;
 		}
 		/*
@@ -302,12 +302,12 @@ namespace HTTPContentDisposition {
 	* ------------------------------------------------------------
 	*/
 
-		size_t i;
-		size_t j;
+		std::size_t i;
+		std::size_t j;
 
 		for (i = 0; i < result.parameters.size(); ++i) {
 			for (j = i + 1; j < result.parameters.size(); ++j) {
-				if (HTTPGrammar::equalCI(result.parameters[i].name,
+				if (equalCI(result.parameters[i].name,
 							result.parameters[j].name)) {
 					return false;
 				}
@@ -324,36 +324,22 @@ namespace HTTPContentDisposition {
 		/*
 		* name is REQUIRED.
 		*/
-			size_t nameCount = 0;
+			std::size_t nameCount = 0;
 			for (i = 0; i < result.parameters.size(); ++i) {
 
-				if (HTTPGrammar::equalCI(result.parameters[i].name, "name")) {
+				if (equalCI(result.parameters[i].name, "name")) {
 					++nameCount;
 				}
 				/*
 				* RFC 7578 explicitly says filename* MUST NOT be used.
 				*/
-				if (HTTPGrammar::equalCI(result.parameters[i].name, "filename*")) {
+				if (equalCI(result.parameters[i].name, "filename*")) {
 					return false;
 				}
 
 			}
 
 			if (nameCount != 1) return false;
-
-			/*
-			* RFC 7578 recognizes name and filename for this use.
-			*
-			* We reject other parameters here for strict validation
-			* rather than silently accepting an extension whose
-			* multipart semantics are undefined by RFC 7578.
-			*/
-			// for (i = 0; i < result.parameters.size(); ++i) {
-			// 	if (!equalCI(result.parameters[i].name, "name") &&
-			// 		!equalCI(result.parameters[i].name, "filename")) {
-			// 		return false;
-			// 	}
-			// }
 
 			return true;
 		}
@@ -369,7 +355,7 @@ namespace HTTPContentDisposition {
 		*/
 		for (i = 0; i < result.parameters.size(); ++i) 	{
 
-			if (HTTPGrammar::equalCI(result.parameters[i].name, "filename*")) {
+			if (equalCI(result.parameters[i].name, "filename*")) {
 				// if (!validateExtValue(result.parameters[i].value)) {
 				std::string decoded;
 				if (!decodeExtValueBytes(result.parameters[i].value, decoded)) {
@@ -438,85 +424,35 @@ namespace HTTPContentDisposition {
 			return false;
 		}
 
-		// bool seenName = false;
-		// bool seenFilename = false;
-		// bool seenFilenameStar = false;
 		disposition = parsed.value;
 		if (parameters != NULL) *parameters = parsed.parameters;
 
-		size_t i;
-		for (i = 0; i < parsed.parameters.size(); ++i) {
+		for (std::size_t i = 0; i < parsed.parameters.size(); ++i) {
 
 			const HTTPParameters::MIMEParameter& p = parsed.parameters[i];
 
-			if (HTTPGrammar::equalCI(p.name, "name")) {
-
-				// if (seenName) {
-				// 	return false;
-				// }
-
-				// seenName = true;
+			if (equalCI(p.name, "name")) {
 
 				if (name != NULL) {
-					// if (!name->empty()) {
-					// 	return false;
-					// }
+
 				*name = p.value;
 				}
 
-			} else if (HTTPGrammar::equalCI(p.name, "filename")) {
-
-				// if (seenFilename) {
-				// 	return false;
-				// }
-
-				// seenFilename = true;
+			} else if (equalCI(p.name, "filename")) {
 
 				if (filename != NULL) {
-					// if (!filename->empty()) {
-					// 	return false;
-					// }
 					*filename = p.value;
 				}
 
-			} else if (HTTPGrammar::equalCI(p.name, "filename*")) {
-
-				// if (seenFilenameStar) {
-				// 	return false;
-				// }
-
-				// seenFilenameStar = true;
+			} else if (equalCI(p.name, "filename*")) {
 
 				if (filenameStar != NULL) {
-				// 	if (!filenameStar->empty()) {
-				// 		return false;
-				// 	}
 					*filenameStar = p.value;
 				}
 
 			}
 
 		}
-
-		// if (context == ContentDispositionContext::MULTIPART_FORM_DATA) {
-
-			/*
-			* RFC 7578 requires the "name" parameter.
-			*/
-			// if (name == NULL || name->empty()) {
-			// if (!seenName) {
-			// 	return false;
-			// }
-
-			/*
-			* RFC 7578: filename* MUST NOT be used.
-			*/
-			// if (filenameStar != NULL && !filenameStar->empty()) {
-			// if (seenFilenameStar) {
-			// 	return false;
-			// }
-
-		// }
 
 		return true;
 

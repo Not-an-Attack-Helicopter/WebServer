@@ -11,60 +11,9 @@
 /* ************************************************************************** */
 
 #include "../incs/HTTPGrammar.hpp"
+#include "../incs/utils.hpp"
 
 namespace HTTPGrammar {
-
-	/*
-	* ================================================================
-	* ASCII helpers
-	* ================================================================
-	*/
-
-	char tolowerASCII(char c) {
-		unsigned char uc =
-			static_cast<unsigned char>(c);
-
-		if (uc >= static_cast<unsigned char>('A') &&
-			uc <= static_cast<unsigned char>('Z')) {
-
-			uc = static_cast<unsigned char>(
-				uc + ('a' - 'A'));
-		}
-
-		return static_cast<char>(uc);
-	}
-
-	std::string tolowerASCII(const std::string& s) {
-		std::string result(s);
-
-		std::size_t i;
-
-		for (i = 0; i < result.size(); ++i) {
-			result[i] = tolowerASCII(result[i]);
-		}
-
-		return result;
-	}
-
-	bool equalCI(const std::string& a,
-				const std::string& b) {
-		if (a.size() != b.size()) {
-			return false;
-		}
-
-		std::size_t i;
-
-		for (i = 0; i < a.size(); ++i) {
-
-			if (tolowerASCII(a[i]) !=
-				tolowerASCII(b[i])) {
-
-				return false;
-			}
-		}
-
-		return true;
-	}
 
 	/*
 	* ================================================================
@@ -88,46 +37,6 @@ namespace HTTPGrammar {
 
 			++pos;
 		}
-	}
-
-	/*
-	* RFC 9110:
-	*
-	* tchar = "!" / "#" / "$" / "%" / "&" / "'"
-	*       / "*" / "+" / "-" / "." / "^" / "_"
-	*       / "`" / "|" / "~" / DIGIT / ALPHA
-	*/
-	bool isTChar(char c) {
-		unsigned char uc = static_cast<unsigned char>(c);
-		if ((uc >= 'A' && uc <= 'Z') ||
-			(uc >= 'a' && uc <= 'z') ||
-			(uc >= '0' && uc <= '9')) {
-			return true;
-		}
-
-		switch (uc) {
-
-		case '!':
-		case '#':
-		case '$':
-		case '%':
-		case '&':
-		case '\'':
-		case '*':
-		case '+':
-		case '-':
-		case '.':
-		case '^':
-		case '_':
-		case '`':
-		case '|':
-		case '~':
-			return true;
-
-		default:
-			return false;
-		}
-
 	}
 
 	/*
@@ -248,8 +157,8 @@ namespace HTTPGrammar {
 	*/
 
 	bool parseQuotedString(const std::string& s,
-						std::size_t& pos,
-						std::string& value) {
+						   std::size_t& pos,
+						   std::string& value) {
 		value.clear();
 
 		if (pos >= s.size() ||

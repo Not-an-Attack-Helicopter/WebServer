@@ -13,15 +13,10 @@
 #ifndef HTTP_RESPONSE_HPP
 #define HTTP_RESPONSE_HPP
 
-// #define CRLF "\r\n"
-
-// #include <cstddef>
-// #include <sstream>
-// #include <fstream>
 #include "Config.hpp"
-#include <cstddef>
-#include <string>
-#include <map>
+// #include <cstddef>
+// #include <string>
+// #include <map>
 
 enum StatusCode {
 	NO_STATUS = 0,
@@ -110,29 +105,18 @@ public:
 
 	// Headers
 	const std::map<std::string, std::string>&	getHeaders(void) const;
-	// const std::string&							getHeader(const std::string& key) const;
 
 	void										setHeader(const std::string& key,
 														  const std::string& value);
-
-	// bool										hasHeader(const std::string& key) const;
 
 	// Body(-Type), Content-Type, and Content-Length
 	void										setBody(const std::string& body,
 														const std::string& content_type,
 														bool headers_only);
 	const std::string&							getBody(void) const;
-	size_t										getBodySize(void) const;
+	std::size_t									getBodySize(void) const;
 	Sink										getBodySink(void) const;
 	void										setBodySink(Sink body_type);
-	// void										setFilePath(const std::string& body,
-	// 														const std::string& content_type);
-	// const std::string&							getFilePath(void) const;
-	// void										setContentLength(void);
-	// size_t										getContentLength(void) const;
-
-	// Produce the raw HTTP/1.1 string ready to write to the socket
-	// std::string									serialize(void) const;
 	void										reset(void);
 
 private:
@@ -150,7 +134,7 @@ private:
 
 	std::string									_body;
 
-	size_t										_body_size;
+	std::size_t									_body_size;
 
 	Sink										_body_sink;
 
