@@ -277,7 +277,7 @@ void Client::parseIncomingData(void) {
 
 		}
 
-		if (request.parsing.state == HTTPRequest::DISPATCHING) {
+		if (request.parsing.state == HTTPRequest::RESOLVING_ROUTE) {
 			break;
 		}
 
@@ -357,7 +357,7 @@ void Client::parseIncomingData(void) {
 		case HTTPRequest::READING_BODY:
 			setState(Client::RECEIVING_BODY);
 			break;
-		case HTTPRequest::DISPATCHING:
+		case HTTPRequest::RESOLVING_ROUTE:
 			log.info("All HTTP request headers received");
 			setState(Client::DISPATCHING);
 			if (_instream.data.size() != BUFFER_SIZE) {

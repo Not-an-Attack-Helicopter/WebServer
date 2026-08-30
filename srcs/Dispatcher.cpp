@@ -240,8 +240,7 @@ static StatusCode serveFile(const std::string& path,
 	response.setStatus(OK);
 	response.setHeader("Connection", "keep-alive");
 
-	response.setBodySink(DISK);
-	response.setBody(path, content_type, request.headers_only);
+	response.setBody(path, DISK, content_type, request.headers_only);
 
 	return OK;
 
@@ -320,8 +319,7 @@ static StatusCode serveDirectoryListing(const std::string& path,
 
 	closedir(dir);
 
-	response.setBodySink(HEAP);
-	response.setBody(body.str(), "text/html", request.headers_only);
+	response.setBody(body.str(), HEAP, "text/html", request.headers_only);
 	return OK;
 
 }
@@ -338,8 +336,7 @@ static StatusCode handleRedirect(const std::string& path,
 
 	std::ostringstream body;
 	body << "Moved Permanently. Redirecting to " + new_path;
-	response.setBodySink(HEAP);
-	response.setBody(body.str(), "text/plain", request.headers_only);
+	response.setBody(body.str(), HEAP, "text/plain", request.headers_only);
 
 	return MOVED_PERMANENTLY;
 
@@ -355,8 +352,7 @@ static StatusCode handleRedirect(const Config::Location& location,
 
 	std::ostringstream body;
 	body << "Moved Permanently. Redirecting to " + location.redirect;
-	response.setBodySink(HEAP);
-	response.setBody(body.str(), "text/plain", request.headers_only);
+	response.setBody(body.str(), HEAP, "text/plain", request.headers_only);
 
 	return MOVED_PERMANENTLY;
 
@@ -401,8 +397,7 @@ static StatusCode handlePUT(HTTPRequest& request,
 							HTTPResponse& response) {
 
 	response.setHeader("Connection", "keep-alive");
-	response.setBodySink(HEAP);
-	response.setBody("Uploaded\n", "text/plain", request.headers_only);
+	response.setBody("Uploaded\n", HEAP, "text/plain", request.headers_only);
 
 	if (request.created_file) {
 		response.setStatus(CREATED);
@@ -419,8 +414,7 @@ static StatusCode handlePOST(const HTTPRequest& request,
 	response.setStatus(CREATED);
 	response.setHeader("Connection", "keep-alive");
 
-	response.setBodySink(HEAP);
-	response.setBody("Uploaded\n", "text/plain", request.headers_only);
+	response.setBody("Uploaded\n", HEAP, "text/plain", request.headers_only);
 
 	return CREATED;
 
@@ -507,15 +501,15 @@ static StatusCode handleDirectory(HTTPRequest& request,
 static StatusCode routeRequest(HTTPRequest& request,
 							   HTTPResponse& response) {
 
-/*	// Hand request to CGI
+	// Hand request to CGI
 	if (request.requires_CGI) {
 
-		//
+		//if (HTTPRequest::DISPATCHING)
 		// return handleCGI(request, response);
 		return NO_STATUS;
 
 	// Check if request path exists as static file in `root`
-	} else */if (isRegularFile(request.resolved.path)) {
+	} else if (isRegularFile(request.resolved.path)) {
 
 		return handleRegularFile(request, response);
 
@@ -702,7 +696,7 @@ void Dispatcher::request(Client& client) {
 			return;
 		}
 		break;
-	case HTTPRequest::DISPATCHING:
+	case HTTPRequest::RESOLVING_ROUTE:
 		status_code = resolveRoute(client);
 		if (status_code == NO_STATUS) {
 			status_code = routeRequest(request, response);
@@ -767,16 +761,14 @@ void Dispatcher::errorPage(const Config::Location* location,
 
 	if (!error_page_path.empty()) {
 
-		response.setBodySink(DISK);
-		response.setBody(error_page_path, "text/html", headers_only);
+		response.setBody(error_page_path, DISK, "text/html", headers_only);
 
 	} else {
 
 		std::ostringstream body ;
 		body	<< tag::HTML << tag::BODY << tag::H1 << "Error" << http::_ << i2a(code) << ":"
 				<< http::_ << response.getStatusReason() << tag::_H1 << tag::_BODY << tag::_HTML;
-		response.setBodySink(HEAP);
-		response.setBody(body.str(), "text/html", headers_only);
+		response.setBody(body.str(), HEAP, "text/html", headers_only);
 
 	}
 
