@@ -35,6 +35,7 @@ public:
 		READING_HEADERS,
 		READING_BODY,
 		DISPATCHING,
+		RUNNING_CGI,
 		COMPLETE,
 		ERROR
 	};
@@ -208,6 +209,7 @@ public:
 	RequestBody								body;
 
 	bool									headers_only; // HEAD method
+	bool									is_cgi;
 	bool									is_multipart;
 	bool									body_chunked;
 	bool									created_file;

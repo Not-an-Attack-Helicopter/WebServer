@@ -279,7 +279,7 @@ void Client::parseIncomingData(void) {
 			if ((request.parsing.chunk_state == HTTPRequest::END_OF_CHUNKS) ||
 				(request.parsing.multipart_state == HTTPRequest::END_OF_PARTS) ||
 				(request.parsing.body_size == request.body.size && !request.body_chunked)) {
-				request.parsing.state = HTTPRequest::COMPLETE;
+					request.parsing.state = HTTPRequest::COMPLETE;
 			}
 		}
 

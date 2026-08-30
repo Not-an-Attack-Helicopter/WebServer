@@ -229,8 +229,6 @@ CGIResult CgiProcess::result() const {
     return res;
 }
 
-// Blocking convenience wrapper (standalone/offline use only, e.g. tests).
-// The live server should drive a CgiProcess from its own epoll loop instead.
 CGIResult run_cgi(const std::string& path, const std::vector<std::string>& args,
                    const std::map<std::string, std::string>& env,
                    const std::string& input, const std::string& working_dir)
