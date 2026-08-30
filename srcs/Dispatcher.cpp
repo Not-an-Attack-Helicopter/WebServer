@@ -51,17 +51,10 @@ static bool hasCGIExtension(HTTPRequest& request) {
 	}
 
 	const std::string ext = path.substr(dot);
-
-	// if (location.interpreters.count(ext) == 1) {
-	// 	return true;
-	// }
-	std::map<std::string, std::string>::const_iterator it = location.interpreters.begin();
-	while (it != location.interpreters.end()) {
-		if (it->first == ext) {
-			request.resolved.interpreter = it->second;
-			return true;
-		}
-		++it;
+	std::map<std::string, std::string>::const_iterator it = location.interpreters.find(ext);
+	if (it != location.interpreters.end()) {
+		request.cgi.binary_path = it->second;
+		return true;
 	}
 
 	return false;
@@ -514,13 +507,15 @@ static StatusCode handleDirectory(HTTPRequest& request,
 static StatusCode routeRequest(HTTPRequest& request,
 							   HTTPResponse& response) {
 
-	// Hand request to CGI
+/*	// Hand request to CGI
 	if (request.requires_CGI) {
 
+		//
+		// return handleCGI(request, response);
 		return NO_STATUS;
 
 	// Check if request path exists as static file in `root`
-	} else if (isRegularFile(request.resolved.path)) {
+	} else */if (isRegularFile(request.resolved.path)) {
 
 		return handleRegularFile(request, response);
 
@@ -606,7 +601,6 @@ static StatusCode resolveRoute(Client& client) {
 	// Match CGI extensions
 	if (hasCGIExtension(request)) {
 		request.requires_CGI = true;
-		return NO_STATUS;
 	}
 
 	return NO_STATUS;

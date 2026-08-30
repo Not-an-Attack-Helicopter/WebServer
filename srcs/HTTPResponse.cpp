@@ -105,7 +105,7 @@ void HTTPResponse::setBody(const std::string& str,
 		_body_size = static_cast<std::size_t>(file.tellg());
 		file.close();
 		break;
-	default:
+	case NONE:
 		log.warn("HTTP Response: body type undefined");
 		_body_size = 0;
 	}
