@@ -350,7 +350,7 @@ bool Parser::_parseHeaders(const Buffer& buffer, HTTPRequest& request) {
 			// GET and HEAD are not designed to carry a request body
 			const Method requested_method = request.getMethod();
 			if (requested_method == GET || requested_method == HEAD) {
-				request.parsing.state = HTTPRequest::DISPATCHING;
+				request.parsing.state = HTTPRequest::RESOLVING_ROUTE;
 				return true;
 			}
 
@@ -362,7 +362,7 @@ bool Parser::_parseHeaders(const Buffer& buffer, HTTPRequest& request) {
 						request.body.size = 0;
 					}
 				} else {
-					request.parsing.state = HTTPRequest::DISPATCHING;
+					request.parsing.state = HTTPRequest::RESOLVING_ROUTE;
 					return true;
 				}
 			}
@@ -384,7 +384,7 @@ bool Parser::_parseHeaders(const Buffer& buffer, HTTPRequest& request) {
 				return false;
 			}
 
-			request.parsing.state = HTTPRequest::DISPATCHING;
+			request.parsing.state = HTTPRequest::RESOLVING_ROUTE;
 
 		} else if (request.parsing.state == HTTPRequest::READING_BODY) {
 

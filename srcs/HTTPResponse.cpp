@@ -75,38 +75,41 @@ void HTTPResponse::setHeader(const std::string& key, const std::string& value) {
 Sink HTTPResponse::getBodySink(void) const {
 	return _body_sink;
 }
-void HTTPResponse::setBodySink(Sink body_sink) {
-	_body_sink = body_sink;
-}
 
 const std::string& HTTPResponse::getBody(void) const {
 	return _body;
 }
 
 void HTTPResponse::setBody(const std::string& str,
+						   Sink body_sink,
 						   const std::string& content_type,
 						   bool headers_only) {
 
 	setHeader("Content-Type", content_type);
 
 	std::ifstream file;
-	switch (_body_sink) {
+
+	switch (body_sink) {
 
 	case HEAP:
 		_body_size = str.size();
+		_body_sink = HEAP;
 		break;
 	case DISK:
-		log.error("set body: data read from file: " + str);
 		file.open(str.c_str(), std::ios::binary);
 		if (!file.is_open()) {
 			log.error("set body: unable to open file");
+			_body_sink = NONE;
+			_body_size = 0;
 		}
 		file.seekg(0, std::ios::end);
 		_body_size = static_cast<std::size_t>(file.tellg());
 		file.close();
+		_body_sink = DISK;
 		break;
-	default:
+	case NONE:
 		log.warn("HTTP Response: body type undefined");
+		_body_sink = NONE;
 		_body_size = 0;
 	}
 

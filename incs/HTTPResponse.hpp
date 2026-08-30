@@ -111,12 +111,13 @@ public:
 
 	// Body(-Type), Content-Type, and Content-Length
 	void										setBody(const std::string& body,
+														Sink body_sink,
 														const std::string& content_type,
 														bool headers_only);
 	const std::string&							getBody(void) const;
 	std::size_t									getBodySize(void) const;
 	Sink										getBodySink(void) const;
-	void										setBodySink(Sink body_type);
+
 	void										reset(void);
 
 private:

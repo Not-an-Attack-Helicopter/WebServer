@@ -35,7 +35,7 @@ public:
 		READING_REQUEST_LINE,
 		READING_HEADERS,
 		READING_BODY,
-		DISPATCHING,
+		RESOLVING_ROUTE,
 		CGI_PROCESSING,
 		COMPLETE,
 		ERROR
@@ -96,7 +96,22 @@ public:
 				chunk_read(0) {}
 
 	};
-		struct CGIContext {
+
+	// struct CGIPipes {
+
+	//  int									in_pipe[2];
+	//  int									out_pipe[2];
+
+	//  CGIPipes(void) {
+	//    in_pipe[0] = 0;
+	//    in_pipe[1] = 0;
+	//    out_pipe[0] = 0;
+	//    out_pipe[1] = 0;
+	//  }
+
+	// };
+
+	struct CGIContext {
 
 		std::string							binary_path;
 		int									in_pipe[2];
@@ -111,6 +126,7 @@ public:
 		}
 
 	};
+
 	struct BodyPart {
 
 		std::string										disposition;
