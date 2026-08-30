@@ -27,7 +27,7 @@ public:
 
 	static Dispatcher&					instance(void);
 
-	void								currentRequest(Client& client);
+	void								request(Client& client);
 	void								errorPage(const Config::Location* location,
 												  HTTPResponse& response,
 												  bool headers_only,

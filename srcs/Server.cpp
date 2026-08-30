@@ -459,7 +459,7 @@ bool Server::handleReadEvent(int fd) {
 
 		client.parseIncomingData();
 		if (client.getState() == Client::DISPATCHING) {
-			dispatch.currentRequest(client);
+			dispatch.request(client);
 		}
 
 		if (client.getState() == Client::RECEIVING_BODY) {
@@ -467,7 +467,7 @@ bool Server::handleReadEvent(int fd) {
 		}
 
 		if (client.getState() == Client::DISPATCHING) {
-			dispatch.currentRequest(client);
+			dispatch.request(client);
 		}
 
 		if (client.getState() == Client::PENDING_RESPONSE) {

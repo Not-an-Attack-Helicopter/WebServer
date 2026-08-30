@@ -511,11 +511,11 @@ static StatusCode handleDirectory(HTTPRequest& request,
 
 }
 
-StatusCode handleRequest(HTTPRequest& request,
-						 HTTPResponse& response) {
+static StatusCode routeRequest(HTTPRequest& request,
+							   HTTPResponse& response) {
 
-	// Match CGI extensions
-	if (hasCGIExtension(request)) {
+	// Hand request to CGI
+	if (request.requires_CGI) {
 
 		return NO_STATUS;
 
@@ -538,7 +538,7 @@ StatusCode handleRequest(HTTPRequest& request,
 
 }
 
-static StatusCode resolveRequestRoute(Client& client) {
+static StatusCode resolveRoute(Client& client) {
 
 	const Config::Socket& socket = client.getConfig();
 	HTTPResponse& response = client.getCurrentResponse();
@@ -602,6 +602,12 @@ static StatusCode resolveRequestRoute(Client& client) {
 		normalized.substr(request.resolved.location->path.size());
 	}
 	log.debug("absolute path: " + request.resolved.path);
+
+	// Match CGI extensions
+	if (hasCGIExtension(request)) {
+		request.requires_CGI = true;
+		return NO_STATUS;
+	}
 
 	return NO_STATUS;
 
@@ -674,7 +680,7 @@ Dispatcher& Dispatcher::instance(void) {
 // COMPLETE,				X
 // ERROR					✓
 
-void Dispatcher::currentRequest(Client& client) {
+void Dispatcher::request(Client& client) {
 
 	StatusCode status_code = NO_STATUS;
 
@@ -703,9 +709,9 @@ void Dispatcher::currentRequest(Client& client) {
 		}
 		break;
 	case HTTPRequest::DISPATCHING:
-		status_code = resolveRequestRoute(client);
+		status_code = resolveRoute(client);
 		if (status_code == NO_STATUS) {
-			status_code = handleRequest(request, response);
+			status_code = routeRequest(request, response);
 		}
 		if (status_code < BAD_REQUEST) {
 			if (request.parsing.state == HTTPRequest::READING_BODY) {
@@ -715,6 +721,8 @@ void Dispatcher::currentRequest(Client& client) {
 			}
 			return;
 		}
+		break;
+	case HTTPRequest::CGI_PROCESSING:
 		break;
 	default:
 		return;
