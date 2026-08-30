@@ -514,7 +514,9 @@ static StatusCode routeRequest(HTTPRequest& request,
 	// Hand request to CGI
 	if (request.requires_CGI) {
 
-		//if (HTTPRequest::DISPATCHING)
+		std::vector<std::string> cgi_args = buildCgiArgs(request);
+		(void)cgi_args; // WIP
+
 		// return handleCGI(request, response);
 		return NO_STATUS;
 
