@@ -511,11 +511,24 @@ static StatusCode handleDirectory(HTTPRequest& request,
 
 }
 
+// Builds the execve argv for a CGI request
+static std::vector<std::string> buildCgiArgs(const HTTPRequest& request) {
+
+	std::vector<std::string> args;
+	args.push_back(request.resolved.interpreter);
+	args.push_back(request.resolved.path);
+	return args;
+
+}
+
 static StatusCode routeRequest(HTTPRequest& request,
 							   HTTPResponse& response) {
 
 	// Hand request to CGI
 	if (request.requires_CGI) {
+
+		std::vector<std::string> cgi_args = buildCgiArgs(request);
+		(void)cgi_args; // wired into CgiProcess construction in a later step
 
 		return NO_STATUS;
 
