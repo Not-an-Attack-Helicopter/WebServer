@@ -498,13 +498,29 @@ static StatusCode handleDirectory(HTTPRequest& request,
 
 }
 
-// Builds the execve argv for a CGI request
+// argv for execve
 static std::vector<std::string> buildCgiArgs(const HTTPRequest& request) {
 
 	std::vector<std::string> args;
 	args.push_back(request.cgi.binary_path);
 	args.push_back(request.resolved.path);
 	return args;
+
+}
+
+// read the body back off disk, that's our cgi stdin
+static std::string readCgiInput(const HTTPRequest& request) {
+
+	if (request.body.path.empty())
+		return "";
+
+	std::ifstream file(request.body.path.c_str(), std::ios::binary);
+	if (!file.is_open())
+		return "";
+
+	std::ostringstream ss;
+	ss << file.rdbuf();
+	return ss.str();
 
 }
 
@@ -516,6 +532,17 @@ static StatusCode routeRequest(HTTPRequest& request,
 
 		std::vector<std::string> cgi_args = buildCgiArgs(request);
 		(void)cgi_args; // WIP
+
+		// same deal as PUT/POST, gotta spool the body to disk first
+		if (!request.is_multipart &&
+			(request.body.size != 0 || request.body_chunked)) {
+			if (request.body.size > request.resolved.location->client_max_body_size) {
+				log.warn("payload size exceeds the maximum allowed");
+				return PAYLOAD_TOO_LARGE;
+			}
+			createFile(request);
+		}
+		request.parsing.state = HTTPRequest::READING_BODY;
 
 		// return handleCGI(request, response);
 		return NO_STATUS;
@@ -722,8 +749,13 @@ void Dispatcher::request(Client& client) {
 			return;
 		}
 		break;
-	case HTTPRequest::CGI_PROCESSING:
+	case HTTPRequest::CGI_PROCESSING: {
+		// Body is fully received at this point. Building the CgiProcess and
+		// actually spawning it (splitted func) is the next step.
+		std::string cgi_input = readCgiInput(request);
+		(void)cgi_input;
 		break;
+	}
 	default:
 		return;
 	}
