@@ -15,9 +15,11 @@ struct CGIResult {
     CGIResult(): status(0), exit_code(-1) {}
 };
 
-// Forks + execve's `path`, exposes the pipe ends non-blocking so the caller
-// can register them with its own poll()/epoll() and drive I/O only on
-// readiness. No internal blocking wait anywhere in this class.
+// Opens the pipes in the constructor (cheap, easily rolled back), then waits
+// for spawn() to actually fork()+execve() `path` once the caller has
+// registered the pipe fds with its own poll()/epoll(). Exposes the pipe ends
+// non-blocking so the caller can drive I/O only on readiness. No internal
+// blocking wait anywhere in this class.
 class CgiProcess {
 public:
     CgiProcess(const std::string& path,
@@ -27,7 +29,8 @@ public:
                const std::string& working_dir = "");
     ~CgiProcess();
 
-    bool  valid() const; // false if pipe()/fork() failed
+    bool  valid() const; // false if pipe() failed
+    bool  spawn();        // fork()+execve()'s using the already-open pipes; false on failure
     pid_t pid()   const;
     int   stdinFd()  const; // -1 once the write end is closed
     int   stdoutFd() const; // -1 once the read end is closed
@@ -48,6 +51,17 @@ public:
 private:
     CgiProcess(const CgiProcess&);
     CgiProcess& operator=(const CgiProcess&);
+
+    // stored for spawn() (next step), which forks+execve's using these
+    std::string                        _path;
+    std::vector<std::string>           _args;
+    std::map<std::string, std::string> _env;
+    std::string                        _working_dir;
+
+    // raw pipe ends opened by the constructor; consumed by spawn()
+    int         _in_pipe[2];  // [0] read end (child stdin), [1] write end (we write the body here)
+    int         _out_pipe[2]; // [0] read end (we read CGI output here), [1] write end (child stdout)
+    bool        _pipes_open;
 
     pid_t       _pid;
     int         _stdin_fd;

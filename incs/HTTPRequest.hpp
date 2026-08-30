@@ -96,7 +96,21 @@ public:
 				chunk_read(0) {}
 
 	};
+		struct CGIContext {
 
+		std::string							binary_path;
+		int									in_pipe[2];
+		int									out_pipe[2];
+
+		CGIContext(void)
+			:	binary_path("") {
+			in_pipe[0] = 0;
+			in_pipe[1] = 0;
+			out_pipe[0] = 0;
+			out_pipe[1] = 0;
+		}
+
+	};
 	struct BodyPart {
 
 		std::string										disposition;
@@ -181,21 +195,18 @@ public:
 		std::map<std::string, std::string>				_trailers;
 
 	};
-
 	struct ResolvedRoute {
 
-		Method											method;
-		const Config::Domain*							domain;
-		const Config::Location*							location;
-		std::string										path;
-		std::string										interpreter;
+		Method								method;
+		const Config::Domain*				domain;
+		const Config::Location*				location;
+		std::string							path;
 
 		ResolvedRoute(void)
 			:	method(METHOD_COUNT),
 				domain(NULL),
 				location(NULL),
-				path(""),
-				interpreter("") {}
+				path("") {}
 
 	};
 
@@ -204,6 +215,8 @@ public:
 	static const std::size_t				MAX_TOTAL_HEADERS_SIZE = 32*1024;
 
 	ParsingContext							parsing;
+
+	CGIContext								cgi;
 
 	ResolvedRoute							resolved;
 

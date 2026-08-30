@@ -31,47 +31,62 @@ static inline std::string trim(const std::string& s) {
 CgiProcess::CgiProcess(const std::string& path, const std::vector<std::string>& args,
                         const std::map<std::string, std::string>& env,
                         const std::string& input, const std::string& working_dir)
-    : _pid(-1), _stdin_fd(-1), _stdout_fd(-1), _input(input), _input_offset(0),
+    : _path(path), _args(args), _env(env), _working_dir(working_dir),
+      _pipes_open(false),
+      _pid(-1), _stdin_fd(-1), _stdout_fd(-1), _input(input), _input_offset(0),
       _reaped(false), _exit_code(-1), _deadline(0)
 {
-    int in_pipe[2];
-    int out_pipe[2];
-    if (pipe(in_pipe) == -1)
+    _in_pipe[0] = -1; _in_pipe[1] = -1;
+    _out_pipe[0] = -1; _out_pipe[1] = -1;
+
+    if (pipe(_in_pipe) == -1)
         return;
-    if (pipe(out_pipe) == -1) {
-        close(in_pipe[0]); close(in_pipe[1]);
+    if (pipe(_out_pipe) == -1) {
+        close(_in_pipe[0]); close(_in_pipe[1]);
+        _in_pipe[0] = -1; _in_pipe[1] = -1;
         return;
     }
+
+    _pipes_open = true;
+}
+
+bool CgiProcess::spawn() {
+
+    if (!_pipes_open || _pid != -1)
+        return false;
 
     pid_t pid = fork();
     if (pid == -1) {
-        close(in_pipe[0]); close(in_pipe[1]);
-        close(out_pipe[0]); close(out_pipe[1]);
-        return;
+        close(_in_pipe[0]); close(_in_pipe[1]);
+        close(_out_pipe[0]); close(_out_pipe[1]);
+        _in_pipe[0] = -1; _in_pipe[1] = -1;
+        _out_pipe[0] = -1; _out_pipe[1] = -1;
+        _pipes_open = false;
+        return false;
     }
 
     if (pid == 0) {
-        close(in_pipe[1]);
-        close(out_pipe[0]);
-        if (dup2(in_pipe[0], STDIN_FILENO) == -1) _exit(127);
-        if (dup2(out_pipe[1], STDOUT_FILENO) == -1) _exit(127);
-        close(in_pipe[0]); close(out_pipe[1]);
-        if (!working_dir.empty()) {
-            if (chdir(working_dir.c_str()) != 0) _exit(126);
+        close(_in_pipe[1]);
+        close(_out_pipe[0]);
+        if (dup2(_in_pipe[0], STDIN_FILENO) == -1) _exit(127);
+        if (dup2(_out_pipe[1], STDOUT_FILENO) == -1) _exit(127);
+        close(_in_pipe[0]); close(_out_pipe[1]);
+        if (!_working_dir.empty()) {
+            if (chdir(_working_dir.c_str()) != 0) _exit(126);
         }
 
         std::vector<char*> argv;
-        if (args.empty()) {
-            argv.push_back(const_cast<char*>(path.c_str()));
+        if (_args.empty()) {
+            argv.push_back(const_cast<char*>(_path.c_str()));
         } else {
-            for (size_t i = 0; i < args.size(); ++i)
-                argv.push_back(const_cast<char*>(args[i].c_str()));
+            for (size_t i = 0; i < _args.size(); ++i)
+                argv.push_back(const_cast<char*>(_args[i].c_str()));
         }
         argv.push_back(NULL);
 
         std::vector<std::string> env_strings;
-        env_strings.reserve(env.size());
-        for (std::map<std::string, std::string>::const_iterator it = env.begin(); it != env.end(); ++it)
+        env_strings.reserve(_env.size());
+        for (std::map<std::string, std::string>::const_iterator it = _env.begin(); it != _env.end(); ++it)
             env_strings.push_back(it->first + "=" + it->second);
         std::vector<char*> envp;
         envp.reserve(env_strings.size() + 1);
@@ -79,43 +94,55 @@ CgiProcess::CgiProcess(const std::string& path, const std::vector<std::string>& 
             envp.push_back(const_cast<char*>(env_strings[i].c_str()));
         envp.push_back(NULL);
 
-        execve(path.c_str(), &argv[0], &envp[0]);
+        execve(_path.c_str(), &argv[0], &envp[0]);
         _exit(127);
     }
 
-    close(in_pipe[0]);
-    close(out_pipe[1]);
+    close(_in_pipe[0]);
+    close(_out_pipe[1]);
+    _in_pipe[0] = -1;
+    _out_pipe[1] = -1;
 
-    if (fcntl(in_pipe[1], F_SETFL, O_NONBLOCK) == -1 ||
-        fcntl(out_pipe[0], F_SETFL, O_NONBLOCK) == -1) {
-        close(in_pipe[1]);
-        close(out_pipe[0]);
+    if (fcntl(_in_pipe[1], F_SETFL, O_NONBLOCK) == -1 ||
+        fcntl(_out_pipe[0], F_SETFL, O_NONBLOCK) == -1) {
+        close(_in_pipe[1]);
+        close(_out_pipe[0]);
+        _in_pipe[1] = -1;
+        _out_pipe[0] = -1;
         kill(pid, SIGKILL);
         waitpid(pid, NULL, 0);
-        return;
+        return false;
     }
 
     _pid = pid;
-    _stdin_fd = in_pipe[1];
-    _stdout_fd = out_pipe[0];
+    _stdin_fd = _in_pipe[1];
+    _stdout_fd = _out_pipe[0];
+    _in_pipe[1] = -1;  // ownership to _stdin_fd
+    _out_pipe[0] = -1; // ownership to _stdout_fd
     _deadline = time(NULL) + CGI_TIMEOUT_S;
 
     if (_input.empty()) {
         close(_stdin_fd);
         _stdin_fd = -1;
     }
+
+    return true;
 }
 
 CgiProcess::~CgiProcess() {
     if (_stdin_fd != -1) close(_stdin_fd);
     if (_stdout_fd != -1) close(_stdout_fd);
+    if (_in_pipe[0] != -1) close(_in_pipe[0]);
+    if (_in_pipe[1] != -1) close(_in_pipe[1]);
+    if (_out_pipe[0] != -1) close(_out_pipe[0]);
+    if (_out_pipe[1] != -1) close(_out_pipe[1]);
     if (_pid != -1 && !_reaped) {
         kill(_pid, SIGKILL);
         waitpid(_pid, NULL, 0);
     }
 }
 
-bool  CgiProcess::valid()     const { return _pid != -1; }
+bool  CgiProcess::valid()     const { return _pipes_open; }
 pid_t CgiProcess::pid()       const { return _pid; }
 int   CgiProcess::stdinFd()   const { return _stdin_fd; }
 int   CgiProcess::stdoutFd()  const { return _stdout_fd; }
