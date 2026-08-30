@@ -41,12 +41,13 @@ class Server {
 public:
 	static Server&							instance(void);
 
-	void									setNonblockFlag(int fd);
-	void									setRDWRInterest(int fd);
-	void									dropWriteInterest(int fd);
-	void									setPollInterest(FD fd);
-	void									setRDONLYInterest(FD fd);
-	void									setWRONLYInterest(FD fd);
+	bool									setNonblockFlag(FD fd);
+	bool									setRDWRInterest(int fd);
+	bool									dropWriteInterest(int fd);
+	bool									setPollInterest(FD fd);
+	bool									setRDONLYInterest(FD fd);
+	bool									setWRONLYInterest(FD fd);
+
 	void									prepareEPollInstance(void);
 	void									prepareListeningPort(const Config::Socket& config);
 	void									handleEvents(void);
@@ -54,7 +55,9 @@ public:
 	void									handleSocketError(int fd);
 	void									handleHangup(int fd);
 	void									handleRemoteHangup(int fd);
+
 	bool									handleReadEvent(int fd);
+
 	void									handleWriteEvent(int fd);
 	void									cleanUpAllRessources(void);
 	void									cleanUpClient(std::map<int, Client*>::iterator it);

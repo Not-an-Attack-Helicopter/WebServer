@@ -61,6 +61,7 @@ static bool hasCGIExtension(HTTPRequest& request) {
 			request.resolved.interpreter = it->second;
 			return true;
 		}
+		++it;
 	}
 
 	return false;

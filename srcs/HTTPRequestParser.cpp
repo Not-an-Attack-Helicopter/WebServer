@@ -42,9 +42,19 @@ bool Parser::buffer(Buffer& buffer, HTTPRequest& request) {
 		return _parseHeaders(buffer, request);
 	case HTTPRequest::READING_BODY:
 		if (request.body_chunked) {
-			return _parseChunks(buffer, request);
+			try {
+				return _parseChunks(buffer, request);
+			} catch (std::exception& e) {
+				log.error(e.what());
+				return false;
+			}
 		} else {
-			return _parseBody(buffer, request);
+			try {
+				return _parseBody(buffer, request);
+			} catch (std::exception& e) {
+				log.error(e.what());
+				return false;
+			}
 		}
 	default:
 		return false;
