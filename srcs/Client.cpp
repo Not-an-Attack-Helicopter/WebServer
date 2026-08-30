@@ -185,6 +185,9 @@ bool Client::isTimedOut(void) const {
 	case DISPATCHING:
 		timeout = DISPATCH_TIMEOUT_SECONDS;
 		break;
+	case AWAITING_CGI_RESPONSE:
+		timeout = DISPATCH_TIMEOUT_SECONDS;
+		break;
 	case PENDING_RESPONSE:
 		timeout = DISPATCH_TIMEOUT_SECONDS;
 		break;
@@ -239,7 +242,9 @@ void Client::parseIncomingData(void) {
 	while (_instream.mark < _instream.end) {
 
 		std::size_t bytes_read = 0;
+
 		bool has_consumed_line = parse.buffer(_instream, request);
+
 		if (request.parsing.state == HTTPRequest::ERROR) {
 			break;
 		}
@@ -250,12 +255,15 @@ void Client::parseIncomingData(void) {
 		} else {
 			_instream.mark += bytes_read;
 		}
+
 		if (has_consumed_line == true) {
 			_instream.begin = _instream.mark;
 		}
+
 		if (_instream.begin == _instream.end) {
 
 			_instream.reset();
+
 		} else if (_instream.end == _instream.data.size()) {
 
 			if (_instream.begin > 0) {
@@ -279,8 +287,33 @@ void Client::parseIncomingData(void) {
 			if ((request.parsing.chunk_state == HTTPRequest::END_OF_CHUNKS) ||
 				(request.parsing.multipart_state == HTTPRequest::END_OF_PARTS) ||
 				(request.parsing.body_size == request.body.size && !request.body_chunked)) {
+				if (request.requires_CGI) {
+					request.parsing.state = HTTPRequest::CGI_PROCESSING;
+				} else {
 					request.parsing.state = HTTPRequest::COMPLETE;
+				}
 			}
+		}
+
+		if (request.parsing.state ==  HTTPRequest::CGI_PROCESSING) {
+
+			if (request.body_chunked) break;
+
+			if (request.parsing.body_size < request.body.size) {
+				log.error("parse error: received body shorter than advertised size");
+				request.parsing.state = HTTPRequest::ERROR;
+				request.parsing.error_cause = BAD_REQUEST;
+				break;
+			}
+
+			if (request.parsing.body_size > request.body.size) {
+				log.error("parse error: received body exceeded advertised size");
+				request.parsing.state = HTTPRequest::ERROR;
+				request.parsing.error_cause = BAD_REQUEST;
+				break;
+			}
+
+			break;
 		}
 
 		if (request.parsing.state == HTTPRequest::COMPLETE) {
@@ -331,8 +364,16 @@ void Client::parseIncomingData(void) {
 				_instream.data.resize(BUFFER_SIZE);
 			}
 			break;
+		case HTTPRequest::CGI_PROCESSING:
+			log.info("HTTP request validated for CGI");
+			setState(Client::AWAITING_CGI_RESPONSE);
+			if (_instream.data.size() != BUFFER_SIZE) {
+				_instream.data.resize(BUFFER_SIZE);
+			}
+			_instream.reset();
+			break;
 		case HTTPRequest::COMPLETE:
-			log.info("Valid HTTP request received");
+			log.info("Full HTTP request body received");
 			setState(Client::DISPATCHING);
 			if (_instream.data.size() != BUFFER_SIZE) {
 				_instream.data.resize(BUFFER_SIZE);

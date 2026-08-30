@@ -86,6 +86,7 @@ void dumpRequest(const HTTPRequest* request) {
 	switch(request->parsing.state) {
 	case HTTPRequest::READING_REQUEST_LINE: state = "reading request line"; break;
 	case HTTPRequest::READING_HEADERS: state = "reading headers"; break;
+	case HTTPRequest::CGI_PROCESSING: state = "CGI processing"; break;
 	case HTTPRequest::READING_BODY: state = "reading body"; break;
 	case HTTPRequest::DISPATCHING: state = "dispatching"; break;
 	case HTTPRequest::COMPLETE: state = "complete"; break;
@@ -287,11 +288,20 @@ void createFile(HTTPRequest& request) {
 		directory = location.alias;
 	}
 
+	std::string suffix;
 	int file_descriptor;
 	unsigned short count = 0;
 	std::time_t timestamp = std::time(NULL);
 	do {
-		std::string unique_id = i2a(timestamp) + "-" + randomHexString(5);
+		try {
+			suffix = randomHexString(5);
+		} catch (std::exception& e) {
+			log.warn("random hex string generator: " + std::string(e.what()));
+			std::stringstream oss;
+			oss << timestamp + std::time(NULL);
+			suffix = oss.str();
+		}
+		std::string unique_id = i2a(timestamp) + "-" + suffix;
 		std::string file_path = directory + location.upload_dir + "/.upload_" + unique_id + ".part";
 		file_descriptor = open(file_path.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0600);
 		log.debug("file_fd: " + i2a(file_descriptor) + "\tfile_path: " + file_path);
@@ -311,7 +321,6 @@ void createFile(HTTPRequest& request) {
 
 static std::string extraxtExtension(const std::string& filename) {
 
-	log.error("FILENAME: " + filename);
 	std::size_t slash_pos = filename.find_last_of("/\\");
 	std::size_t from_pos = (slash_pos == std::string::npos) ? 0 : slash_pos + 1;
 	std::size_t dot_pos = filename.find('.', from_pos);
@@ -330,26 +339,33 @@ void promoteFile(HTTPRequest& request) {
 		close(request.body.parts.back().file);
 		old_path = request.body.parts.back().path;
 		extension = extraxtExtension(request.body.parts.back().filename);
-		log.error("EXTENSION:" + extension);
 	} else {
 		close(request.body.file);
 		old_path = request.body.path;
 		extension = extraxtExtension(request.body.filename);
-		log.error("EXTENSION:" + extension);
 	}
-	log.error("old path: " + old_path);
 
+	std::string suffix;
+	std::time_t timestamp = std::time(NULL);
+	try {
+		suffix = randomHexString(7);
+	} catch (std::exception& e) {
+		log.warn("random hex string generator: " + std::string(e.what()));
+		std::stringstream oss;
+		oss << timestamp + std::time(NULL);
+		suffix = oss.str();
+	}
 	std::string new_path;
 	if (request.resolved.method == POST) {
 		const std::string& path = request.resolved.path;
 		const Config::Location& location = *request.resolved.location;
-		new_path = path + location.upload_dir + "/upload-" + randomHexString(7) + extension;
+		new_path = path + location.upload_dir + "/upload-" + suffix + extension;
 	} else if (request.resolved.method == PUT) {
 		new_path = request.resolved.path;
 	} else {
-		new_path = old_path + "." + randomHexString(7) + extension;
+		new_path = old_path + "." + suffix + extension;
 	}
-	log.error("new path: " + new_path);
+	log.debug("new path: " + new_path);
 
 	if (std::rename(old_path.c_str(), new_path.c_str()) != 0) {
 		log.warn("dispatch error: " + std::string(strerror(errno)));
@@ -358,10 +374,8 @@ void promoteFile(HTTPRequest& request) {
 
 	if (request.is_multipart) {
 		request.body.parts.back().path = new_path;
-		log.error("body part path: " + request.body.parts.back().path);
 	} else {
 		request.body.path = new_path;
-		log.error("body path: " + request.body.path);
 	}
 
 	return;
