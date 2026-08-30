@@ -17,6 +17,7 @@
 // #include "Buffer.hpp"
 #include "HTTPResponse.hpp"
 #include "HTTPParameters.hpp"
+#include "CgiProcess.hpp"
 // #include "MultipartBody.hpp"
 // #include <fstream>
 // #include <sstream>
@@ -207,6 +208,8 @@ public:
 	ResolvedRoute							resolved;
 
 	RequestBody								body;
+
+	CgiProcess*								cgi_process; // owns the live CGI child while one is running (NULL otherwise)
 
 	bool									headers_only; // HEAD method
 	bool									requires_CGI;
