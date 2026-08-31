@@ -19,6 +19,7 @@
 // #include "../incs/Config.hpp"
 #include "../incs/Logger.hpp"
 #include "../incs/utils.hpp"
+#include "../incs/CgiEnv.hpp"
 // #include <sys/stat.h>	// stat
 // #include <sys/wait.h>	// waitpid
 #include <dirent.h>		// opendir, readdir, closedir
@@ -750,10 +751,19 @@ void Dispatcher::request(Client& client) {
 		}
 		break;
 	case HTTPRequest::CGI_PROCESSING: {
-		// Body is fully received at this point. Building the CgiProcess and
-		// actually spawning it (splitted func) is the next step.
+		// body's fully in by now, build the process and kick it off
 		std::string cgi_input = readCgiInput(request);
-		(void)cgi_input;
+		std::vector<std::string> cgi_args = buildCgiArgs(request);
+		std::string working_dir = request.resolved.path.substr(0, request.resolved.path.find_last_of('/'));
+
+		std::map<std::string, std::string> env = build_cgi_env(request, client.getConfig(),
+																*request.resolved.domain,
+																*request.resolved.location,
+																request.resolved.path);
+
+		request.cgi_process = new CgiProcess(request.cgi.binary_path, cgi_args, env, cgi_input, working_dir);
+
+		// not spawned yet, that + epoll registration is still ahead
 		break;
 	}
 	default:
