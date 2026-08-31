@@ -17,6 +17,7 @@
 #include "Buffer.hpp"
 #include "HTTPRequest.hpp"
 #include "HTTPResponse.hpp"
+#include <netinet/in.h>
 #include <sys/socket.h>
 #include <fstream>
 #include <sstream>
@@ -30,7 +31,7 @@ class Client {
 
 public:
 
-	Client(const Config::Socket* config);
+	Client(const sockaddr_in socket, const Config::Socket* config);
 	~Client(void);
 
 	enum State {
@@ -78,10 +79,10 @@ public:
 	const State&					getState(void) const;
 
 	// sockaddr*						getAddrPointer(void) const;
-	sockaddr&						getAddr(void);
+	sockaddr&						getRemoteAddr(void);
 
 	// socklen_t*						getAddrlenPointer(void) const;
-	socklen_t&						getAddrlen(void);
+	socklen_t&						getRemoteAddrlen(void);
 
 	// const Config*					getConfigPointer(void) const;
 	const Config::Socket&			getConfig(void) const;
@@ -131,7 +132,8 @@ private:
 	bool							_blocked_from_receiving;
 	bool							_marked_for_termination;
 
-	sockaddr_storage				_addr;
+	sockaddr_in						_server_addr;
+	sockaddr_storage				_remote_addr;
 
 	socklen_t						_addrlen;
 

@@ -182,14 +182,16 @@ void Server::prepareListeningPort(const Config::Socket& soc) {
 		throw std::runtime_error("inet_pton: " + std::string(INVALID_ADDR));
 	}
 
-	_addr.push_back(sa);
+	// _addr.push_back(sa);
 
-	result = socket(_addr.back().sin_family, SOCK_STREAM | O_NONBLOCK, 0);
+	result = socket(sa.sin_family, SOCK_STREAM | O_NONBLOCK, 0);
 	if (result == -1) {
 		throw std::runtime_error("socket: " + std::string(strerror(errno)));
 	}
 
-	_sockets[result] = &soc;
+	const ListeningSocket socket = { sa, &soc };
+	_sockets[result] = socket;
+	// _sockets[result] = &soc;
 
 	result = setsockopt(_sockets.rbegin()->first, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 	if (result == -1) {
@@ -198,7 +200,7 @@ void Server::prepareListeningPort(const Config::Socket& soc) {
 
 	log.debug("Created server socket fd_" + i2a(_sockets.rbegin()->first) + "(listen_fd)");
 
-	result = bind(_sockets.rbegin()->first, (sockaddr*)&_addr.back(), sizeof(_addr.back()));
+	result = bind(_sockets.rbegin()->first, (sockaddr*)&sa, sizeof(sa));
 	if (result == -1) {
 		throw std::runtime_error("bind: " + std::string(strerror(errno)));
 	}
@@ -255,7 +257,7 @@ void Server::handleEvents(void) {
 			uint32_t events = ev.events;
 			bool is_listen_socket = false;
 			bool is_socket_closed = false;
-			std::map<int, const Config::Socket*>::iterator it = _sockets.begin();
+			std::map<int, ListeningSocket>::iterator it = _sockets.begin();
 
 			while (it != _sockets.end()) {
 				if (fd == it->first && events & EPOLLIN) {
@@ -335,13 +337,13 @@ void Server::handleEvents(void) {
 
 }
 
-void Server::acceptConnectRequest(int listen_fd, const Config::Socket* socket) {
+void Server::acceptConnectRequest(int listen_fd, ListeningSocket socket) {
 
 	log.info("New connection on socket fd_" + i2a(listen_fd));
 
-	Client* c = new Client(socket);
+	Client* c = new Client(socket.addr, socket.conf);
 
-	int client_fd = accept(listen_fd, &c->getAddr(), &c->getAddrlen());
+	int client_fd = accept(listen_fd, &c->getRemoteAddr(), &c->getRemoteAddrlen());
 	if (client_fd == -1) {
 
 		if (errno != EAGAIN && errno != EWOULDBLOCK) {
@@ -570,8 +572,8 @@ void Server::cleanUpAllRessources(void) {
 
 	if (!_sockets.empty()) {
 
-		std::map<int, const Config::Socket*>::iterator immediate;
-		std::map<int, const Config::Socket*>::iterator it = _sockets.begin();
+		std::map<int, ListeningSocket>::iterator immediate;
+		std::map<int, ListeningSocket>::iterator it = _sockets.begin();
 
 		while (it != _sockets.end()) {
 			immediate = it;
@@ -599,7 +601,7 @@ void Server::cleanUpAllRessources(void) {
 		_events[i].data.ptr = NULL;
 	}
 
-	_addr.clear();
+	// _addr.clear();
 
 	return;
 }
@@ -630,7 +632,7 @@ void Server::cleanUpClient(std::map<int, Client*>::iterator it) {
 
 }
 
-void Server::cleanUpSocket(std::map<int, const Config::Socket*>::iterator it) {
+void Server::cleanUpSocket(std::map<int, ListeningSocket>::iterator it) {
 
 	if (_epfd != -1) {
 		log.debug("Removing fd " + i2a(it->first) + " (socket) from epoll instance");

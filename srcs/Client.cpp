@@ -30,18 +30,19 @@
 //~~~~~~~~~~//
 
 /*	@brief Constructor	*/
-Client::Client(const Config::Socket* config)
+Client::Client(const sockaddr_in socket, const Config::Socket* config)
 	:	_state(IDLE),
 		_blocked_from_receiving(false),
 		_marked_for_termination(false),
-		_addrlen(sizeof(_addr)),
+		_server_addr(socket),
+		_addrlen(sizeof(_remote_addr)),
 		_config(config),
 		_eof_reached(false),
 		_last_event(std::time(NULL)) {
 
 	log.debug("Client Constructor called");
 
-	std::memset(&_addr, 0, _addrlen);
+	std::memset(&_remote_addr, 0, _addrlen);
 	_response.headers.clear();
 	_response.body.temp.clear();
 	_response.body.file.clear();
@@ -100,13 +101,13 @@ double Client::getIdleTime(void) const {
 }
 
 unsigned short int Client::getHostPort(void) const {
-	sockaddr_in* addr_in = (sockaddr_in*)&_addr;
+	sockaddr_in* addr_in = (sockaddr_in*)&_remote_addr;
 	return ntohs(addr_in->sin_port);
 }
 
 const std::string Client::getHostAddress(void) const {
 	char ipstr[INET_ADDRSTRLEN] = {0};
-	sockaddr_in* addr_in = (sockaddr_in*)&_addr;
+	sockaddr_in* addr_in = (sockaddr_in*)&_remote_addr;
 	inet_ntop(AF_INET, &addr_in->sin_addr, ipstr, INET_ADDRSTRLEN);
 	return std::string(ipstr);
 }
@@ -120,11 +121,11 @@ const Client::State& Client::getState(void) const {
 	return _state;
 }
 
-sockaddr& Client::getAddr(void) {
-	return *(sockaddr*)&_addr;
+sockaddr& Client::getRemoteAddr(void) {
+	return *(sockaddr*)&_remote_addr;
 }
 
-socklen_t& Client::getAddrlen(void) {
+socklen_t& Client::getRemoteAddrlen(void) {
 	return _addrlen;
 }
 
@@ -295,7 +296,10 @@ void Client::parseIncomingData(void) {
 			}
 		}
 
-		if (request.parsing.state ==  HTTPRequest::CGI_PROCESSING) {
+		if (request.parsing.state == HTTPRequest::CGI_PROCESSING) {
+
+			request.cgi.server_socket = _server_addr;
+			request.cgi.remote_socket = *(const sockaddr_in*)&_remote_addr;
 
 			if (request.body_chunked) break;
 
@@ -582,7 +586,7 @@ void Client::reset(void) {
 	_blocked_from_receiving = false;
 	_marked_for_termination = false;
 	_eof_reached = false;
-	std::memset(&_addr, 0, _addrlen);
+	std::memset(&_remote_addr, 0, _addrlen);
 
 	if (!_request_queue.empty()) {
 		while (_request_queue.begin() != _request_queue.end()) {
