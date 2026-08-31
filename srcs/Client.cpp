@@ -296,7 +296,10 @@ void Client::parseIncomingData(void) {
 			}
 		}
 
-		if (request.parsing.state ==  HTTPRequest::CGI_PROCESSING) {
+		if (request.parsing.state == HTTPRequest::CGI_PROCESSING) {
+
+			request.cgi.server_socket = _server_addr;
+			request.cgi.remote_socket = *(const sockaddr_in*)&_remote_addr;
 
 			if (request.body_chunked) break;
 
@@ -536,8 +539,6 @@ void Client::flushPendingData(int fd) {
 void Client::pushRequest(void) {
 
 	HTTPRequest* request = new HTTPRequest();
-	request->cgi.server_socket = _server_addr;
-	request->cgi.remote_socket = *(const sockaddr_in*)&_remote_addr;
 	_request_queue.push_back(request);
 
 	return;
