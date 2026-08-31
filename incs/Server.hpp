@@ -36,6 +36,11 @@ struct FD {
 	Type		type;
 };
 
+struct ListeningSocket {
+	sockaddr_in					addr;
+	const Config::Socket*		conf;
+};
+
 class Server {
 
 public:
@@ -51,7 +56,7 @@ public:
 	void									prepareEPollInstance(void);
 	void									prepareListeningPort(const Config::Socket& config);
 	void									handleEvents(void);
-	void									acceptConnectRequest(int fd, const Config::Socket* config);
+	void									acceptConnectRequest(int fd, ListeningSocket socket);
 	void									handleSocketError(int fd);
 	void									handleHangup(int fd);
 	void									handleRemoteHangup(int fd);
@@ -61,7 +66,7 @@ public:
 	void									handleWriteEvent(int fd);
 	void									cleanUpAllRessources(void);
 	void									cleanUpClient(std::map<int, Client*>::iterator it);
-	void									cleanUpSocket(std::map<int, const Config::Socket*>::iterator it);
+	void									cleanUpSocket(std::map<int, ListeningSocket>::iterator it);
 
 private:
 	Server(void);
@@ -78,13 +83,14 @@ private:
 
 	int										_epfd;
 
-	std::vector<sockaddr_in>				_addr;
+	// std::vector<sockaddr_in>				_addr;
+
+	// std::map<int, const Config::Socket*>	_sockets;
+	std::map<int, ListeningSocket>			_sockets;
+	std::map<int, Client*>					_clients;
+	std::map<int, Client*>					_c_pipes;
 
 	epoll_event								_events[MAX_EPOLL_EVENTS];
-
-	std::map<int, const Config::Socket*>	_sockets;
-	std::map<int, Client*>					_clients;
-	std::vector<int>						_pipes;
 
 };
 

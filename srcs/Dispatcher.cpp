@@ -261,6 +261,10 @@ static StatusCode removeFile(const std::string& path,
 
 }
 
+// static StatusCode prepareCGI(HTTPRequest& request, HTTPResponse& response) {
+// 	return NO_STATUS;
+// }
+
 static StatusCode serveDirectoryListing(const std::string& path,
 										bool supports_delete,
 										const HTTPRequest& request,
@@ -393,6 +397,10 @@ static StatusCode handleGET(const HTTPRequest& request,
 
 }
 
+// static StatusCode handleCGI(HTTPRequest& request, HTTPResponse& response) {
+// 	return NO_STATUS;
+// }
+
 static StatusCode handlePUT(HTTPRequest& request,
 							HTTPResponse& response) {
 
@@ -498,14 +506,24 @@ static StatusCode handleDirectory(HTTPRequest& request,
 
 }
 
+// // Hand request to CGI
+// if (request.requires_CGI) {
+//
+// 	// return handleCGI(request, response);
+// 	return NO_STATUS;
+
 static StatusCode routeRequest(HTTPRequest& request,
 							   HTTPResponse& response) {
 
-	// Hand request to CGI
-	if (request.requires_CGI) {
-
-		//if (HTTPRequest::DISPATCHING)
-		// return handleCGI(request, response);
+	// Match CGI extensions
+	if (hasCGIExtension(request)) {
+		request.requires_CGI = true;
+		if (request.body.size != 0 ||
+			request.body_chunked ==  true) {
+			request.parsing.state = HTTPRequest::READING_BODY;
+		} else {
+			request.parsing.state = HTTPRequest::CGI_PROCESSING;
+		}
 		return NO_STATUS;
 
 	// Check if request path exists as static file in `root`
@@ -591,11 +609,6 @@ static StatusCode resolveRoute(Client& client) {
 		normalized.substr(request.resolved.location->path.size());
 	}
 	log.debug("absolute path: " + request.resolved.path);
-
-	// Match CGI extensions
-	if (hasCGIExtension(request)) {
-		request.requires_CGI = true;
-	}
 
 	return NO_STATUS;
 
@@ -684,7 +697,10 @@ void Dispatcher::request(Client& client) {
 						 request.headers_only,
 						 request.parsing.error_cause);
 	case HTTPRequest::COMPLETE:
-		if (request.resolved.method == PUT) {
+		if (request.requires_CGI) {
+			// status_code = handleCGI(request, response);
+			log.error("Here be dragons");
+		} else if (request.resolved.method == PUT) {
 			status_code = handlePUT(request, response);
 		} else if (request.resolved.method == POST) {
 			status_code = handlePOST(request, response);

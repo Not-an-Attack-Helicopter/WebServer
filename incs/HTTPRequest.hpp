@@ -17,6 +17,7 @@
 // #include "Buffer.hpp"
 #include "HTTPResponse.hpp"
 #include "HTTPParameters.hpp"
+#include <netinet/in.h>
 // #include "MultipartBody.hpp"
 // #include <fstream>
 // #include <sstream>
@@ -112,6 +113,8 @@ public:
 
 	struct CGIContext {
 
+		sockaddr_in							remote_socket;
+		sockaddr_in							server_socket;
 		std::string							binary_path;
 		int									in_pipe[2];
 		int									out_pipe[2];
