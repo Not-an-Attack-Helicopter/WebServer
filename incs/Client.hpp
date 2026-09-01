@@ -18,7 +18,7 @@
 #include "HTTPRequest.hpp"
 #include "HTTPResponse.hpp"
 #include <netinet/in.h>
-#include <sys/socket.h>
+// #include <sys/socket.h>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -37,8 +37,9 @@ public:
 	enum State {
 		IDLE,
 		RECEIVING_HEADERS,
-		RECEIVING_BODY,
 		DISPATCHING,
+		RECEIVING_BODY,
+		PREPARING_RESPONSE,
 		AWAITING_CGI_RESPONSE,
 		PENDING_RESPONSE,
 		SENDING_HEADERS,
@@ -69,7 +70,6 @@ public:
 	};
 
 // DEBUG BEGIN
-	static const short				STOP = -2;
 	double							getIdleTime(void) const;
 	unsigned short int				getHostPort(void) const;
 	const std::string				getHostAddress(void) const;
@@ -105,7 +105,7 @@ public:
 	ssize_t							queueIncomingData(int fd); // receive data
 
 	void							parseIncomingData(void); // build request
-	void							queueOutgoingData(void); // prepare response
+	void							prepareOutgoingData(void); // prepare response
 	void							flushPendingData(int fd); // send data
 	void							pushRequest(void);
 	void							pushResponse(void);
@@ -113,6 +113,7 @@ public:
 	void							popResponse(void);
 	void							blockFromReceiving(void);
 	void							markForTermination(void);
+	// void							resetTimer();
 	void							reset(void);
 
 

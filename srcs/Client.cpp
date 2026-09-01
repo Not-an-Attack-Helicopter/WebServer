@@ -186,6 +186,9 @@ bool Client::isTimedOut(void) const {
 	case DISPATCHING:
 		timeout = DISPATCH_TIMEOUT_SECONDS;
 		break;
+	case PREPARING_RESPONSE:
+		timeout = DISPATCH_TIMEOUT_SECONDS;
+		break;
 	case AWAITING_CGI_RESPONSE:
 		timeout = DISPATCH_TIMEOUT_SECONDS;
 		break;
@@ -213,21 +216,9 @@ bool Client::isTimedOut(void) const {
 }
 
 ssize_t Client::queueIncomingData(int fd) {
-
-	ssize_t bytes_received = 0;
-	Buffer& b = _instream;
-	if (b.end < b.data.size()) {
-		bytes_received = recv(fd, &b.data[b.end], b.data.size() - b.end, 0);
-		if (bytes_received <= 0) return bytes_received;
-// DEBUG BEGIN // Interpret the first 4 bytes as an admin command.
-		if (bytes_received >= 4)
-			if (b.substr(b.range(), b.range() + 4) == "STOP")
-				return STOP;
-// DEBUG END
-		b.end += static_cast<std::size_t>(bytes_received);
-		_last_event = std::time(NULL);
-	}
-	return bytes_received;
+	ssize_t bytes_read = _instream.fetchData(fd);
+	if (bytes_read > 0) _last_event = std::time(NULL);
+	return bytes_read;
 }
 
 void Client::parseIncomingData(void) {
@@ -378,7 +369,7 @@ void Client::parseIncomingData(void) {
 			break;
 		case HTTPRequest::COMPLETE:
 			log.info("Full HTTP request body received");
-			setState(Client::DISPATCHING);
+			setState(Client::PREPARING_RESPONSE);
 			if (_instream.data.size() != BUFFER_SIZE) {
 				_instream.data.resize(BUFFER_SIZE);
 			}
@@ -386,7 +377,7 @@ void Client::parseIncomingData(void) {
 			break;
 		case HTTPRequest::ERROR:
 			log.warn("HTTP request parser returned error");
-			setState(Client::DISPATCHING);
+			setState(Client::PREPARING_RESPONSE);
 			if (_instream.data.size() != BUFFER_SIZE) {
 				_instream.data.resize(BUFFER_SIZE);
 			}
@@ -399,7 +390,7 @@ void Client::parseIncomingData(void) {
 
 }
 
-void Client::queueOutgoingData(void) {
+void Client::prepareOutgoingData(void) {
 
 	_response.headers	<< http::V_1_1 << http::_ << _response_queue.front()->getStatusCode()
 						<< http::_ << _response_queue.front()->getStatusReason() << http::CRLF;
@@ -580,6 +571,10 @@ void Client::markForTermination(void) {
 	_marked_for_termination = true;
 }
 
+// void Client::resetTimer(void) {
+// 	_last_event = std::time(NULL);
+// }
+
 void Client::reset(void) {
 
 	_state = IDLE;
@@ -642,36 +637,28 @@ Client& Client::operator = (const Client& other) {
 
 bool Client::_sendNextChunk(int fd, std::istream& stream) {
 
-	// Fill buffer if there is space in the ring buffer and stream has not reached EOF
-	if (!_eof_reached && _outstream.end < _outstream.data.size()) {
+	// Fill buffer if not saturated and stream has not reached EOF
+	if (!stream.eof() && _outstream.end < _outstream.data.size()) {
 		stream.read(&_outstream.data[_outstream.end], _outstream.data.size() - _outstream.end);
 		std::streamsize bytes_read = stream.gcount();
-
 		if (bytes_read > 0) _outstream.end += static_cast<std::size_t>(bytes_read);
-
-		if (stream.eof()) _eof_reached = true;
-
 	}
 
 	// Send pending bytes
-	if (_outstream.begin < _outstream.end) {
-		ssize_t bytes_sent = send(fd, &_outstream.data[_outstream.begin], _outstream.end - _outstream.begin, 0);
-		switch (bytes_sent) {
-			case -1:
-				log.error("send: client_" + i2a(fd) + ": " + std::string(strerror(errno)));
-				_state = ERROR;
-				return false;
-			case 0:
-				_state = ERROR;
-				return false;
-			default:
-				log.debug("client_" + i2a(fd) + ": bytes sent: " + i2a(bytes_sent));
-				_outstream.begin += static_cast<std::size_t>(bytes_sent);
-				_last_event = std::time(NULL);
-		}
+	ssize_t bytes_sent = _outstream.flushData(fd);
+	if (bytes_sent < 0) {
+		log.error("send: client_" + i2a(fd) + ": " + std::string(strerror(errno)));
+		_state = ERROR;
+		return false;
+	} else if (bytes_sent == 0) {
+		_state = ERROR;
+		return false;
+	} else {
+		log.debug("client_" + i2a(fd) + ": bytes sent: " + i2a(bytes_sent));
+		_last_event = std::time(NULL);
 	}
 
-	// Everything has been sent; reset buffer
+	// Everything has been sent; reset indices
 	if (_outstream.begin == _outstream.end) {
 		_outstream.reset();
 
@@ -688,7 +675,7 @@ bool Client::_sendNextChunk(int fd, std::istream& stream) {
 
 	}
 
-	// Done only when stream ended AND buffer is empty
+	// Completed only when stream has reached EOF and buffer is empty
 	if (_eof_reached && _outstream.begin == _outstream.end) {
 		_eof_reached = false;
 		_outstream.reset();

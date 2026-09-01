@@ -77,10 +77,6 @@ private:
 	static const int						MAX_EPOLL_EVENTS = 64; // 64 - 512
 	static const int						EPOLL_WAIT_TIMEOUT_MS = 5000; // 100 – 5000
 
-// DEBUG BEGIN
-	bool									_stop;
-// DEBUG END
-
 	int										_epfd;
 
 	// std::vector<sockaddr_in>				_addr;

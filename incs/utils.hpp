@@ -19,12 +19,13 @@
 // #include <cstddef>
 #include <sys/epoll.h>
 
-// DEBUG
+// DEBUG BEGIN
+static const short STOP = -2;
 void			warnHighEventLoad(int nfds, int max_capacity);
 void			dumpEvents(int nfds, epoll_event* events);
 void			dumpClientConfig(const Client* client);
 void			dumpRequest(const HTTPRequest* request);
-// DEBUG
+// DEBUG END
 
 unsigned short	stringToUnsignedShort(const std::string& str);
 std::size_t		stringToSize(const std::string& str);
