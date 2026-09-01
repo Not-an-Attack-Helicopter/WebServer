@@ -43,8 +43,10 @@ struct Buffer {
 	ssize_t find(const char& pin) const;
 	ssize_t find(const std::string& needle) const;
 
-	ssize_t fetchData(int fd);
-	ssize_t flushData(int fd);
+	// is_pipe picks read()/write() instead of recv()/send() -- recv/send
+	// only work on sockets, pipes need the plain syscalls (ENOTSOCK otherwise)
+	ssize_t fetchData(int fd, bool is_pipe = false);
+	ssize_t flushData(int fd, bool is_pipe = false);
 
 	Buffer(void) : begin(0), mark(0), end(0) {data.resize(BUFFER_SIZE);}
 

@@ -40,9 +40,9 @@ public:
 	bool									setNonblockFlag(int fd);
 	bool									setRDWRInterest(int fd);
 	bool									dropWriteInterest(int fd);
-	bool									setPollInterest(int fd, bool is_pipe);
-	bool									setRDONLYInterest(int fd, bool is_pipe);
-	bool									setWRONLYInterest(int fd, bool is_pipe);
+	bool									setPollInterest(int fd, bool is_pipe = false);
+	bool									setRDONLYInterest(int fd, bool is_pipe = false);
+	bool									setWRONLYInterest(int fd, bool is_pipe = false);
 
 	void									prepareEPollInstance(void);
 	void									prepareListeningPort(const Config::Socket& config);

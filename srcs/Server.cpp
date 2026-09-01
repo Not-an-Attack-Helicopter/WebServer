@@ -220,7 +220,7 @@ void Server::prepareListeningPort(const Config::Socket& soc) {
 		throw std::runtime_error("listen: " + std::string(strerror(errno)));
 	}
 
-	if (!setPollInterest(_sockets.rbegin()->first, 0)) {
+	if (!setPollInterest(_sockets.rbegin()->first)) {
 		throw std::runtime_error("epoll_ctl: " + std::string(strerror(errno)));
 	}
 
@@ -324,7 +324,7 @@ void Server::handleEvents(void) {
 									   immediate->second->getCurrentRequest().headers_only,
 									   REQUEST_TIMEOUT);
 					immediate->second->popRequest();
-					if (!setWRONLYInterest(immediate->first, 0)) {
+					if (!setWRONLYInterest(immediate->first)) {
 						cleanUpClient(immediate);
 					} else {
 						immediate->second->markForTermination();
@@ -371,7 +371,7 @@ void Server::acceptConnectRequest(int listen_fd, ListeningSocket socket) {
 		cleanUpClient(_clients.find(client_fd));
 		return;
 	}
-	if (!setPollInterest(client_fd, 0)) {
+	if (!setPollInterest(client_fd)) {
 		cleanUpClient(_clients.find(client_fd));
 		return;
 	}
@@ -479,7 +479,7 @@ bool Server::handleReadEvent(int fd) {
 			client.pushRequest();
 
 			if (client.blockedFromReceiving()) {
-				if (!setWRONLYInterest(fd, 0)) {
+				if (!setWRONLYInterest(fd)) {
 					cleanUpClient(it);
 				}
 			} else {
@@ -527,7 +527,7 @@ void Server::handleWriteEvent(int fd) {
 	switch (client.getState()) {
 
 	case Client::IDLE:
-		if (!setRDONLYInterest(fd, 0)) {
+		if (!setRDONLYInterest(fd)) {
 			cleanUpClient(it);
 		}
 		break;

@@ -13,9 +13,10 @@
 #include "../incs/Buffer.hpp"
 #include "../incs/Logger.hpp"
 #include <sys/socket.h>
-#include <algorithm>
+#include <unistd.h>
 #include <cstring>
 // #include <cstddef>
+#include <algorithm>
 
 std::string Buffer::str(void) const {
 	return std::string(data.begin() + begin, data.begin() + end);
@@ -76,22 +77,24 @@ ssize_t Buffer::find(const std::string& needle) const {
 	return (it != end_it) ? std::distance(begin_it, it) : -1;
 }
 
-ssize_t Buffer::fetchData(int fd) {
+ssize_t Buffer::fetchData(int fd, bool is_pipe) {
 
 	ssize_t n = 0;
 	if (end < data.size()) {
-		n = recv(fd, &data[end], data.size() - end, 0);
+		n = is_pipe ? read(fd, &data[end], data.size() - end)
+					: recv(fd, &data[end], data.size() - end, 0);
 		if (n <= 0) return n;
 		end += static_cast<std::size_t>(n);
 	}
 	return n;
 }
 
-ssize_t Buffer::flushData(int fd) {
+ssize_t Buffer::flushData(int fd, bool is_pipe) {
 
 	ssize_t n = 0;
 	if (begin < end) {
-		n = send(fd, &data[begin], end - begin, 0);
+		n = is_pipe ? write(fd, &data[begin], end - begin)
+					: send(fd, &data[begin], end - begin, 0);
 		if (n <= 0) return n;
 		begin += static_cast<std::size_t>(n);
 	}
