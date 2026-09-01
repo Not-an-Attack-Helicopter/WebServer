@@ -148,8 +148,6 @@ private:
 
 	Response						_response;
 
-	bool							_eof_reached;
-
 	time_t							_last_event;
 
 	bool							_sendNextChunk(int fd, std::istream& stream);

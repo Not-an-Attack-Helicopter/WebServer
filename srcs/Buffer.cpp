@@ -14,9 +14,9 @@
 #include "../incs/Logger.hpp"
 #include <sys/socket.h>
 #include <unistd.h>
-#include <algorithm>
 #include <cstring>
 // #include <cstddef>
+#include <algorithm>
 
 std::string Buffer::str(void) const {
 	return std::string(data.begin() + begin, data.begin() + end);

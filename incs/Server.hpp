@@ -27,15 +27,6 @@
 address family."
 # define NFIND_CLIENT "Client not found."
 
-struct FD {
-	enum Type {
-		PIPE,
-		SOCKET
-	};
-	int			fd;
-	Type		type;
-};
-
 struct ListeningSocket {
 	sockaddr_in					addr;
 	const Config::Socket*		conf;
@@ -46,12 +37,12 @@ class Server {
 public:
 	static Server&							instance(void);
 
-	bool									setNonblockFlag(FD fd);
+	bool									setNonblockFlag(int fd);
 	bool									setRDWRInterest(int fd);
 	bool									dropWriteInterest(int fd);
-	bool									setPollInterest(FD fd);
-	bool									setRDONLYInterest(FD fd);
-	bool									setWRONLYInterest(FD fd);
+	bool									setPollInterest(int fd, bool is_pipe = false);
+	bool									setRDONLYInterest(int fd, bool is_pipe = false);
+	bool									setWRONLYInterest(int fd, bool is_pipe = false);
 
 	void									prepareEPollInstance(void);
 	void									prepareListeningPort(const Config::Socket& config);
