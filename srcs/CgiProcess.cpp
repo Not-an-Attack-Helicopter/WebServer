@@ -146,6 +146,21 @@ bool  CgiProcess::valid()     const { return _pipes_open; }
 pid_t CgiProcess::pid()       const { return _pid; }
 int   CgiProcess::stdinFd()   const { return _stdin_fd; }
 int   CgiProcess::stdoutFd()  const { return _stdout_fd; }
+
+void CgiProcess::closeStdin() {
+	if (_stdin_fd != -1) {
+		close(_stdin_fd);
+		_stdin_fd = -1;
+	}
+}
+
+void CgiProcess::closeStdout() {
+	if (_stdout_fd != -1) {
+		close(_stdout_fd);
+		_stdout_fd = -1;
+	}
+}
+
 bool  CgiProcess::wantsWrite() const { return _stdin_fd != -1; }
 bool  CgiProcess::wantsRead()  const { return _stdout_fd != -1; }
 bool  CgiProcess::isDone()     const { return _stdin_fd == -1 && _stdout_fd == -1 && _reaped; }

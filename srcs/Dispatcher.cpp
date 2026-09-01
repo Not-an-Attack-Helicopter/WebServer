@@ -19,7 +19,7 @@
 // #include "../incs/Config.hpp"
 #include "../incs/Logger.hpp"
 #include "../incs/utils.hpp"
-#include "../incs/CgiEnv.hpp"
+#include "../incs/CgiHandler.hpp"
 // #include <sys/stat.h>	// stat
 // #include <sys/wait.h>	// waitpid
 #include <dirent.h>		// opendir, readdir, closedir
@@ -38,27 +38,6 @@ static bool isReadable(const std::string& path) {
 	}
 
 	return access(path.c_str(), R_OK) == 0;
-
-}
-
-static bool hasCGIExtension(HTTPRequest& request) {
-
-	const Config::Location& location = *request.resolved.location;
-	const std::string& path = request.resolved.path;
-
-	std::size_t dot = path.rfind('.');
-	if (dot == std::string::npos || dot == path.size() - 1) {
-		return false;
-	}
-
-	const std::string ext = path.substr(dot);
-	std::map<std::string, std::string>::const_iterator it = location.interpreters.find(ext);
-	if (it != location.interpreters.end()) {
-		request.cgi.binary_path = it->second;
-		return true;
-	}
-
-	return false;
 
 }
 
@@ -508,31 +487,6 @@ static StatusCode handleDirectory(HTTPRequest& request,
 }
 
 // argv for execve
-static std::vector<std::string> buildCgiArgs(const HTTPRequest& request) {
-
-	std::vector<std::string> args;
-	args.push_back(request.cgi.binary_path);
-	args.push_back(request.resolved.path);
-	return args;
-
-}
-
-// read the body back off disk, that's our cgi stdin
-static std::string readCgiInput(const HTTPRequest& request) {
-
-	if (request.body.path.empty())
-		return "";
-
-	std::ifstream file(request.body.path.c_str(), std::ios::binary);
-	if (!file.is_open())
-		return "";
-
-	std::ostringstream ss;
-	ss << file.rdbuf();
-	return ss.str();
-
-}
-
 static StatusCode routeRequest(HTTPRequest& request,
 							   HTTPResponse& response) {
 
@@ -737,10 +691,9 @@ void Dispatcher::request(Client& client) {
 						 request.headers_only,
 						 request.parsing.error_cause);
 	case HTTPRequest::COMPLETE:
-		if (request.requires_CGI) {
-			// status_code = handleCGI(request, response);
-			log.error("Here be dragons");
-		} else if (request.resolved.method == PUT) {
+		// requires_CGI never reaches here -- see parseIncomingData(), a CGI
+		// request always lands on CGI_PROCESSING instead once its body is in.
+		if (request.resolved.method == PUT) {
 			status_code = handlePUT(request, response);
 		} else if (request.resolved.method == POST) {
 			status_code = handlePOST(request, response);
@@ -760,28 +713,25 @@ void Dispatcher::request(Client& client) {
 		if (status_code < BAD_REQUEST) {
 			if (request.parsing.state == HTTPRequest::READING_BODY) {
 				client.setState(Client::RECEIVING_BODY);
+			} else if (request.parsing.state == HTTPRequest::CGI_PROCESSING) {
+				// no body, so routeRequest() already put us straight into
+				// CGI_PROCESSING -- matches the state parseIncomingData()
+				// lands on once a WITH-body CGI request finishes reading.
+				// Server doesn't drive AWAITING_CGI_RESPONSE yet, so this
+				// is correctly blocked, not actually running the CGI.
+				client.setState(Client::AWAITING_CGI_RESPONSE);
 			} else {
 				client.setState(Client::PENDING_RESPONSE);
 			}
 			return;
 		}
 		break;
-	case HTTPRequest::CGI_PROCESSING: {
-		// body's fully in by now, build the process and kick it off
-		std::string cgi_input = readCgiInput(request);
-		std::vector<std::string> cgi_args = buildCgiArgs(request);
-		std::string working_dir = request.resolved.path.substr(0, request.resolved.path.find_last_of('/'));
-
-		std::map<std::string, std::string> env = build_cgi_env(request, client.getConfig(),
-																*request.resolved.domain,
-																*request.resolved.location,
-																request.resolved.path);
-
-		request.cgi_process = new CgiProcess(request.cgi.binary_path, cgi_args, env, cgi_input, working_dir);
-
-		// not spawned yet, that + epoll registration is still ahead
+	case HTTPRequest::CGI_PROCESSING:
+		status_code = handleCGI(request, response, client.getConfig());
+		if (status_code < BAD_REQUEST) {
+			return;
+		}
 		break;
-	}
 	default:
 		return;
 	}

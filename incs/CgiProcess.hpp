@@ -35,6 +35,14 @@ public:
     int   stdinFd()  const; // -1 once the write end is closed
     int   stdoutFd() const; // -1 once the read end is closed
 
+    // for a caller doing its own buffered write()/read() against
+    // stdinFd()/stdoutFd() (e.g. CgiHandler) instead of handleWritable()/
+    // handleReadable() -- closes the fd and updates it to -1, same as those
+    // do internally once done, so wantsWrite()/wantsRead()/isDone() and the
+    // destructor stay correct either way.
+    void closeStdin();
+    void closeStdout();
+
     bool wantsWrite() const;
     bool wantsRead()  const;
     bool isDone()     const; // both pipe ends closed and child reaped
