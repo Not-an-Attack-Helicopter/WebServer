@@ -641,9 +641,6 @@ bool Client::_sendNextChunk(int fd, std::istream& stream) {
 		std::streamsize bytes_read = stream.gcount();
 		if (bytes_read > 0) _outstream.end += static_cast<std::size_t>(bytes_read);
 	}
-	// checked every call, not just when a read was attempted -- an empty
-	// stream is already eof() on the very first call, before ever reading
-	if (stream.eof()) _eof_reached = true;
 
 	// Send pending bytes
 	ssize_t bytes_sent = _outstream.flushData(fd);
