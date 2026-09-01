@@ -43,6 +43,9 @@ struct Buffer {
 	ssize_t find(const char& pin) const;
 	ssize_t find(const std::string& needle) const;
 
+	ssize_t fetchData(int fd);
+	ssize_t flushData(int fd);
+
 	Buffer(void) : begin(0), mark(0), end(0) {data.resize(BUFFER_SIZE);}
 
 };

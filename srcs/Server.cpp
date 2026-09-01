@@ -21,12 +21,21 @@
 // #include <sys/wait.h>
 // #include <sys/stat.h>
 // #include <stdexcept>
+#include <signal.h>
 #include <unistd.h>
-// #include <iostream>
 #include <fcntl.h>
 // #include <cstring>
 // #include <cstdlib>
 // #include <cerrno>
+
+static volatile sig_atomic_t should_exit = 0;
+
+static void signal_handler(int sig) {
+    if (sig == SIGTERM || sig == SIGINT) {
+		log.info("Connection closed by the server");
+        should_exit = 1;
+    }
+}
 
   //~~~~~~~~~~//
  /*  Public  */
@@ -228,6 +237,9 @@ void Server::prepareListeningPort(const Config::Socket& soc) {
 
 void Server::handleEvents(void) {
 
+	signal(SIGTERM, signal_handler);
+	signal(SIGINT, signal_handler);
+
 	log.info("Awaiting new connection");
 
 	for (;;) {
@@ -286,14 +298,18 @@ void Server::handleEvents(void) {
 			}
 
 		}
-// DEBUG BEGIN
-		if (_stop == true) {
+
+		if (should_exit == 1) {
 			break;
 		}
-// DEBUG END
+
+		if (_clients.empty()) {
+			log.info("All clients disconnected");
+			break;
+		}
+
 		std::map<int, Client*>::iterator immediate;
 		std::map<int, Client*>::iterator it = _clients.begin();
-
 		while (it != _clients.end()) {
 			immediate = it;
 			++it;
@@ -431,33 +447,24 @@ bool Server::handleReadEvent(int fd) {
 	if (it == _clients.end() || it->second == NULL) {
 		// throw std::runtime_error("client lookup:: " + std::string(NFIND_CLIENT));
 		log.warn("client lookup:: " + std::string(NFIND_CLIENT));
+		return true;
 	}
 
 	Client& client = *it->second;
 	ssize_t bytes_received = client.queueIncomingData(fd);
 
-	switch (bytes_received) {
+	if (bytes_received < 0) {
 
-// DEBUG BEGIN
-	case Client::STOP:
-		log.info("Connection closed by the server");
-		_stop = true;
-		return true;
-// DEBUG END
-	case -1:
 		log.warn("recv: " + std::string(strerror(errno)));
+		cleanUpClient(it);
 		return true;
-	case 0:
+
+	} else if (bytes_received == 0) {
 		log.info("Connection closed by client fd_" + i2a(fd));
 		cleanUpClient(it);
-// DEBUG BEGIN
-		if (_clients.empty()) {
-			log.info("All clients disconnected");
-		}
-// DEBUG END
 		return true;
-	default:
-// TEST >>
+
+	} else {
 
 		client.parseIncomingData();
 		if (client.getState() == Client::DISPATCHING) {
@@ -468,7 +475,7 @@ bool Server::handleReadEvent(int fd) {
 			client.parseIncomingData();
 		}
 
-		if (client.getState() == Client::DISPATCHING) {
+		if (client.getState() == Client::PREPARING_RESPONSE) {
 			dispatch.request(client);
 		}
 
@@ -491,7 +498,6 @@ bool Server::handleReadEvent(int fd) {
 
 		}
 
-// << TEST
 		return false;
 
 	}
@@ -516,7 +522,7 @@ void Server::handleWriteEvent(int fd) {
 
 // TEST BEGIN
 	if (client.getState() == Client::PENDING_RESPONSE) {
-		client.queueOutgoingData();
+		client.prepareOutgoingData();
 		client.popResponse();
 		client.pushResponse();
 	}
@@ -660,7 +666,6 @@ void Server::cleanUpSocket(std::map<int, ListeningSocket>::iterator it) {
 Server::Server(void) {
 	log.debug("Server Constructor called");
 	_epfd = -1;
-	_stop = false;
 	return;
 }
 
@@ -688,4 +693,3 @@ Server& Server::operator = (const Server& other) {
 	}
 	return *this;
 }
-
