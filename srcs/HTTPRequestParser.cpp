@@ -630,8 +630,11 @@ bool Parser::_parseBody(const Buffer& buffer, HTTPRequest& request) {
 	HTTPRequest::ParsingContext& p = request.parsing;
 	p.bytes_read_count = 0;
 
-	if (request.is_multipart) {
+	if (request.is_multipart && !request.requires_CGI) {
 
+		/*
+		* Multipart Body (NOT requiring CGI):
+		*/
 		ssize_t boundary_pos;
 		const std::string& boundary = request.body.boundary;
 
@@ -833,7 +836,7 @@ bool Parser::_parseBody(const Buffer& buffer, HTTPRequest& request) {
 	} else {
 
 		/*
-		* Single Part Body:
+		* Single Part Body (or Multipart Body requiring CGI):
 		*/
 		if (request.body.sink == NONE) {
 			if (request.requires_CGI) {
@@ -863,6 +866,7 @@ bool Parser::_parseBody(const Buffer& buffer, HTTPRequest& request) {
 
 		ssize_t bytes_written;
 		switch (request.body.sink) {
+
 		case HEAP:
 			bytes_written = n;
 			request.body.temp.append(buffer.str(), n);
@@ -881,13 +885,14 @@ bool Parser::_parseBody(const Buffer& buffer, HTTPRequest& request) {
 					return false;
 				}
 			}
+
 		case DISK:
 			log.error("request body file: " + i2a(request.body.file));
-			bytes_written = write(request.body.file,
-										&buffer.data[buffer.begin], n);
+			bytes_written = write(request.body.file, &buffer.data[buffer.begin], n);
 			if (bytes_written < 0) {
 				throw std::runtime_error("write: " + std::string(strerror(errno)));
 			}
+
 		case NONE:
 			request.parsing.error_cause = INTERNAL_SERVER_ERROR;
 			request.parsing.state = HTTPRequest::ERROR;
@@ -897,9 +902,6 @@ bool Parser::_parseBody(const Buffer& buffer, HTTPRequest& request) {
 		p.bytes_read_count = bytes_written;
 		p.bytes_written_count += bytes_written;
 		return true;
-
 	}
-
 	return false;
-
 }
