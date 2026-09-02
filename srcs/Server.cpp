@@ -512,16 +512,15 @@ void Server::handleWriteEvent(int fd) {
 		return;
 	}
 
-// TEST BEGIN
 	if (client.getState() == Client::PENDING_RESPONSE) {
-		client.prepareOutgoingData();
+		client.queueOutgoingData();
 		client.popResponse();
 		client.pushResponse();
 	}
-// TEST END
-	if (client.hasPendingData()) {
 
-		client.flushPendingData(fd);
+	if (client.getState() == Client::SENDING_HEADERS ||
+		client.getState() == Client::SENDING_BODY) {
+		client.sendOutgoingData(fd);
 	}
 
 	switch (client.getState()) {

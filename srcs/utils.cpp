@@ -382,6 +382,36 @@ void promoteFile(HTTPRequest& request) {
 
 }
 
+ssize_t buffNflush(std::istream& stream, Buffer& b, int fd, bool is_pipe) {
+
+	// Fill buffer if not saturated and stream has not reached EOF
+	if (!stream.eof() && b.end < b.data.size()) {
+		stream.read(&b.data[b.end], b.data.size() - b.end);
+		std::streamsize bytes_read = stream.gcount();
+		if (bytes_read > 0) b.end += static_cast<std::size_t>(bytes_read);
+	}
+
+	// Send/write pending bytes
+	ssize_t n = b.flushData(fd, is_pipe);
+	if (n < 0) return n;
+
+	// Everything has been sent/written; reset indices
+	if (b.begin == b.end) {
+		b.reset();
+
+	// Compact buffer if needed
+	} else if (b.end == b.data.size()) {
+
+		if (b.begin > 0) {
+			b.compact();
+		} else {
+			log.error("client_" + i2a(fd) + ": buffer overflow");
+			return -2;
+		}
+	}
+	return n;
+}
+
 void dumpConfigs(const std::vector<Config::Socket>& sockets) {
 	for (std::size_t i = 0; i < sockets.size(); ++i) {
 		std::cout << "socket {\n";
