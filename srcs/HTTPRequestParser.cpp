@@ -910,6 +910,7 @@ bool Parser::_parseBody(const Buffer& buffer, HTTPRequest& request) {
 					return false;
 				}
 			}
+			break;
 
 		case DISK:
 			log.error("request body file: " + i2a(request.body.file));
@@ -917,6 +918,7 @@ bool Parser::_parseBody(const Buffer& buffer, HTTPRequest& request) {
 			if (bytes_written < 0) {
 				throw std::runtime_error("write: " + std::string(strerror(errno)));
 			}
+			break;
 
 		case NONE:
 			request.parsing.error_cause = INTERNAL_SERVER_ERROR;

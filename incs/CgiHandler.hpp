@@ -29,6 +29,7 @@ public:
 	ScriptState state(void) const;
 
 	void writeStdin(void); // one non-blocking write attempt, WRITING_PIPES only
+	void readStdout(void); // one non-blocking read attempt, moves PROCESSING -> READING_PIPES
 
 private:
 	CgiHandler(const CgiHandler&);

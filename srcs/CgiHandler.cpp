@@ -39,6 +39,11 @@ static std::vector<std::string> buildCgiArgs(const HTTPRequest& request) {
 // read the body back off disk, that's our cgi stdin
 static std::string readCgiInput(const HTTPRequest& request) {
 
+	// small bodies live in memory now (Sink::HEAP), only large ones spool
+	// to disk -- see the switch on request.body.sink in _parseBody()
+	if (request.body.sink == HEAP)
+		return request.body.temp;
+
 	if (request.body.path.empty())
 		return "";
 
@@ -117,6 +122,35 @@ void CgiHandler::writeStdin(void) {
 	if (_instream.begin == _instream.end) {
 		_process->closeStdin();
 		_state = PROCESSING;
+	}
+
+}
+
+// same shape as writeStdin(), just filling _outstream from the fd instead
+// of draining _instream into it
+void CgiHandler::readStdout(void) {
+
+	// nothing else moves us from PROCESSING to READING_PIPES, do it here
+	if (_state == PROCESSING)
+		_state = READING_PIPES;
+
+	if (_state != READING_PIPES)
+		return;
+
+	// buffer full, not necessarily eof, wait for something to drain it
+	if (_outstream.end == _outstream.data.size())
+		return;
+
+	ssize_t got = _outstream.fetchData(_process->stdoutFd(), true);
+
+	if (got == -1 && errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK) {
+		_state = ERROR;
+		return;
+	}
+
+	if (got == 0) {
+		_process->closeStdout();
+		_state = COMPLETE;
 	}
 
 }
