@@ -41,6 +41,8 @@ bool			isDirectory(const std::string& path);
 void			createFile(HTTPRequest& request);
 void			promoteFile(HTTPRequest& request);
 
+ssize_t			buffNflush(std::istream& stream, Buffer& b, int fd, bool is_pipe = false);
+
 void			dumpConfigs(const std::vector<Config::Socket>& config);
 
 /*

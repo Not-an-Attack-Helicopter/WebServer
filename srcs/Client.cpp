@@ -156,11 +156,6 @@ bool Client::hasPendingResponse(void) const {
 	return !_response_queue.empty();
 }
 
-bool Client::hasPendingData(void) const {
-	return (_state == SENDING_HEADERS ||
-			_state == SENDING_BODY);
-}
-
 bool Client::blockedFromReceiving(void) const {
 	return _blocked_from_receiving;
 }
@@ -389,7 +384,7 @@ void Client::parseIncomingData(void) {
 
 }
 
-void Client::prepareOutgoingData(void) {
+void Client::queueOutgoingData(void) {
 
 	_response.headers	<< http::V_1_1 << http::_ << _response_queue.front()->getStatusCode()
 						<< http::_ << _response_queue.front()->getStatusReason() << http::CRLF;
@@ -428,38 +423,36 @@ void Client::prepareOutgoingData(void) {
 
 	_state = SENDING_HEADERS;
 	return;
-
 }
 
-void Client::flushPendingData(int fd) {
+void Client::sendOutgoingData(int fd) {
 
-	std::size_t buffer_size;
+	ssize_t bytes_sent = 0;
 
 	switch (_state) {
 
 	case SENDING_HEADERS:
 
 		log.info("client_" + i2a(fd) + " state: SENDING_HEADERS");
-		if (_sendNextChunk(fd, _response.headers)) {
-			_clearStream(_response.headers);
-			if (_response.body.sink == NONE) {
+		bytes_sent = buffNflush(_response.headers, _outstream, fd);
+		if (bytes_sent <= 0) {
+			_buffNflushErrorHandler(bytes_sent, fd);
+			return;
+		} else {
+			log.debug("client_" + i2a(fd) + ": bytes sent: " + i2a(bytes_sent));
+			_last_event = std::time(NULL);
+		}
 
-				if (_blocked_from_receiving) {
-					_state = REJECTED;
-					log.debug("client_" + i2a(fd) + ": state set to REJECTED");
-				} else if (_marked_for_termination) {
-					_state = CONCLUDED;
-					log.debug("client_" + i2a(fd) + ": state set to CONCLUDED");
-				} else {
-					_state = IDLE;
-					log.debug("client_" + i2a(fd) + ": state set to IDLE");
-				}
+		if (_response.headers.eof() && _outstream.begin == _outstream.end) {
+			_clearStream(_response.headers);
+
+			if (_response.body.sink == NONE) {
+				_stateTransitionHandler(fd);
 
 			} else {
 
 				_state = SENDING_BODY;
 				log.debug("client_" + i2a(fd) + ": state set to SENDING_BODY");
-
 			}
 		}
 		break;
@@ -471,58 +464,53 @@ void Client::flushPendingData(int fd) {
 
 		case HEAP:
 
-			if (_sendNextChunk(fd, _response.body.temp)) {
-				_clearStream(_response.body.temp);
+			bytes_sent = buffNflush(_response.body.temp, _outstream, fd);
+			if (bytes_sent <= 0) {
+				_buffNflushErrorHandler(bytes_sent, fd);
+				return;
+			} else {
+				log.debug("client_" + i2a(fd) + ": bytes sent: " + i2a(bytes_sent));
+				_last_event = std::time(NULL);
+			}
+
+			if (_response.body.temp.eof() && _outstream.begin == _outstream.end) {
 				log.info("client_" + i2a(fd) + ": full body/file sent");
-				if (_blocked_from_receiving) {
-					_state = REJECTED;
-					log.debug("client_" + i2a(fd) + ": state set to REJECTED");
-				} else if (_marked_for_termination) {
-					_state = CONCLUDED;
-					log.debug("client_" + i2a(fd) + ": state set to CONCLUDED");
-				} else {
-					_state = IDLE;
-					log.debug("client_" + i2a(fd) + ": state set to IDLE");
-				}
+				_clearStream(_response.body.temp);
+				_stateTransitionHandler(fd);
 			}
 			break;
 
 		case DISK:
 
 			if (_outstream.data.size() == BUFFER_SIZE) {
-				buffer_size = _adjustBufferSize(_response.body.size);
+				std::size_t buffer_size = _adjustBufferSize(_response.body.size);
 				_outstream.data.resize(buffer_size);
 			}
 
-			if (_sendNextChunk(fd, _response.body.file)) {
-				_clearStream(_response.body.file);
+			bytes_sent = buffNflush(_response.body.file, _outstream, fd);
+			if (bytes_sent <= 0) {
+				_buffNflushErrorHandler(bytes_sent, fd);
+				return;
+			} else {
+				log.debug("client_" + i2a(fd) + ": bytes sent: " + i2a(bytes_sent));
+				_last_event = std::time(NULL);
+			}
+
+			if (_response.body.file.eof() && _outstream.begin == _outstream.end) {
 				log.info("client_" + i2a(fd) + ": full body/file sent");
-				if (_blocked_from_receiving) {
-					_state = REJECTED;
-					log.debug("client_" + i2a(fd) + ": state set to REJECTED");
-				} else if (_marked_for_termination) {
-					_state = CONCLUDED;
-					log.debug("client_" + i2a(fd) + ": state set to CONCLUDED");
-				} else {
-					_state = IDLE;
-					log.debug("client_" + i2a(fd) + ": state set to IDLE");
-				}
+				_clearStream(_response.body.file);
+				_stateTransitionHandler(fd);
 				_outstream.data.resize(BUFFER_SIZE);
 			}
 			break;
 
 		default:
 			break;
-
 		}
-
 	default:
 		break;
-
 	}
-
 	return;
-
 }
 
 // Create new request object in deque container
@@ -532,7 +520,6 @@ void Client::pushRequest(void) {
 	_request_queue.push_back(request);
 
 	return;
-
 }
 
 // Create new response object in deque container
@@ -542,7 +529,6 @@ void Client::pushResponse(void) {
 	_response_queue.push_back(response);
 
 	return;
-
 }
 
 // Delete processed request from deque container
@@ -551,6 +537,7 @@ void Client::popRequest(void) {
 	delete _request_queue.front();
 	_request_queue.pop_front();
 
+	return;
 }
 
 // Delete processed response object in deque container
@@ -559,20 +546,19 @@ void Client::popResponse(void) {
 	delete _response_queue.front();
 	_response_queue.pop_front();
 
+	return;
 }
 
 void Client::blockFromReceiving(void) {
 	_blocked_from_receiving = true;
+	return;
 }
 
 
 void Client::markForTermination(void) {
 	_marked_for_termination = true;
+	return;
 }
-
-// void Client::resetTimer(void) {
-// 	_last_event = std::time(NULL);
-// }
 
 void Client::reset(void) {
 
@@ -633,56 +619,6 @@ Client& Client::operator = (const Client& other) {
 	return *this;
 }
 
-bool Client::_sendNextChunk(int fd, std::istream& stream) {
-
-	// Fill buffer if not saturated and stream has not reached EOF
-	if (!stream.eof() && _outstream.end < _outstream.data.size()) {
-		stream.read(&_outstream.data[_outstream.end], _outstream.data.size() - _outstream.end);
-		std::streamsize bytes_read = stream.gcount();
-		if (bytes_read > 0) _outstream.end += static_cast<std::size_t>(bytes_read);
-	}
-
-	// Send pending bytes
-	ssize_t bytes_sent = _outstream.flushData(fd);
-	if (bytes_sent < 0) {
-		log.error("send: client_" + i2a(fd) + ": " + std::string(strerror(errno)));
-		_state = ERROR;
-		return false;
-	} else if (bytes_sent == 0) {
-		_state = ERROR;
-		return false;
-	} else {
-		log.debug("client_" + i2a(fd) + ": bytes sent: " + i2a(bytes_sent));
-		_last_event = std::time(NULL);
-	}
-
-	// Everything has been sent; reset indices
-	if (_outstream.begin == _outstream.end) {
-		_outstream.reset();
-
-	// Compact buffer if needed
-	} else if (_outstream.end == _outstream.data.size()) {
-
-		if (_outstream.begin > 0) {
-			_outstream.compact();
-		} else {
-			log.error("send: client_" + i2a(fd) + ": buffer overflow");
-			_state = ERROR;
-			return false;
-		}
-
-	}
-
-	// Completed only when stream has reached EOF and buffer is empty
-	if (stream.eof() && _outstream.begin == _outstream.end) {
-		_outstream.reset();
-		return true;
-	}
-
-	return false;
-
-}
-
 std::size_t Client::_adjustBufferSize(std::size_t payload_size) {
 	if (payload_size < std::size_t(5) * 1024) return 8 * 1024;
 	else if (payload_size < std::size_t(50) * 1024) return 16 * 1024;
@@ -691,6 +627,27 @@ std::size_t Client::_adjustBufferSize(std::size_t payload_size) {
 	else if (payload_size < std::size_t(50) * 1024 * 1024) return 128 * 1024;
 	else if (payload_size < std::size_t(500) * 1024 * 1024) return 192 * 1024;
 	else return 256 * 1024;
+}
+
+void Client::_buffNflushErrorHandler(ssize_t bytes_sent, int fd) {
+	if (bytes_sent == -1) {
+		log.error("send: client_" + i2a(fd) + ": " + std::string(strerror(errno)));
+	}
+	_state = ERROR;
+	return;
+}
+
+void Client::_stateTransitionHandler(int fd) {
+	if (_blocked_from_receiving) {
+		_state = REJECTED;
+		log.debug("client_" + i2a(fd) + ": state set to REJECTED");
+	} else if (_marked_for_termination) {
+		_state = CONCLUDED;
+		log.debug("client_" + i2a(fd) + ": state set to CONCLUDED");
+	} else {
+		_state = IDLE;
+		log.debug("client_" + i2a(fd) + ": state set to IDLE");
+	}
 }
 
 // Overload for std::stringstream

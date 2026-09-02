@@ -97,7 +97,6 @@ public:
 	void							setState(State state);
 
 	bool							hasPendingResponse(void) const;
-	bool							hasPendingData(void) const;
 	bool							blockedFromReceiving() const;
 	bool							markedForTermination() const;
 	bool							isTimedOut(void) const;
@@ -105,15 +104,14 @@ public:
 	ssize_t							queueIncomingData(int fd); // receive data
 
 	void							parseIncomingData(void); // build request
-	void							prepareOutgoingData(void); // prepare response
-	void							flushPendingData(int fd); // send data
+	void							queueOutgoingData(void); // build response
+	void							sendOutgoingData(int fd); // send data
 	void							pushRequest(void);
 	void							pushResponse(void);
 	void							popRequest(void);
 	void							popResponse(void);
 	void							blockFromReceiving(void);
 	void							markForTermination(void);
-	// void							resetTimer();
 	void							reset(void);
 
 
@@ -150,10 +148,10 @@ private:
 
 	time_t							_last_event;
 
-	bool							_sendNextChunk(int fd, std::istream& stream);
-
 	std::size_t						_adjustBufferSize(std::size_t payload_size);
 
+	void							_buffNflushErrorHandler(ssize_t bytes_sent, int fd);
+	void							_stateTransitionHandler(int fd);
 	void							_clearStream(std::stringstream& stream);
 	void							_clearStream(std::ifstream& stream);
 
