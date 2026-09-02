@@ -414,19 +414,13 @@ bool Parser::_parseHeaders(const Buffer& buffer, HTTPRequest& request) {
 				}
 
 				request.parsing.multipart_state = HTTPRequest::READING_PART_BODY;
-				if (request.requires_CGI) {
-					request.body.parts.back().sink = HEAP;
-				} else {
-					if (request.body.parts.back().path.empty()) {
-						try {
-							createFile(request);
-						} catch (std::exception& e) {
-							request.parsing.error_cause = INTERNAL_SERVER_ERROR;
-							request.parsing.state = HTTPRequest::ERROR;
-							log.warn(e.what());
-							return false;
-						}
-					}
+				try {
+					createFile(request);
+				} catch (std::exception& e) {
+					request.parsing.error_cause = INTERNAL_SERVER_ERROR;
+					request.parsing.state = HTTPRequest::ERROR;
+					log.warn(e.what());
+					return false;
 				}
 
 			}
@@ -841,10 +835,10 @@ bool Parser::_parseBody(const Buffer& buffer, HTTPRequest& request) {
 		/*
 		* Single Part Body:
 		*/
-		if (request.requires_CGI) {
-			request.body.sink = HEAP;
-		} else {
-			if (request.body.path.empty()) {
+		if (request.body.sink == NONE) {
+			if (request.requires_CGI) {
+				request.body.sink = HEAP;
+			} else {
 				try {
 					createFile(request);
 				} catch (std::exception& e) {
@@ -868,7 +862,9 @@ bool Parser::_parseBody(const Buffer& buffer, HTTPRequest& request) {
 		if (n == 0) return true;
 
 		ssize_t bytes_written;
-		if (request.requires_CGI) {
+		switch (request.body.sink) {
+		case HEAP:
+			bytes_written = n;
 			request.body.temp.append(buffer.str(), n);
 			if (request.body.temp.size() > HTTPRequest::MAX_HEAP_STORED_BODY_SIZE) {
 				try {
@@ -885,14 +881,17 @@ bool Parser::_parseBody(const Buffer& buffer, HTTPRequest& request) {
 					return false;
 				}
 			}
-			bytes_written = n;
-		} else {
+		case DISK:
 			log.error("request body file: " + i2a(request.body.file));
 			bytes_written = write(request.body.file,
 										&buffer.data[buffer.begin], n);
 			if (bytes_written < 0) {
 				throw std::runtime_error("write: " + std::string(strerror(errno)));
 			}
+		case NONE:
+			request.parsing.error_cause = INTERNAL_SERVER_ERROR;
+			request.parsing.state = HTTPRequest::ERROR;
+			return false;
 		}
 
 		p.bytes_read_count = bytes_written;

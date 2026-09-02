@@ -507,6 +507,7 @@ static StatusCode routeRequest(HTTPRequest& request,
 	// Match CGI extensions
 	if (hasCGIExtension(request)) {
 		request.requires_CGI = true;
+		request.is_multipart = false;
 		if (request.body.size != 0 ||
 			request.body_chunked ==  true) {
 			request.parsing.state = HTTPRequest::READING_BODY;
