@@ -19,11 +19,11 @@
 #include "HTTPParameters.hpp"
 #include "CgiProcess.hpp"
 #include <netinet/in.h>
-// #include "MultipartBody.hpp"
 // #include <fstream>
-// #include <sstream>
-// #include <cstddef>
-// #include <string>
+#include <sstream>
+#include <string>
+#include <cstring>
+#include <cstddef>
 
 class HTTPRequest {
 
@@ -65,20 +65,20 @@ public:
 
 	struct ParsingContext {
 
-		State								state;
-		CState								chunk_state;
-		MPState								multipart_state;
-		StatusCode							error_cause;
-		LineEnding							line_ending;
-		std::size_t							line_end_pos;
-		std::size_t							line_end_size;
-		std::size_t							blank_line_size;
-		std::size_t							bytes_read_count;
-		std::size_t							bytes_written_count;
-		std::size_t							headers_size;
-		std::size_t							body_size;
-		std::size_t							chunk_size;
-		std::size_t							chunk_read;
+		State											state;
+		CState											chunk_state;
+		MPState											multipart_state;
+		StatusCode										error_cause;
+		LineEnding										line_ending;
+		std::size_t										line_end_pos;
+		std::size_t										line_end_size;
+		std::size_t										blank_line_size;
+		std::size_t										bytes_read_count;
+		std::size_t										bytes_written_count;
+		std::size_t										headers_size;
+		std::size_t										body_size;
+		std::size_t										chunk_size;
+		std::size_t										chunk_read;
 
 		ParsingContext(void)
 			:	state(READING_REQUEST_LINE),
@@ -114,18 +114,20 @@ public:
 
 	struct CGIContext {
 
-		sockaddr_in							remote_socket;
-		sockaddr_in							server_socket;
-		std::string							binary_path;
-		int									in_pipe[2];
-		int									out_pipe[2];
+		sockaddr_in										remote_socket;
+		sockaddr_in										server_socket;
+
+		std::string										binary_path;
+
+		int												std_out;
+		int												std_in;
 
 		CGIContext(void)
-			:	binary_path("") {
-			in_pipe[0] = 0;
-			in_pipe[1] = 0;
-			out_pipe[0] = 0;
-			out_pipe[1] = 0;
+			:	binary_path(""),
+				std_out(-1),
+				std_in(-1) {
+			std::memset(&remote_socket, 0, sizeof(remote_socket));
+			std::memset(&server_socket, 0, sizeof(server_socket));
 		}
 
 	};
@@ -216,10 +218,10 @@ public:
 	};
 	struct ResolvedRoute {
 
-		Method								method;
-		const Config::Domain*				domain;
-		const Config::Location*				location;
-		std::string							path;
+		Method											method;
+		const Config::Domain*							domain;
+		const Config::Location*							location;
+		std::string										path;
 
 		ResolvedRoute(void)
 			:	method(METHOD_COUNT),
@@ -229,62 +231,61 @@ public:
 
 	};
 
-	static const std::size_t				MAX_REQUEST_LINE_LENGTH = 4*1024;
-	static const std::size_t				MAX_HEADER_LINE_LENGTH = 8*1024;
-	static const std::size_t				MAX_TOTAL_HEADERS_SIZE = 32*1024;
-	static const std::size_t				MAX_HEAP_STORED_BODY_SIZE = 10*1024*1024;
+	static const std::size_t							MAX_REQUEST_LINE_LENGTH = 4*1024;
+	static const std::size_t							MAX_HEADER_LINE_LENGTH = 8*1024;
+	static const std::size_t							MAX_TOTAL_HEADERS_SIZE = 32*1024;
+	static const std::size_t							MAX_HEAP_STORED_BODY_SIZE = 10*1024*1024;
 
-	ParsingContext							parsing;
+	ParsingContext										parsing;
 
-	CGIContext								cgi;
+	CGIContext											cgi;
 
-	ResolvedRoute							resolved;
+	ResolvedRoute										resolved;
 
-	RequestBody								body;
+	RequestBody											body;
 
-	CgiProcess*								cgi_process; // owns the live CGI child while one is running (NULL otherwise)
+	CgiProcess*											cgi_process; // owns the live CGI child while one is running (NULL otherwise)
 
-	bool									headers_only; // HEAD method
-	bool									requires_CGI;
-	bool									is_multipart;
-	bool									body_chunked;
-	bool									created_file;
+	bool												headers_only; // HEAD method
+	bool												requires_CGI;
+	bool												is_multipart;
+	bool												body_chunked;
+	bool												created_file;
 
-	const Method&							getMethod(void) const;
+	const Method&										getMethod(void) const;
 
-	const std::string&						getPath(void) const;
-	const std::string&						getQuery(void) const;
-	const std::string&						getVersion(void) const;
-	const std::string*						getHeader(const std::string& key) const;
-	const std::map<std::string, std::string>&	getHeaders(void) const;
+	const std::string&									getPath(void) const;
+	const std::string&									getQuery(void) const;
+	const std::string&									getVersion(void) const;
+	const std::string*									getHeader(const std::string& key) const;
+	const std::map<std::string, std::string>&			getHeaders(void) const;
 
-	const std::stringstream&				getBody(void) const;
+	const std::stringstream&							getBody(void) const;
 
-	void									setMethod(const Method& method);
-	void									setPath(const std::string&);
-	void									setQuery(const std::string&);
-	void									setVersion(const std::string&);
-	void									setHeader(const std::string& key, const std::string& value);
+	void												setMethod(const Method& method);
+	void												setPath(const std::string&);
+	void												setQuery(const std::string&);
+	void												setVersion(const std::string&);
+	void												setHeader(const std::string& key, const std::string& value);
 
-	void									extractBoundary(std::string value);
+	void												extractBoundary(std::string value);
 
-	bool									extractContentLength(void);
+	bool												extractContentLength(void);
 
-	void									reset(void);
+	void												reset(void);
 
 private:
 
 	HTTPRequest(const HTTPRequest& other);
 	HTTPRequest& operator = (const HTTPRequest& other);
 
-	Method									_method;
+	Method												_method;
 
-	std::string								_path;
-	std::string								_query;
-	std::string								_version;
+	std::string											_path;
+	std::string											_query;
+	std::string											_version;
 
-	std::map<std::string,
-			 std::string>					_headers;
+	std::map<std::string,std::string>					_headers;
 
 };
 

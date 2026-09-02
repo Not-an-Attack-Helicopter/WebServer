@@ -833,6 +833,31 @@ bool Parser::_parseBody(const Buffer& buffer, HTTPRequest& request) {
 
 		}
 
+	} else if (request.requires_CGI) {
+
+		/*
+		* Body is input for CGI stdin:
+		*/
+		std::size_t n;
+		if (request.body_chunked) {
+			n = buffer.range();
+		} else {
+			std::size_t remaining = request.body.size - p.bytes_written_count;
+			std::size_t available = buffer.range();
+			n = std::min(remaining, available);
+		}
+
+		if (n == 0) return true;
+
+		ssize_t bytes_consumed = write(request.cgi.std_in, &buffer.data[buffer.begin], n);
+		if (bytes_consumed < 0) {
+			throw std::runtime_error("write: " + std::string(strerror(errno)));
+		}
+
+		p.bytes_read_count = bytes_consumed;
+		p.bytes_written_count += bytes_consumed;
+		return true;
+
 	} else {
 
 		/*
@@ -864,7 +889,7 @@ bool Parser::_parseBody(const Buffer& buffer, HTTPRequest& request) {
 
 		if (n == 0) return true;
 
-		ssize_t bytes_written;
+		ssize_t bytes_written = 0;
 		switch (request.body.sink) {
 
 		case HEAP:

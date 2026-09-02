@@ -501,6 +501,7 @@ static StatusCode routeRequest(HTTPRequest& request,
 	// Match CGI extensions
 	if (hasCGIExtension(request)) {
 		request.requires_CGI = true;
+		// TODO we need to put setting up all things CGI here! The cgi pipes need to be ready to be written to during READING_BODY
 		if (request.body.size != 0 ||
 			request.body_chunked == true) {
 			request.parsing.state = HTTPRequest::READING_BODY;

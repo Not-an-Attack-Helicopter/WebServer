@@ -23,7 +23,6 @@
 // #include <cstring>
 // #include <fcntl.h>
 #include <arpa/inet.h>
-#include <netinet/in.h>
 
   //~~~~~~~~~~//
  /*  Public  */
