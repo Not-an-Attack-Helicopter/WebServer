@@ -304,13 +304,18 @@ void createFile(HTTPRequest& request) {
 		std::string unique_id = i2a(timestamp) + "-" + suffix;
 		std::string file_path = directory + location.upload_dir + "/.upload_" + unique_id + ".part";
 		file_descriptor = open(file_path.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0600);
+		if (file_descriptor < 0) {
+			throw std::runtime_error("file creation failed:" + std::string(strerror(errno)));
+		}
 		log.debug("file_fd: " + i2a(file_descriptor) + "\tfile_path: " + file_path);
 		if (request.is_multipart) {
 			request.body.parts.back().file = file_descriptor;
 			request.body.parts.back().path = file_path;
+			request.body.parts.back().sink = DISK;
 		} else {
 			request.body.file = file_descriptor;
 			request.body.path = file_path;
+			request.body.sink = DISK;
 		}
 	} while (file_descriptor == -1 && errno == EEXIST && ++count < 11);
 
@@ -405,8 +410,7 @@ ssize_t buffNflush(std::istream& stream, Buffer& b, int fd, bool is_pipe) {
 		if (b.begin > 0) {
 			b.compact();
 		} else {
-			log.error("client_" + i2a(fd) + ": buffer overflow");
-			return -2;
+			throw std::runtime_error("client_" + i2a(fd) + ": buffer overflow");
 		}
 	}
 	return n;

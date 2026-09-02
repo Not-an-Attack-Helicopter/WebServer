@@ -428,12 +428,9 @@ static StatusCode handleRegularFile(HTTPRequest& request,
 			if (status_code >= BAD_REQUEST) {
 				return status_code;
 			}
-			if (!request.is_multipart && request.body.size != 0) {
-				if (request.body.size > request.resolved.location->client_max_body_size) {
-					log.warn("payload size exceeds the maximum allowed");
-					return PAYLOAD_TOO_LARGE;
-				}
-				createFile(request);
+			if (request.body.size > request.resolved.location->client_max_body_size) {
+				log.warn("payload size exceeds the maximum allowed");
+				return PAYLOAD_TOO_LARGE;
 			}
 			request.parsing.state = HTTPRequest::READING_BODY;
 			return NO_STATUS;
@@ -454,29 +451,21 @@ static StatusCode handleDirectory(HTTPRequest& request,
 	case GET:
 		return handleGET(request, response);
 	case POST:
-		if (!request.is_multipart &&
-		   (request.body.size != 0 || request.body_chunked)) {
-			// TEST create file
-			if (request.body.size > request.resolved.location->client_max_body_size) {
-				log.warn("payload size exceeds the maximum allowed");
-				return PAYLOAD_TOO_LARGE;
-			}
-			createFile(request);
+		if (request.body.size > request.resolved.location->client_max_body_size) {
+			log.warn("payload size exceeds the maximum allowed");
+			return PAYLOAD_TOO_LARGE;
 		}
 		request.parsing.state = HTTPRequest::READING_BODY;
 		return NO_STATUS;
 	case DELETE:
 		return METHOD_NOT_ALLOWED;
 	case PUT:
-		if (!request.is_multipart && request.body.size != 0) {
-			if (request.body.size > request.resolved.location->client_max_body_size) {
-				log.warn("payload size exceeds the maximum allowed");
-				return PAYLOAD_TOO_LARGE;
-			}
-			createFile(request);
+		if (request.body.size > request.resolved.location->client_max_body_size) {
+			log.warn("payload size exceeds the maximum allowed");
+			return PAYLOAD_TOO_LARGE;
 		}
-		request.created_file = true;
 		request.parsing.state = HTTPRequest::READING_BODY;
+		request.created_file = true;
 		return NO_STATUS;
 	case HEAD:
 		return handleGET(request, response);
@@ -512,6 +501,7 @@ static StatusCode routeRequest(HTTPRequest& request,
 	// Match CGI extensions
 	if (hasCGIExtension(request)) {
 		request.requires_CGI = true;
+		request.is_multipart = false;
 		if (request.body.size != 0 ||
 			request.body_chunked ==  true) {
 			request.parsing.state = HTTPRequest::READING_BODY;
