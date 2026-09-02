@@ -342,8 +342,8 @@ bool Parser::_parseHeaders(const Buffer& buffer, HTTPRequest& request) {
 			// Check for Host Header (mandatory for HTTP/1.1)
 			if (request.getVersion() == http::V_1_1 && request.getHeader("host") == NULL) {
 				log.warn("request: no host header provided");
-				request.parsing.error_cause = BAD_REQUEST;
 				request.parsing.state = HTTPRequest::ERROR;
+				request.parsing.error_cause = BAD_REQUEST;
 				return false;
 			}
 
@@ -414,13 +414,20 @@ bool Parser::_parseHeaders(const Buffer& buffer, HTTPRequest& request) {
 				}
 
 				request.parsing.multipart_state = HTTPRequest::READING_PART_BODY;
-				if (request.body.size > request.resolved.location->client_max_body_size) {
-					log.warn("payload size exceeds the maximum allowed");
-					request.parsing.state =  HTTPRequest::ERROR;
-					request.parsing.error_cause = PAYLOAD_TOO_LARGE;
-					return false;
+				if (request.requires_CGI) {
+					request.body.parts.back().sink = HEAP;
+				} else {
+					if (request.body.parts.back().path.empty()) {
+						try {
+							createFile(request);
+						} catch (std::exception& e) {
+							request.parsing.error_cause = INTERNAL_SERVER_ERROR;
+							request.parsing.state = HTTPRequest::ERROR;
+							log.warn(e.what());
+							return false;
+						}
+					}
 				}
-				createFile(request);
 
 			}
 
@@ -455,8 +462,8 @@ bool Parser::_parseHeaders(const Buffer& buffer, HTTPRequest& request) {
 
 		if (!_parseHeaderLine(buffer, request)) {
 			log.error("parse error: something went wrong while parsing a header line");
-			request.parsing.error_cause = BAD_REQUEST;
 			request.parsing.state = HTTPRequest::ERROR;
+			request.parsing.error_cause = BAD_REQUEST;
 			return false;
 		}
 
@@ -465,6 +472,29 @@ bool Parser::_parseHeaders(const Buffer& buffer, HTTPRequest& request) {
 
 	}
 
+}
+
+static bool spoolBody(std::string body, int fd) {
+
+	const char *data = body.c_str();
+	ssize_t bytes_left = static_cast<ssize_t>(body.size());
+
+	while (bytes_left > 0) {
+		ssize_t bytes_written = write(fd, data, bytes_left);
+
+		if (bytes_written > 0) {
+			data += bytes_written;
+			bytes_left -= bytes_written;
+		}
+		else if (bytes_written == -1 && errno == EINTR) {
+			continue;
+		}
+		else {
+			return false;
+		}
+	}
+
+    return true;
 }
 
 bool Parser::_parseChunks(Buffer& buffer, HTTPRequest& request) {
@@ -754,8 +784,9 @@ bool Parser::_parseBody(const Buffer& buffer, HTTPRequest& request) {
 
 				} else {
 
-					p.state = HTTPRequest::ERROR;
 					log.error("failure at end of parts");
+					p.error_cause = INTERNAL_SERVER_ERROR;
+					p.state = HTTPRequest::ERROR;
 					return false;
 
 				}
@@ -774,9 +805,6 @@ bool Parser::_parseBody(const Buffer& buffer, HTTPRequest& request) {
 				p.bytes_read_count += p.line_end_size;
 
 				p.multipart_state = HTTPRequest::READING_PART_HEADERS;
-
-				// request.body.parts.push_back(HTTPRequest::BodyPart());
-
 				return true;
 
 			} else if (p.line_ending ==  HTTPRequest::LF &&
@@ -790,16 +818,14 @@ bool Parser::_parseBody(const Buffer& buffer, HTTPRequest& request) {
 				p.bytes_read_count += p.line_end_size;
 
 				p.multipart_state = HTTPRequest::READING_PART_HEADERS;
-
-				// request.body.parts.push_back(HTTPRequest::BodyPart());
-
 				return true;
 
 			} else {
 
 				// p.multipart_state = HTTPRequest::FAILURE;
-				p.state = HTTPRequest::ERROR;
 				log.error("failure at part end");
+				p.error_cause = INTERNAL_SERVER_ERROR;
+				p.state = HTTPRequest::ERROR;
 				return false;
 
 			}
@@ -815,6 +841,21 @@ bool Parser::_parseBody(const Buffer& buffer, HTTPRequest& request) {
 		/*
 		* Single Part Body:
 		*/
+		if (request.requires_CGI) {
+			request.body.sink = HEAP;
+		} else {
+			if (request.body.path.empty()) {
+				try {
+					createFile(request);
+				} catch (std::exception& e) {
+					request.parsing.error_cause = INTERNAL_SERVER_ERROR;
+					request.parsing.state = HTTPRequest::ERROR;
+					log.warn(e.what());
+					return false;
+				}
+			}
+		}
+
 		std::size_t n;
 		if (request.body_chunked) {
 			n = buffer.range();
@@ -826,11 +867,32 @@ bool Parser::_parseBody(const Buffer& buffer, HTTPRequest& request) {
 
 		if (n == 0) return true;
 
-		log.error("request body file: " + i2a(request.body.file));
-		ssize_t bytes_written = write(request.body.file,
-									  &buffer.data[buffer.begin], n);
-		if (bytes_written < 0) {
-			throw std::runtime_error("write: " + std::string(strerror(errno)));
+		ssize_t bytes_written;
+		if (request.requires_CGI) {
+			request.body.temp.append(buffer.str(), n);
+			if (request.body.temp.size() > HTTPRequest::MAX_HEAP_STORED_BODY_SIZE) {
+				try {
+					createFile(request);
+				} catch (std::exception& e) {
+					request.parsing.error_cause = INTERNAL_SERVER_ERROR;
+					request.parsing.state = HTTPRequest::ERROR;
+					log.warn(e.what());
+					return false;
+				}
+				if (!spoolBody(request.body.temp, request.body.file)) {
+					request.parsing.error_cause = INTERNAL_SERVER_ERROR;
+					request.parsing.state = HTTPRequest::ERROR;
+					return false;
+				}
+			}
+			bytes_written = n;
+		} else {
+			log.error("request body file: " + i2a(request.body.file));
+			bytes_written = write(request.body.file,
+										&buffer.data[buffer.begin], n);
+			if (bytes_written < 0) {
+				throw std::runtime_error("write: " + std::string(strerror(errno)));
+			}
 		}
 
 		p.bytes_read_count = bytes_written;

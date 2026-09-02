@@ -232,6 +232,7 @@ public:
 	static const std::size_t				MAX_REQUEST_LINE_LENGTH = 4*1024;
 	static const std::size_t				MAX_HEADER_LINE_LENGTH = 8*1024;
 	static const std::size_t				MAX_TOTAL_HEADERS_SIZE = 32*1024;
+	static const std::size_t				MAX_HEAP_STORED_BODY_SIZE = 10*1024*1024;
 
 	ParsingContext							parsing;
 

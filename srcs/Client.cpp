@@ -228,8 +228,15 @@ void Client::parseIncomingData(void) {
 	while (_instream.mark < _instream.end) {
 
 		std::size_t bytes_read = 0;
+		bool has_consumed_line = false;
 
-		bool has_consumed_line = parse.buffer(_instream, request);
+		try {
+			has_consumed_line = parse.buffer(_instream, request);
+		} catch (std::exception& e) {
+			request.parsing.error_cause = INTERNAL_SERVER_ERROR;
+			request.parsing.state = HTTPRequest::ERROR;
+			break;
+		}
 
 		if (request.parsing.state == HTTPRequest::ERROR) {
 			break;
@@ -256,8 +263,8 @@ void Client::parseIncomingData(void) {
 				_instream.compact();
 			} else {
 				log.error("parse error: buffer overflow");
-				request.parsing.state = HTTPRequest::ERROR;
 				request.parsing.error_cause = INTERNAL_SERVER_ERROR;
+				request.parsing.state = HTTPRequest::ERROR;
 				break;
 			}
 
@@ -269,6 +276,13 @@ void Client::parseIncomingData(void) {
 
 		if (request.parsing.state == HTTPRequest::READING_BODY) {
 			request.parsing.body_size += bytes_read;
+
+			if (request.body_chunked &&
+				request.parsing.body_size > request.resolved.location->client_max_body_size) {
+				request.parsing.error_cause = PAYLOAD_TOO_LARGE;
+				request.parsing.state = HTTPRequest::ERROR;
+				break;
+			}
 
 			if ((request.parsing.chunk_state == HTTPRequest::END_OF_CHUNKS) ||
 				(request.parsing.multipart_state == HTTPRequest::END_OF_PARTS) ||
@@ -434,7 +448,13 @@ void Client::sendOutgoingData(int fd) {
 	case SENDING_HEADERS:
 
 		log.info("client_" + i2a(fd) + " state: SENDING_HEADERS");
-		bytes_sent = buffNflush(_response.headers, _outstream, fd);
+		try {
+			bytes_sent = buffNflush(_response.headers, _outstream, fd);
+		} catch (std::exception& e) {
+			log.error(e.what());
+			_state = ERROR;
+			return;
+		}
 		if (bytes_sent <= 0) {
 			_buffNflushErrorHandler(bytes_sent, fd);
 			return;
@@ -464,7 +484,13 @@ void Client::sendOutgoingData(int fd) {
 
 		case HEAP:
 
-			bytes_sent = buffNflush(_response.body.temp, _outstream, fd);
+			try {
+				bytes_sent = buffNflush(_response.body.temp, _outstream, fd);
+			} catch (std::exception& e) {
+				log.error(e.what());
+				_state = ERROR;
+				return;
+			}
 			if (bytes_sent <= 0) {
 				_buffNflushErrorHandler(bytes_sent, fd);
 				return;
@@ -487,7 +513,13 @@ void Client::sendOutgoingData(int fd) {
 				_outstream.data.resize(buffer_size);
 			}
 
-			bytes_sent = buffNflush(_response.body.file, _outstream, fd);
+			try {
+				bytes_sent = buffNflush(_response.body.file, _outstream, fd);
+			} catch (std::exception& e) {
+				log.error(e.what());
+				_state = ERROR;
+				return;
+			}
 			if (bytes_sent <= 0) {
 				_buffNflushErrorHandler(bytes_sent, fd);
 				return;
