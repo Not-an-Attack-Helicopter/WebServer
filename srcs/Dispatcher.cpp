@@ -506,7 +506,7 @@ static StatusCode routeRequest(HTTPRequest& request,
 			request.body_chunked == true) {
 			request.parsing.state = HTTPRequest::READING_BODY;
 		} else {
-			request.parsing.state = HTTPRequest::CGI_PROCESSING;
+			request.parsing.state = HTTPRequest::COMPLETE;
 		}
 		return NO_STATUS;
 
@@ -681,9 +681,9 @@ void Dispatcher::request(Client& client) {
 						 request.headers_only,
 						 request.parsing.error_cause);
 	case HTTPRequest::COMPLETE:
-		// requires_CGI never reaches here -- see parseIncomingData(), a CGI
-		// request always lands on CGI_PROCESSING instead once its body is in.
-		if (request.resolved.method == PUT) {
+		if (request.requires_CGI) {
+			// TODO build CGI response
+		} else if (request.resolved.method == PUT) {
 			status_code = handlePUT(request, response);
 		} else if (request.resolved.method == POST) {
 			status_code = handlePOST(request, response);
@@ -703,22 +703,17 @@ void Dispatcher::request(Client& client) {
 		if (status_code < BAD_REQUEST) {
 			if (request.parsing.state == HTTPRequest::READING_BODY) {
 				client.setState(Client::RECEIVING_BODY);
-			} else if (request.parsing.state == HTTPRequest::CGI_PROCESSING) {
+			} else if (request.parsing.state == HTTPRequest::COMPLETE) {
 				// no body, so routeRequest() already put us straight into
-				// CGI_PROCESSING -- matches the state parseIncomingData()
-				// lands on once a WITH-body CGI request finishes reading.
-				// Server doesn't drive AWAITING_CGI_RESPONSE yet, so this
-				// is correctly blocked, not actually running the CGI.
-				client.setState(Client::AWAITING_CGI_RESPONSE);
+				// COMPLETE -- matches the state parseIncomingData() lands
+				// on once a WITH-body CGI request finishes writing to the
+				// CGI stdin. The client state is accordingly set to
+				// AWAITING_CGI_OUTPUT. The client will read stdout when
+				// triggered by epoll_wait().
+				client.setState(Client::AWAITING_CGI_OUTPUT);
 			} else {
 				client.setState(Client::PENDING_RESPONSE);
 			}
-			return;
-		}
-		break;
-	case HTTPRequest::CGI_PROCESSING:
-		status_code = handleCGI(request, response, client.getConfig());
-		if (status_code < BAD_REQUEST) {
 			return;
 		}
 		break;

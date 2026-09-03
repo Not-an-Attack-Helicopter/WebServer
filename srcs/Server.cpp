@@ -464,6 +464,8 @@ bool Server::handleReadEvent(int fd) {
 			dispatch.request(client);
 		}
 
+		// TODO Add CGI stuff
+
 		if (client.getState() == Client::RECEIVING_BODY) {
 			client.parseIncomingData();
 		}

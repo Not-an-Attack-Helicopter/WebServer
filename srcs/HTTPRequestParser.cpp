@@ -861,20 +861,16 @@ bool Parser::_parseBody(const Buffer& buffer, HTTPRequest& request) {
 	} else {
 
 		/*
-		* Single Part Body (or Multipart Body requiring CGI):
+		* Single Part Body:
 		*/
 		if (request.body.sink == NONE) {
-			if (request.requires_CGI) {
-				request.body.sink = HEAP;
-			} else {
-				try {
-					createFile(request);
-				} catch (std::exception& e) {
-					request.parsing.error_cause = INTERNAL_SERVER_ERROR;
-					request.parsing.state = HTTPRequest::ERROR;
-					log.warn(e.what());
-					return false;
-				}
+			try {
+				createFile(request);
+			} catch (std::exception& e) {
+				request.parsing.error_cause = INTERNAL_SERVER_ERROR;
+				request.parsing.state = HTTPRequest::ERROR;
+				log.warn(e.what());
+				return false;
 			}
 		}
 

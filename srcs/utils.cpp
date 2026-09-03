@@ -88,7 +88,6 @@ void dumpRequest(const HTTPRequest* request) {
 	case HTTPRequest::READING_HEADERS: state = "reading headers"; break;
 	case HTTPRequest::RESOLVING_ROUTE: state = "resolving route"; break;
 	case HTTPRequest::READING_BODY: state = "reading body"; break;
-	case HTTPRequest::CGI_PROCESSING: state = "processing"; break;
 	case HTTPRequest::COMPLETE: state = "complete"; break;
 	case HTTPRequest::ERROR: state = "error"; break;
 	}
