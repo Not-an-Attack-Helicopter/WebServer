@@ -182,7 +182,7 @@ bool Client::isTimedOut(void) const {
 	case PREPARING_RESPONSE:
 		timeout = DISPATCH_TIMEOUT_SECONDS;
 		break;
-	case AWAITING_CGI_RESPONSE:
+	case AWAITING_CGI_OUTPUT:
 		timeout = DISPATCH_TIMEOUT_SECONDS;
 		break;
 	case PENDING_RESPONSE:
@@ -286,42 +286,14 @@ void Client::parseIncomingData(void) {
 			if ((request.parsing.chunk_state == HTTPRequest::END_OF_CHUNKS) ||
 				(request.parsing.multipart_state == HTTPRequest::END_OF_PARTS) ||
 				(request.parsing.body_size == request.body.size && !request.body_chunked)) {
-				if (request.requires_CGI) {
-					request.parsing.state = HTTPRequest::CGI_PROCESSING;
-				} else {
 					request.parsing.state = HTTPRequest::COMPLETE;
-				}
 			}
-		}
-
-		if (request.parsing.state == HTTPRequest::CGI_PROCESSING) {
-
-			request.cgi.server_socket = _server_addr;
-			request.cgi.remote_socket = *(const sockaddr_in*)&_remote_addr;
-
-			if (request.body_chunked) break;
-
-			if (request.parsing.body_size < request.body.size) {
-				log.error("parse error: received body shorter than advertised size");
-				request.parsing.state = HTTPRequest::ERROR;
-				request.parsing.error_cause = BAD_REQUEST;
-				break;
-			}
-
-			if (request.parsing.body_size > request.body.size) {
-				log.error("parse error: received body exceeded advertised size");
-				request.parsing.state = HTTPRequest::ERROR;
-				request.parsing.error_cause = BAD_REQUEST;
-				break;
-			}
-
-			break;
 		}
 
 		if (request.parsing.state == HTTPRequest::COMPLETE) {
 
 			if (request.body_chunked) {
-				promoteFile(request);
+				if (!request.requires_CGI) promoteFile(request);
 				break;
 			}
 
@@ -339,7 +311,7 @@ void Client::parseIncomingData(void) {
 				break;
 			}
 
-			promoteFile(request);
+			if (!request.requires_CGI) promoteFile(request);
 			break;
 
 		}
@@ -366,17 +338,13 @@ void Client::parseIncomingData(void) {
 				_instream.data.resize(BUFFER_SIZE);
 			}
 			break;
-		case HTTPRequest::CGI_PROCESSING:
-			log.info("HTTP request validated for CGI");
-			setState(Client::AWAITING_CGI_RESPONSE);
-			if (_instream.data.size() != BUFFER_SIZE) {
-				_instream.data.resize(BUFFER_SIZE);
-			}
-			_instream.reset();
-			break;
 		case HTTPRequest::COMPLETE:
 			log.info("Full HTTP request body received");
-			setState(Client::PREPARING_RESPONSE);
+			if (request.requires_CGI) {
+				setState(Client::AWAITING_CGI_OUTPUT);
+			} else {
+				setState(Client::PREPARING_RESPONSE);
+			}
 			if (_instream.data.size() != BUFFER_SIZE) {
 				_instream.data.resize(BUFFER_SIZE);
 			}

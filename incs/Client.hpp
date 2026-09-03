@@ -40,7 +40,7 @@ public:
 		DISPATCHING,
 		RECEIVING_BODY,
 		PREPARING_RESPONSE,
-		AWAITING_CGI_RESPONSE,
+		AWAITING_CGI_OUTPUT,
 		PENDING_RESPONSE,
 		SENDING_HEADERS,
 		SENDING_BODY,
@@ -143,6 +143,7 @@ private:
 
 	Buffer							_instream;
 	Buffer							_outstream;
+	Buffer							_pipestream;
 
 	Response						_response;
 
