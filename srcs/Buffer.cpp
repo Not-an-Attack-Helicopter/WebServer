@@ -94,7 +94,7 @@ ssize_t Buffer::flushData(int fd, bool is_pipe) {
 	ssize_t n = 0;
 	if (begin < end) {
 		n = is_pipe ? write(fd, &data[begin], end - begin)
-					: send(fd, &data[begin], end - begin, 0);
+					: send(fd, &data[begin], end - begin, MSG_NOSIGNAL);
 		if (n <= 0) return n;
 		begin += static_cast<std::size_t>(n);
 	}
