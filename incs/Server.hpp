@@ -49,12 +49,15 @@ public:
 	void									handleEvents(void);
 	void									acceptConnectRequest(int fd, ListeningSocket socket);
 	void									handleSocketError(int fd);
-	void									handleHangup(int fd);
+	void									handleSocketHangup(int fd);
 	void									handleRemoteHangup(int fd);
 
-	bool									handleReadEvent(int fd);
+	bool									handleSocketReadEvent(int fd);
 
-	void									handleWriteEvent(int fd);
+	void									handlePipeReadEvent(int fd);
+	void									handleSocketWriteEvent(int fd);
+	void									handlePipeWriteEvent(int fd);
+
 	void									cleanUpAllRessources(void);
 	void									cleanUpClient(std::map<int, Client*>::iterator it);
 	void									cleanUpSocket(std::map<int, ListeningSocket>::iterator it);
@@ -75,7 +78,7 @@ private:
 	// std::map<int, const Config::Socket*>	_sockets;
 	std::map<int, ListeningSocket>			_sockets;
 	std::map<int, Client*>					_clients;
-	std::map<int, Client*>					_c_pipes;
+	std::map<int, Client*>					_outputs;
 
 	epoll_event								_events[MAX_EPOLL_EVENTS];
 

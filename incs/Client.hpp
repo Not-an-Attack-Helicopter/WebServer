@@ -101,11 +101,11 @@ public:
 	bool							markedForTermination() const;
 	bool							isTimedOut(void) const;
 
-	ssize_t							queueIncomingData(int fd); // receive data
+	ssize_t							queueIncomingData(int fd, bool from_pipe = false);
 
-	void							parseIncomingData(void); // build request
-	void							queueOutgoingData(void); // build response
-	void							sendOutgoingData(int fd); // send data
+	void							parseDataFromPeer(void);		// build request
+	void							queueOutgoingData(void);		// build response
+	void							sendDataToTCPPeer(int fd);		// send response to peer
 	void							pushRequest(void);
 	void							pushResponse(void);
 	void							popRequest(void);

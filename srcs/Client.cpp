@@ -208,13 +208,18 @@ bool Client::isTimedOut(void) const {
 
 }
 
-ssize_t Client::queueIncomingData(int fd) {
-	ssize_t bytes_read = _instream.fetchData(fd);
+ssize_t Client::queueIncomingData(int fd, bool from_pipe) {
+
+	Buffer& buffer = from_pipe ? _pipestream
+							   : _instream;
+
+	ssize_t bytes_read = buffer.fetchData(fd);
 	if (bytes_read > 0) _last_event = std::time(NULL);
+
 	return bytes_read;
 }
 
-void Client::parseIncomingData(void) {
+void Client::parseDataFromPeer(void) {
 
 	HTTPRequest& request = *_request_queue.back();
 
@@ -406,7 +411,7 @@ void Client::queueOutgoingData(void) {
 	return;
 }
 
-void Client::sendOutgoingData(int fd) {
+void Client::sendDataToTCPPeer(int fd) {
 
 	ssize_t bytes_sent = 0;
 

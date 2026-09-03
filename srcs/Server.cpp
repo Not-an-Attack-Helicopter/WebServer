@@ -234,6 +234,7 @@ void Server::handleEvents(void) {
 
 	signal(SIGTERM, signal_handler);
 	signal(SIGINT, signal_handler);
+	signal(SIGPIPE, SIG_IGN);
 
 	log.info("Awaiting new connection");
 
@@ -262,36 +263,42 @@ void Server::handleEvents(void) {
 			int fd = _events[n].data.fd;
 			epoll_event ev = _events[n];
 			uint32_t events = ev.events;
-			bool is_listen_socket = false;
-			bool is_socket_closed = false;
-			std::map<int, ListeningSocket>::iterator it = _sockets.begin();
+			bool tcp_peer_alive = false;
 
-			while (it != _sockets.end()) {
-				if (fd == it->first && events & EPOLLIN) {
-					is_listen_socket = true;
-					break;
-				}
-				++it;
+			std::map<int, ListeningSocket>::const_iterator listen_socket = _sockets.find(fd);
+			if (listen_socket != _sockets.end() && events & EPOLLIN) {
+				acceptConnectRequest(listen_socket->first, listen_socket->second);
 			}
 
-			if (!is_listen_socket) {
+			std::map<int, Client*>::const_iterator client_socket = _clients.find(fd);
+			if (client_socket != _clients.end()) {
 
 				if (events & EPOLLERR)
 					handleSocketError(fd);
 				else if (events & EPOLLHUP)
-					handleHangup(fd);
+					handleSocketHangup(fd);
 				else if (events & EPOLLRDHUP)
 					handleRemoteHangup(fd);
 				else if (events & EPOLLIN)
-					is_socket_closed = handleReadEvent(fd);
+					tcp_peer_alive = handleSocketReadEvent(fd);
 
-				if (!is_socket_closed && (events & EPOLLOUT))
-					handleWriteEvent(fd);
-
-			} else {
-				acceptConnectRequest(it->first, it->second);
+				if (tcp_peer_alive && (events & EPOLLOUT))
+					handleSocketWriteEvent(fd);
 			}
 
+			std::map<int, Client*>::const_iterator script_output = _outputs.find(fd);
+			if (script_output != _outputs.end()) {
+
+				if (events & EPOLLIN)
+					handlePipeReadEvent(fd);
+				else if (events & EPOLLOUT)
+					handlePipeWriteEvent(fd);
+
+				// TODO think if we should care about EPOLLERR (read end closed)
+				// and EPOLLHUP (write end closed / read end returns EOF anyway)
+				// If pipe read end closed. write() will fail with EPIPE and raise
+				// SIGPIPE which is currently ignored, see signal(SIGPIPE, SIG_IGN);
+			}
 		}
 
 		if (should_exit == 1) {
@@ -338,13 +345,9 @@ void Server::handleEvents(void) {
 				}
 // DEBUG END
 			}
-
 		}
-
 	}
-
 	return;
-
 }
 
 void Server::acceptConnectRequest(int listen_fd, ListeningSocket socket) {
@@ -405,7 +408,7 @@ void Server::handleSocketError(int fd) {
 
 }
 
-void Server::handleHangup(int fd) {
+void Server::handleSocketHangup(int fd) {
 
 	std::map<int, Client*>::iterator it = _clients.find(fd);
 
@@ -433,14 +436,14 @@ void Server::handleRemoteHangup(int fd) {
 
 }
 
-bool Server::handleReadEvent(int fd) {
+bool Server::handleSocketReadEvent(int fd) {
 
 	std::map<int, Client*>::iterator it = _clients.find(fd);
 
 	if (it == _clients.end() || it->second == NULL) {
 		// throw std::runtime_error("client lookup:: " + std::string(NFIND_CLIENT));
 		log.warn("client lookup:: " + std::string(NFIND_CLIENT));
-		return true;
+		return false;
 	}
 
 	Client& client = *it->second;
@@ -450,25 +453,25 @@ bool Server::handleReadEvent(int fd) {
 
 		log.warn("recv: " + std::string(strerror(errno)));
 		cleanUpClient(it);
-		return true;
+		return false;
 
 	} else if (bytes_received == 0) {
 		log.info("Connection closed by client fd_" + i2a(fd));
 		cleanUpClient(it);
-		return true;
+		return false;
 
 	} else {
 
-		client.parseIncomingData();
+		client.parseDataFromPeer();
 		if (client.getState() == Client::DISPATCHING) {
 			dispatch.request(client);
 		}
 
-		// TODO Add CGI stuff
-
 		if (client.getState() == Client::RECEIVING_BODY) {
-			client.parseIncomingData();
+			client.parseDataFromPeer();
 		}
+
+		// TODO Add CGI stuff
 
 		if (client.getState() == Client::PREPARING_RESPONSE) {
 			dispatch.request(client);
@@ -489,16 +492,29 @@ bool Server::handleReadEvent(int fd) {
 					cleanUpClient(it);
 				}
 			}
-
 		}
-
-		return false;
-
+		return true;
 	}
-
 }
 
-void Server::handleWriteEvent(int fd) {
+void Server::handlePipeReadEvent(int fd) {
+
+	std::map<int, Client*>::iterator it = _clients.find(fd);
+	if (it == _clients.end() || it->second == NULL) {
+	 // throw std::runtime_error("client lookup:: " + std::string(NFIND_CLIENT));
+	 log.warn("client lookup:: " + std::string(NFIND_CLIENT));
+	 return;
+	}
+
+	Client& client = *it->second;
+	if (client.getState() == Client::AWAITING_CGI_OUTPUT) {
+		client.queueIncomingData(fd, true);
+	}
+
+	return;
+}
+
+void Server::handleSocketWriteEvent(int fd) {
 
 	std::map<int, Client*>::iterator it = _clients.find(fd);
 
@@ -522,7 +538,7 @@ void Server::handleWriteEvent(int fd) {
 
 	if (client.getState() == Client::SENDING_HEADERS ||
 		client.getState() == Client::SENDING_BODY) {
-		client.sendOutgoingData(fd);
+		client.sendDataToTCPPeer(fd);
 	}
 
 	switch (client.getState()) {
@@ -549,6 +565,22 @@ void Server::handleWriteEvent(int fd) {
 
 	return;
 
+}
+
+void Server::handlePipeWriteEvent(int fd) {
+
+	std::map<int, Client*>::iterator it = _clients.find(fd);
+	if (it == _clients.end() || it->second == NULL) {
+	 // throw std::runtime_error("client lookup:: " + std::string(NFIND_CLIENT));
+	 log.warn("client lookup:: " + std::string(NFIND_CLIENT));
+	 return;
+   }
+
+	Client& client = *it->second;
+	if (client.getState() == Client::PREPARING_RESPONSE) {
+		// TODO have the CGI handler parse the CGI response and populate the response object
+   }
+   return;
 }
 
 void Server::cleanUpAllRessources(void) {
