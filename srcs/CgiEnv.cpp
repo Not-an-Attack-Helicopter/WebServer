@@ -1,10 +1,32 @@
 #include "../incs/CgiEnv.hpp"
+#include "../incs/utils.hpp"
 #include <sstream>
 #include <cstdlib>
 #include <arpa/inet.h>
 
 static std::string to_string_int(int v) {
     std::ostringstream oss; oss << v; return oss.str();
+}
+
+// req.getPath() is still %-encoded (decoding only happens later, into
+// resolved.path, which also has the filesystem root baked in -- wrong
+// for SCRIPT_NAME). Decode it ourselves here instead.
+static std::string decodePath(const std::string& path) {
+    std::string result;
+    std::size_t i = 0;
+    while (i < path.size()) {
+        if (path[i] == '%' && i + 2 < path.size() &&
+            isHexDigit(path[i + 1]) && isHexDigit(path[i + 2])) {
+            int hi = hexDigitValue(path[i + 1]);
+            int lo = hexDigitValue(path[i + 2]);
+            result += static_cast<char>((hi << 4) | lo);
+            i += 3;
+        } else {
+            result += path[i];
+            ++i;
+        }
+    }
+    return result;
 }
 
 // dotted-decimal string from a sockaddr_in's binary address, e.g. "127.0.0.1"
@@ -39,7 +61,7 @@ std::map<std::string,std::string> build_cgi_env(const HTTPRequest& req,
     env["SERVER_PROTOCOL"] = req.getVersion();
     env["REQUEST_URI"] = req.getQuery().empty() ? req.getPath() : req.getPath() + "?" + req.getQuery();
     env["SCRIPT_FILENAME"] = script_filename;
-    env["SCRIPT_NAME"] = req.getPath(); // the URL path
+    env["SCRIPT_NAME"] = decodePath(req.getPath()); // the URL path, decoded
     env["QUERY_STRING"] = req.getQuery();
     env["DOCUMENT_ROOT"] = domain.root;
     env["SERVER_NAME"] = domain.names[0]; // extractDomainNames() throws on empty, always non-empty here

@@ -1,4 +1,5 @@
 #pragma once
+#include "Buffer.hpp"
 #include <string>
 #include <vector>
 #include <map>
@@ -22,6 +23,16 @@ struct CGIResult {
 // blocking wait anywhere in this class.
 class CgiProcess {
 public:
+    // step 1 of the CgiHandler merge: state moving in here, nothing uses
+    // this yet
+    enum ScriptState {
+        WRITING_PIPES,
+        PROCESSING,
+        READING_PIPES,
+        COMPLETE,
+        ERROR
+    };
+
     CgiProcess(const std::string& path,
                const std::vector<std::string>& args,
                const std::map<std::string, std::string>& env,
@@ -80,6 +91,11 @@ private:
     bool        _reaped;
     int         _exit_code;
     time_t      _deadline;
+
+    // step 1 of the CgiHandler merge: not used yet
+    Buffer      _instream;
+    Buffer      _outstream;
+    ScriptState _state;
 };
 
 // Blocking convenience wrapper around CgiProcess for standalone/offline use
