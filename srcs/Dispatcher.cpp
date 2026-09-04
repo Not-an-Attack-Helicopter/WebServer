@@ -682,7 +682,13 @@ void Dispatcher::request(Client& client) {
 						 request.parsing.error_cause);
 	case HTTPRequest::COMPLETE:
 		if (request.requires_CGI) {
-			// TODO build CGI response
+			status_code = handleCGI(request, response, client.getConfig());
+			if (status_code < BAD_REQUEST) {
+				// spawned, not done -- wait for its output instead of
+				// treating this like a ready-to-send response
+				client.setState(Client::AWAITING_CGI_OUTPUT);
+				return;
+			}
 		} else if (request.resolved.method == PUT) {
 			status_code = handlePUT(request, response);
 		} else if (request.resolved.method == POST) {

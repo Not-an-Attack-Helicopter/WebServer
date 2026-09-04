@@ -1,9 +1,17 @@
 #include "../incs/CgiEnv.hpp"
 #include <sstream>
 #include <cstdlib>
+#include <arpa/inet.h>
 
 static std::string to_string_int(int v) {
     std::ostringstream oss; oss << v; return oss.str();
+}
+
+// dotted-decimal string from a sockaddr_in's binary address, e.g. "127.0.0.1"
+static std::string addr_to_string(const sockaddr_in& addr) {
+    char buf[INET_ADDRSTRLEN] = {0};
+    inet_ntop(AF_INET, &addr.sin_addr, buf, sizeof(buf));
+    return std::string(buf);
 }
 
 static std::string method_to_string(const Method& method) {
@@ -36,6 +44,11 @@ std::map<std::string,std::string> build_cgi_env(const HTTPRequest& req,
     env["DOCUMENT_ROOT"] = domain.root;
     env["SERVER_NAME"] = domain.names.empty() ? socket.address : domain.names[0];
     env["SERVER_PORT"] = to_string_int(socket.port);
+
+    // sin_port is network byte order, ntohs() before treating it as a number
+    env["REMOTE_ADDR"] = addr_to_string(req.cgi.remote_socket);
+    env["REMOTE_PORT"] = to_string_int(ntohs(req.cgi.remote_socket.sin_port));
+    env["SERVER_ADDR"] = addr_to_string(req.cgi.server_socket);
 
     const std::string* content_length = req.getHeader("content-length");
     if (content_length != NULL) env["CONTENT_LENGTH"] = *content_length;

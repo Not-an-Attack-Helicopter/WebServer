@@ -42,7 +42,7 @@ static std::vector<std::string> buildCgiArgs(const HTTPRequest& request) {
 static std::string readCgiInput(const HTTPRequest& request) {
 
 	// small bodies live in memory now (Sink::HEAP), only large ones spool
-	// to disk -- see the switch on request.body.sink in _parseBody()
+	// to disk, see the switch on request.body.sink in _parseBody()
 	if (request.body.sink == HEAP)
 		return request.body.temp;
 
@@ -62,7 +62,7 @@ static std::string readCgiInput(const HTTPRequest& request) {
 StatusCode handleCGI(HTTPRequest& request, HTTPResponse& response,
 					 const Config::Socket& socket) {
 
-	(void)response; // filled in once the CGI actually runs
+	(void)response; // filled in later, by CgiHandler::buildResponse()
 
 	std::string cgi_input = readCgiInput(request);
 	std::vector<std::string> cgi_args = buildCgiArgs(request);
@@ -73,12 +73,23 @@ StatusCode handleCGI(HTTPRequest& request, HTTPResponse& response,
 															*request.resolved.location,
 															request.resolved.path);
 
-	request.cgi_process = new CgiProcess(request.cgi.binary_path, cgi_args, env, cgi_input, working_dir);
+	CgiProcess* process = new CgiProcess(request.cgi.binary_path, cgi_args, env, cgi_input, working_dir);
 
-	if (!request.cgi_process->valid()) {
+	if (!process->valid()) {
 		log.error("cgi: failed to open pipes for " + request.cgi.binary_path);
+		delete process;
 		return INTERNAL_SERVER_ERROR;
 	}
+
+	if (!process->spawn()) {
+		log.error("cgi: failed to spawn " + request.cgi.binary_path);
+		delete process;
+		return INTERNAL_SERVER_ERROR;
+	}
+
+	// epoll registration for stdinFd()/stdoutFd() is still ahead, that's
+	// on the server side, not here
+	request.cgi_handler = new CgiHandler(process, cgi_input);
 
 	return NO_STATUS;
 
