@@ -41,8 +41,7 @@ static std::vector<std::string> buildCgiArgs(const HTTPRequest& request) {
 // read the body back off disk, that's our cgi stdin
 static std::string readCgiInput(const HTTPRequest& request) {
 
-	// small bodies live in memory now (Sink::HEAP), only large ones spool
-	// to disk, see the switch on request.body.sink in _parseBody()
+	// small bodies live in memory, only big ones spool to disk
 	if (request.body.sink == HEAP)
 		return request.body.temp;
 
@@ -87,8 +86,7 @@ StatusCode handleCGI(HTTPRequest& request, HTTPResponse& response,
 		return INTERNAL_SERVER_ERROR;
 	}
 
-	// epoll registration for stdinFd()/stdoutFd() is still ahead, that's
-	// on the server side, not here
+	// epoll registration is still ahead, server side
 	request.cgi_handler = new CgiHandler(process, cgi_input);
 
 	return NO_STATUS;
@@ -112,9 +110,7 @@ CgiHandler::ScriptState CgiHandler::state(void) const {
 	return _state;
 }
 
-// cgi output is "headers, blank line, body",  same split CgiProcess::result()
-// used to do. we read Status/Content-Type out of the headers ourselves,
-// everything else just gets passed through as-is
+// cgi output is "headers, blank line, body" -- same split as before
 void CgiHandler::buildResponse(HTTPResponse& response, bool headers_only) const {
 
 	if (_state != COMPLETE)
@@ -134,6 +130,8 @@ void CgiHandler::buildResponse(HTTPResponse& response, bool headers_only) const 
 
 	StatusCode status = OK;
 	std::string content_type = "text/html";
+	bool has_status = false;
+	bool has_location = false;
 
 	std::istringstream ss(header_block);
 	std::string line;
@@ -153,23 +151,30 @@ void CgiHandler::buildResponse(HTTPResponse& response, bool headers_only) const 
 
 		if (key_lower == "status") {
 			int code = std::atoi(value.c_str());
-			if (code >= 100 && code <= 599)
+			if (code >= 100 && code <= 599) {
 				status = static_cast<StatusCode>(code);
+				has_status = true;
+			}
 			continue;
 		}
 		if (key_lower == "content-type")
 			content_type = value;
+		if (key_lower == "location")
+			has_location = true;
 
 		response.setHeader(key, value);
 	}
+
+	// CGI/1.1: Location with no Status means client redirect
+	if (has_location && !has_status)
+		status = FOUND;
 
 	response.setStatus(status);
 	response.setBody(body, HEAP, content_type, headers_only);
 
 }
 
-// same shape as CgiProcess::handleWritable(), just writing from _instream
-// (a Buffer) instead of the raw _input string
+// same shape as CgiProcess::handleWritable(), just using _instream
 void CgiHandler::writeStdin(void) {
 
 	if (_state != WRITING_PIPES)
@@ -195,8 +200,7 @@ void CgiHandler::writeStdin(void) {
 
 }
 
-// same shape as writeStdin(), just filling _outstream from the fd instead
-// of draining _instream into it
+// same shape as writeStdin(), just reading into _outstream instead
 void CgiHandler::readStdout(void) {
 
 	// nothing else moves us from PROCESSING to READING_PIPES, do it here

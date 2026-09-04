@@ -345,11 +345,8 @@ void Client::parseDataFromPeer(void) {
 			break;
 		case HTTPRequest::COMPLETE:
 			log.info("Full HTTP request body received");
-			if (request.requires_CGI) {
-				setState(Client::AWAITING_CGI_OUTPUT);
-			} else {
-				setState(Client::PREPARING_RESPONSE);
-			}
+			// same for CGI, Dispatcher handles it from here
+			setState(Client::PREPARING_RESPONSE);
 			if (_instream.data.size() != BUFFER_SIZE) {
 				_instream.data.resize(BUFFER_SIZE);
 			}

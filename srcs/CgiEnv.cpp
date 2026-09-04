@@ -39,10 +39,10 @@ std::map<std::string,std::string> build_cgi_env(const HTTPRequest& req,
     env["SERVER_PROTOCOL"] = req.getVersion();
     env["REQUEST_URI"] = req.getQuery().empty() ? req.getPath() : req.getPath() + "?" + req.getQuery();
     env["SCRIPT_FILENAME"] = script_filename;
-    env["SCRIPT_NAME"] = script_filename; // caller can adjust
+    env["SCRIPT_NAME"] = req.getPath(); // the URL path
     env["QUERY_STRING"] = req.getQuery();
     env["DOCUMENT_ROOT"] = domain.root;
-    env["SERVER_NAME"] = domain.names.empty() ? socket.address : domain.names[0];
+    env["SERVER_NAME"] = domain.names[0]; // extractDomainNames() throws on empty, always non-empty here
     env["SERVER_PORT"] = to_string_int(socket.port);
 
     // sin_port is network byte order, ntohs() before treating it as a number
