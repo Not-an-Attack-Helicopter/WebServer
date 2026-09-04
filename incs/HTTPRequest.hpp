@@ -30,7 +30,7 @@ class HTTPRequest {
 
 public:
 
-	HTTPRequest(void);
+	HTTPRequest(const sockaddr_in* remote_socket, const sockaddr_in* server_socket);
 	~HTTPRequest(void);
 
 	enum State {
@@ -100,19 +100,14 @@ public:
 
 	};
 
-	// struct CGIPipes {
+	struct Cookie {
 
-	//  int									in_pipe[2];
-	//  int									out_pipe[2];
+		std::string										name;
+		std::string										value;
 
-	//  CGIPipes(void) {
-	//    in_pipe[0] = 0;
-	//    in_pipe[1] = 0;
-	//    out_pipe[0] = 0;
-	//    out_pipe[1] = 0;
-	//  }
+		Cookie(void) : name(""), value("") {}
 
-	// };
+	};
 
 	struct CGIContext {
 
@@ -218,6 +213,7 @@ public:
 		std::map<std::string, std::string>				_trailers;
 
 	};
+
 	struct ResolvedRoute {
 
 		Method											method;
@@ -240,11 +236,11 @@ public:
 
 	ParsingContext										parsing;
 
-	CGIContext											cgi;
-
 	ResolvedRoute										resolved;
 
 	RequestBody											body;
+
+	CGIContext											cgi;
 
 	CgiHandler*											cgi_handler; // owns the live CGI child while one is running (NULL otherwise)
 
@@ -261,6 +257,7 @@ public:
 	const std::string&									getVersion(void) const;
 	const std::string*									getHeader(const std::string& key) const;
 	const std::map<std::string, std::string>&			getHeaders(void) const;
+	const std::string*									getCookie(const std::string& key) const;
 
 	const std::stringstream&							getBody(void) const;
 
@@ -269,10 +266,10 @@ public:
 	void												setQuery(const std::string&);
 	void												setVersion(const std::string&);
 	void												setHeader(const std::string& key, const std::string& value);
-
-	void												extractBoundary(std::string value);
+	void												setCookie(const Cookie& cookie);
 
 	bool												extractContentLength(void);
+	bool												extractSessionID(void);
 
 	void												reset(void);
 
@@ -288,6 +285,10 @@ private:
 	std::string											_version;
 
 	std::map<std::string,std::string>					_headers;
+
+	std::vector<Cookie>									_cookies;
+
+	std::string											_session_id;
 
 };
 

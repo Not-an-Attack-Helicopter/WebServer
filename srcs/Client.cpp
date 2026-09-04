@@ -520,7 +520,7 @@ void Client::sendDataToTCPPeer(int fd) {
 // Create new request object in deque container
 void Client::pushRequest(void) {
 
-	HTTPRequest* request = new HTTPRequest();
+	HTTPRequest* request = new HTTPRequest((sockaddr_in*)&_remote_addr, &_server_addr);
 	_request_queue.push_back(request);
 
 	return;

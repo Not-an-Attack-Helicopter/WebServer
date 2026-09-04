@@ -28,8 +28,10 @@
 //~~~~~~~~~~//
 
 /*	@brief Constructor	*/
-HTTPRequest::HTTPRequest(void) {
+HTTPRequest::HTTPRequest(const sockaddr_in* remote_socket, const sockaddr_in* server_socket) {
 	log.debug("HTTPRequest Constructor called");
+	cgi.remote_socket = *remote_socket;
+	cgi.remote_socket = *server_socket;
 	cgi_handler = NULL;
 	headers_only = false;
 	is_multipart = false;
@@ -87,6 +89,16 @@ const std::string* HTTPRequest::getHeader(const std::string& key) const {
 
 }
 
+const std::string* HTTPRequest::getCookie(const std::string& name) const {
+
+	for (std::vector<Cookie>::const_iterator it = _cookies.begin(); it != _cookies.end(); ++it) {
+		if (it->name == name) {
+			return &it->value;
+		}
+	}
+	return NULL;
+}
+
 const std::map<std::string, std::string>& HTTPRequest::getHeaders(void) const {
 	return _headers;
 }
@@ -104,22 +116,32 @@ void HTTPRequest::RequestBody::setHeader(const std::string& key, const std::stri
 
 void HTTPRequest::setMethod(const Method& method) {
 	_method = method;
+	return;
 }
 
 void HTTPRequest::setPath(const std::string& path) {
 	_path = path;
+	return;
 }
 
 void HTTPRequest::setQuery(const std::string& query) {
 	_query = query;
+	return;
 }
 
 void HTTPRequest::setVersion(const std::string& version) {
 	_version = version;
+	return;
 }
 
 void HTTPRequest::setHeader(const std::string& key, const std::string& value) {
 	_headers[key] = value;
+	return;
+}
+
+void HTTPRequest::setCookie(const Cookie& cookie) {
+	_cookies.push_back(cookie);
+	return;
 }
 
 bool HTTPRequest::extractContentLength(void) {
@@ -134,6 +156,18 @@ bool HTTPRequest::extractContentLength(void) {
 		return false; // malformed content-length header
 
 	body.size = size;
+	return true;
+
+}
+
+bool HTTPRequest::extractSessionID(void) {
+
+	if (_cookies.empty()) return false;
+
+	const std::string* session_id = getCookie("session_id");
+	if (session_id == NULL) return false;
+
+	_session_id = *session_id;
 	return true;
 
 }

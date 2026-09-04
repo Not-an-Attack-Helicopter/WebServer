@@ -13,6 +13,7 @@
 #include "../incs/HTTPRequestParser.hpp"
 #include "../incs/HTTPContentDisposition.hpp"
 #include "../incs/HTTPContentType.hpp"
+#include "../incs/HTTPCookie.hpp"
 #include "../incs/templates.hpp"
 #include "../incs/constexpr.hpp"
 #include "../incs/Logger.hpp"
@@ -331,6 +332,15 @@ bool RequestParser::_parseHeaders(const Buffer& buffer, HTTPRequest& request) {
 				}
 				if (equalCI(request.body.type, "multipart/form-data")) {
 					request.is_multipart = true;
+				}
+			}
+
+			const std::string* cookie = request.getHeader("cookie");
+			if (cookie != NULL) {
+				if (!HTTPCookie::extractCookies(*cookie, request)) {
+					log.warn("request: invalid cookie header provided");
+				} else if (!request.extractSessionID()) {
+					log.warn("request: no session id provided");
 				}
 			}
 
