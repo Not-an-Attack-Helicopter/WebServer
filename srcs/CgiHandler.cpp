@@ -1,7 +1,9 @@
 #include "../incs/CgiHandler.hpp"
 #include "../incs/CgiEnv.hpp"
 #include "../incs/Logger.hpp"
+#include "../incs/utils.hpp"
 #include <cerrno>
+#include <cstdlib>
 #include <fstream>
 #include <sstream>
 
@@ -97,6 +99,62 @@ CgiHandler::~CgiHandler() {
 
 CgiHandler::ScriptState CgiHandler::state(void) const {
 	return _state;
+}
+
+// cgi output is "headers, blank line, body",  same split CgiProcess::result()
+// used to do. we read Status/Content-Type out of the headers ourselves,
+// everything else just gets passed through as-is
+void CgiHandler::buildResponse(HTTPResponse& response, bool headers_only) const {
+
+	if (_state != COMPLETE)
+		return;
+
+	std::string raw = _outstream.str();
+
+	std::size_t sep = raw.find("\r\n\r\n");
+	std::size_t sep_len = 4;
+	if (sep == std::string::npos) {
+		sep = raw.find("\n\n");
+		sep_len = 2;
+	}
+
+	std::string header_block = (sep == std::string::npos) ? "" : raw.substr(0, sep);
+	std::string body = (sep == std::string::npos) ? raw : raw.substr(sep + sep_len);
+
+	StatusCode status = OK;
+	std::string content_type = "text/html";
+
+	std::istringstream ss(header_block);
+	std::string line;
+	while (std::getline(ss, line)) {
+
+		line = trim(line);
+		if (line.empty())
+			continue;
+
+		std::size_t colon = line.find(':');
+		if (colon == std::string::npos)
+			continue;
+
+		std::string key = line.substr(0, colon);
+		std::string value = trim(line.substr(colon + 1));
+		std::string key_lower = tolowerASCII(key);
+
+		if (key_lower == "status") {
+			int code = std::atoi(value.c_str());
+			if (code >= 100 && code <= 599)
+				status = static_cast<StatusCode>(code);
+			continue;
+		}
+		if (key_lower == "content-type")
+			content_type = value;
+
+		response.setHeader(key, value);
+	}
+
+	response.setStatus(status);
+	response.setBody(body, HEAP, content_type, headers_only);
+
 }
 
 // same shape as CgiProcess::handleWritable(), just writing from _instream
