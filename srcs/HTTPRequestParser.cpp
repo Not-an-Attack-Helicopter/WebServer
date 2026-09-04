@@ -828,6 +828,8 @@ bool RequestParser::_parseBody(const Buffer& buffer, HTTPRequest& request) {
 			p.state =  HTTPRequest::COMPLETE;
 			return true;
 
+		default:
+			return false;
 		}
 
 	} else if (request.requires_CGI) {

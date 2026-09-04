@@ -20,7 +20,7 @@
 // #include <cstddef>
 // #include <sys/stat.h>
 
-#define parse Parser::instance()
+#define parse RequestParser::instance()
 
 class RequestParser {
 
