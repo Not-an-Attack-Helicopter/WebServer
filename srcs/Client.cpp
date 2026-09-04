@@ -98,12 +98,12 @@ double Client::getIdleTime(void) const {
 	return (std::difftime(std::time(NULL), _last_event));
 }
 
-unsigned short int Client::getHostPort(void) const {
+unsigned short int Client::getRemotePort(void) const {
 	sockaddr_in* addr_in = (sockaddr_in*)&_remote_addr;
 	return ntohs(addr_in->sin_port);
 }
 
-const std::string Client::getHostAddress(void) const {
+const std::string Client::getRemoteAddress(void) const {
 	char ipstr[INET_ADDRSTRLEN] = {0};
 	sockaddr_in* addr_in = (sockaddr_in*)&_remote_addr;
 	inet_ntop(AF_INET, &addr_in->sin_addr, ipstr, INET_ADDRSTRLEN);

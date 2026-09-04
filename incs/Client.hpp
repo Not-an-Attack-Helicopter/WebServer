@@ -71,8 +71,8 @@ public:
 
 // DEBUG BEGIN
 	double							getIdleTime(void) const;
-	unsigned short int				getHostPort(void) const;
-	const std::string				getHostAddress(void) const;
+	unsigned short int				getRemotePort(void) const;
+	const std::string				getRemoteAddress(void) const;
 	const std::string				getBuffer(void) const;
 // DEBUG END
 
@@ -133,7 +133,6 @@ private:
 
 	sockaddr_in						_server_addr;
 	sockaddr_storage				_remote_addr;
-
 	socklen_t						_addrlen;
 
 	const Config::Socket*			_config;

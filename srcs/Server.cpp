@@ -380,7 +380,7 @@ void Server::acceptConnectRequest(int listen_fd, ListeningSocket socket) {
 	}
 
 	log.info("Client fd_" + i2a(client_fd) + ", endpoint "
-				+ c->getHostAddress() + ":" + i2a(c->getHostPort()));
+				+ c->getRemoteAddress() + ":" + i2a(c->getRemotePort()));
 	return;
 
 }
