@@ -26,13 +26,13 @@
 //~~~~~~~~~~//
 
 /*	@brief Instance	*/
-Parser& Parser::instance(void) {
-	static Parser instance;
+RequestParser& RequestParser::instance(void) {
+	static RequestParser instance;
 	return instance;
 }
 
 // Feed raw bytes; returns the current parse_state:
-bool Parser::buffer(Buffer& buffer, HTTPRequest& request) {
+bool RequestParser::buffer(Buffer& buffer, HTTPRequest& request) {
 
 	switch (request.parsing.state) {
 
@@ -63,7 +63,7 @@ bool Parser::buffer(Buffer& buffer, HTTPRequest& request) {
 
 }
 
-Method Parser::matchMethod(const std::string& method) {
+Method RequestParser::matchMethod(const std::string& method) {
 
 	static const std::string valid_methods[
 		static_cast<int>(METHOD_COUNT)
@@ -84,33 +84,33 @@ Method Parser::matchMethod(const std::string& method) {
 //~~~~~~~~~~~//
 
 /*	@brief Constructor	*/
-Parser::Parser(void) {
-	log.debug("Parser Constructor called");
+RequestParser::RequestParser(void) {
+	log.debug("RequestParser Constructor called");
 	return;
 };
 
 /*	@brief Copy Constructor	*/
-Parser::Parser(const Parser& other)/* : _configs(other._configs) */{
-	log.debug("Parser Copy Constructor called");
+RequestParser::RequestParser(const RequestParser& other)/* : _configs(other._configs) */{
+	log.debug("RequestParser Copy Constructor called");
 	*this = other;
 	return;
 };
 
 /*	@brief Copy Assignment Operator	*/
-Parser& Parser::operator=(const Parser& other) {
+RequestParser& RequestParser::operator=(const RequestParser& other) {
 	if (this != &other) {
-		log.debug("Parser Copy Assignment Operator called");
+		log.debug("RequestParser Copy Assignment Operator called");
 	}
 	return *this;
 };
 
 /*	@brief Destructor	*/
-Parser::~Parser() {
-	log.debug("Parser Destructor called");
+RequestParser::~RequestParser() {
+	log.debug("RequestParser Destructor called");
 	return;
 };
 
-ssize_t Parser::_findRequestLineEnd(const Buffer& buffer, HTTPRequest& request) {
+ssize_t RequestParser::_findRequestLineEnd(const Buffer& buffer, HTTPRequest& request) {
 
 	ssize_t LF_pos = buffer.find(http::LF);
 	if (LF_pos == -1) return std::string::npos;
@@ -122,7 +122,7 @@ ssize_t Parser::_findRequestLineEnd(const Buffer& buffer, HTTPRequest& request) 
 
 }
 
-bool Parser::_extractTokens(const Buffer& buffer, HTTPRequest& request) {
+bool RequestParser::_extractTokens(const Buffer& buffer, HTTPRequest& request) {
 
 	// Transform to stream
 	std::stringstream ss;
@@ -187,7 +187,7 @@ bool Parser::_extractTokens(const Buffer& buffer, HTTPRequest& request) {
 
 }
 
-bool Parser::_parseHeaderLine(const Buffer& buffer, HTTPRequest& request) {
+bool RequestParser::_parseHeaderLine(const Buffer& buffer, HTTPRequest& request) {
 
 	// Find separator ':'
 	std::size_t colon_pos = static_cast<std::size_t>(buffer.find(':'));
@@ -242,7 +242,7 @@ bool Parser::_parseHeaderLine(const Buffer& buffer, HTTPRequest& request) {
 
 }
 
-bool Parser::_parseRequestLine(const Buffer& buffer, HTTPRequest& request) {
+bool RequestParser::_parseRequestLine(const Buffer& buffer, HTTPRequest& request) {
 
 	// Find where request line ends
 	request.parsing.line_end_pos = _findRequestLineEnd(buffer, request);
@@ -293,7 +293,7 @@ bool Parser::_parseRequestLine(const Buffer& buffer, HTTPRequest& request) {
 
 }
 
-bool Parser::_parseHeaders(const Buffer& buffer, HTTPRequest& request) {
+bool RequestParser::_parseHeaders(const Buffer& buffer, HTTPRequest& request) {
 
 	// Check for line break
 	if (request.parsing.line_ending == HTTPRequest::CRLF) {
@@ -468,30 +468,7 @@ bool Parser::_parseHeaders(const Buffer& buffer, HTTPRequest& request) {
 
 }
 
-static bool spoolBody(std::string body, int fd) {
-
-	const char *data = body.c_str();
-	ssize_t bytes_left = static_cast<ssize_t>(body.size());
-
-	while (bytes_left > 0) {
-		ssize_t bytes_written = write(fd, data, bytes_left);
-
-		if (bytes_written > 0) {
-			data += bytes_written;
-			bytes_left -= bytes_written;
-		}
-		else if (bytes_written == -1 && errno == EINTR) {
-			continue;
-		}
-		else {
-			return false;
-		}
-	}
-
-    return true;
-}
-
-bool Parser::_parseChunks(Buffer& buffer, HTTPRequest& request) {
+bool RequestParser::_parseChunks(Buffer& buffer, HTTPRequest& request) {
 
 	HTTPRequest::ParsingContext& p = request.parsing;
 	p.bytes_read_count = 0;
@@ -625,7 +602,27 @@ bool Parser::_parseChunks(Buffer& buffer, HTTPRequest& request) {
 
 }
 
-bool Parser::_parseBody(const Buffer& buffer, HTTPRequest& request) {
+static bool spoolBody(const std::string& body, int fd) {
+
+	const char *data = body.c_str();
+	ssize_t bytes_left = static_cast<ssize_t>(body.size());
+
+	while (bytes_left > 0) {
+		ssize_t bytes_written = write(fd, data, bytes_left);
+
+		if (bytes_written > 0) {
+			data += bytes_written;
+			bytes_left -= bytes_written;
+		} else {
+			close(fd);
+			return false;
+		}
+	}
+
+    return true;
+}
+
+bool RequestParser::_parseBody(const Buffer& buffer, HTTPRequest& request) {
 
 	HTTPRequest::ParsingContext& p = request.parsing;
 	p.bytes_read_count = 0;
@@ -885,11 +882,11 @@ bool Parser::_parseBody(const Buffer& buffer, HTTPRequest& request) {
 
 		if (n == 0) return true;
 
-		ssize_t bytes_written = 0;
+		ssize_t bytes_consumed = 0;
 		switch (request.body.sink) {
 
 		case HEAP:
-			bytes_written = n;
+			bytes_consumed = n;
 			request.body.temp.append(buffer.str(), n);
 			if (request.body.temp.size() > HTTPRequest::MAX_HEAP_STORED_BODY_SIZE) {
 				try {
@@ -903,15 +900,17 @@ bool Parser::_parseBody(const Buffer& buffer, HTTPRequest& request) {
 				if (!spoolBody(request.body.temp, request.body.file)) {
 					request.parsing.error_cause = INTERNAL_SERVER_ERROR;
 					request.parsing.state = HTTPRequest::ERROR;
+					std::remove(request.body.path.c_str());
 					return false;
 				}
+				request.body.temp.clear();
 			}
 			break;
 
 		case DISK:
 			log.error("request body file: " + i2a(request.body.file));
-			bytes_written = write(request.body.file, &buffer.data[buffer.begin], n);
-			if (bytes_written < 0) {
+			bytes_consumed = write(request.body.file, &buffer.data[buffer.begin], n);
+			if (bytes_consumed < 0) {
 				throw std::runtime_error("write: " + std::string(strerror(errno)));
 			}
 			break;
@@ -922,9 +921,8 @@ bool Parser::_parseBody(const Buffer& buffer, HTTPRequest& request) {
 			return false;
 		}
 
-		p.bytes_read_count = bytes_written;
-		p.bytes_written_count += bytes_written;
+		p.bytes_read_count = bytes_consumed;
+		p.bytes_written_count += bytes_consumed;
 		return true;
 	}
-	return false;
 }

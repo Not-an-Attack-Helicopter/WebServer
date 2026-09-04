@@ -22,11 +22,11 @@
 
 #define parse Parser::instance()
 
-class Parser {
+class RequestParser {
 
 public:
 
-	static Parser&							instance(void);
+	static RequestParser&					instance(void);
 
 	bool									buffer(Buffer& buff, HTTPRequest& request);
 
@@ -34,10 +34,10 @@ public:
 
 private:
 
-	Parser(void);
-	Parser(const Parser& other);
-	Parser& operator = (const Parser& other);
-	~Parser(void);
+	RequestParser(void);
+	RequestParser(const RequestParser& other);
+	RequestParser& operator = (const RequestParser& other);
+	~RequestParser(void);
 
 	static const std::size_t 				LF_SIZE = 1;
 	static const std::size_t 				CRLF_SIZE = 2;
