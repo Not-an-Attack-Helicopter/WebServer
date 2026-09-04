@@ -174,32 +174,6 @@ void CgiHandler::buildResponse(HTTPResponse& response, bool headers_only) const 
 
 }
 
-// same shape as CgiProcess::handleWritable(), just using _instream
-void CgiHandler::writeStdin(void) {
-
-	if (_state != WRITING_PIPES)
-		return;
-
-	if (_instream.begin == _instream.end) {
-		_process->closeStdin();
-		_state = PROCESSING;
-		return;
-	}
-
-	ssize_t written = _instream.flushData(_process->stdinFd(), true);
-
-	if (written == -1 && errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK) {
-		_state = ERROR;
-		return;
-	}
-
-	if (_instream.begin == _instream.end) {
-		_process->closeStdin();
-		_state = PROCESSING;
-	}
-
-}
-
 // same shape as writeStdin(), just reading into _outstream instead
 void CgiHandler::readStdout(void) {
 

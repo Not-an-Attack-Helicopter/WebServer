@@ -162,6 +162,33 @@ void CgiProcess::closeStdout() {
 	}
 }
 
+// same shape as handleWritable(), just using _instream (a Buffer) instead
+// of the raw _input string
+void CgiProcess::writeStdin() {
+
+	if (_state != WRITING_PIPES)
+		return;
+
+	if (_instream.begin == _instream.end) {
+		closeStdin();
+		_state = PROCESSING;
+		return;
+	}
+
+	ssize_t written = _instream.flushData(stdinFd(), true);
+
+	if (written == -1 && errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK) {
+		_state = ERROR;
+		return;
+	}
+
+	if (_instream.begin == _instream.end) {
+		closeStdin();
+		_state = PROCESSING;
+	}
+
+}
+
 bool  CgiProcess::wantsWrite() const { return _stdin_fd != -1; }
 bool  CgiProcess::wantsRead()  const { return _stdout_fd != -1; }
 bool  CgiProcess::isDone()     const { return _stdin_fd == -1 && _stdout_fd == -1 && _reaped; }

@@ -54,6 +54,10 @@ public:
     void closeStdin();
     void closeStdout();
 
+    // step 2 of the CgiHandler merge: same as CgiHandler::writeStdin() was,
+    // just against our own _instream/fds directly now
+    void writeStdin();
+
     bool wantsWrite() const;
     bool wantsRead()  const;
     bool isDone()     const; // both pipe ends closed and child reaped
