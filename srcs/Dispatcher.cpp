@@ -535,6 +535,7 @@ static StatusCode resolveRoute(Client& client) {
 	HTTPResponse& response = client.getCurrentResponse();
 	HTTPRequest& request = client.getCurrentRequest();
 	const std::string& version = request.getVersion();
+	const std::string& host = *request.getHeader("host");
 
 	// Check HTTP version
 	const std::string* connection = request.getHeader("connection");
@@ -551,7 +552,11 @@ static StatusCode resolveRoute(Client& client) {
 	}
 
 	// Match domain by name
-	request.resolved.domain = resolveDomain(socket.domains, *request.getHeader("host"));
+	if (host.empty() && version == http::V_1_0) {
+		request.resolved.domain = &socket.domains[0];
+	} else {
+		request.resolved.domain = resolveDomain(socket.domains, host);
+	}
 	if (!request.resolved.domain) {
 		return BAD_REQUEST;
 	}
