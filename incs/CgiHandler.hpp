@@ -29,6 +29,10 @@ public:
 	ScriptState state(void) const;
 
 	void writeStdin(void); // one non-blocking write attempt, WRITING_PIPES only
+	void readStdout(void); // one non-blocking read attempt, moves PROCESSING -> READING_PIPES
+
+	// only does anything once state() == COMPLETE
+	void buildResponse(HTTPResponse& response, bool headers_only) const;
 
 private:
 	CgiHandler(const CgiHandler&);

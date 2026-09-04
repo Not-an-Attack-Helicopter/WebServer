@@ -1,7 +1,9 @@
 #include "../incs/CgiHandler.hpp"
 #include "../incs/CgiEnv.hpp"
 #include "../incs/Logger.hpp"
+#include "../incs/utils.hpp"
 #include <cerrno>
+#include <cstdlib>
 #include <fstream>
 #include <sstream>
 
@@ -39,6 +41,11 @@ static std::vector<std::string> buildCgiArgs(const HTTPRequest& request) {
 // read the body back off disk, that's our cgi stdin
 static std::string readCgiInput(const HTTPRequest& request) {
 
+	// small bodies live in memory now (Sink::HEAP), only large ones spool
+	// to disk, see the switch on request.body.sink in _parseBody()
+	if (request.body.sink == HEAP)
+		return request.body.temp;
+
 	if (request.body.path.empty())
 		return "";
 
@@ -55,7 +62,7 @@ static std::string readCgiInput(const HTTPRequest& request) {
 StatusCode handleCGI(HTTPRequest& request, HTTPResponse& response,
 					 const Config::Socket& socket) {
 
-	(void)response; // filled in once the CGI actually runs
+	(void)response; // filled in later, by CgiHandler::buildResponse()
 
 	std::string cgi_input = readCgiInput(request);
 	std::vector<std::string> cgi_args = buildCgiArgs(request);
@@ -66,12 +73,23 @@ StatusCode handleCGI(HTTPRequest& request, HTTPResponse& response,
 															*request.resolved.location,
 															request.resolved.path);
 
-	request.cgi_process = new CgiProcess(request.cgi.binary_path, cgi_args, env, cgi_input, working_dir);
+	CgiProcess* process = new CgiProcess(request.cgi.binary_path, cgi_args, env, cgi_input, working_dir);
 
-	if (!request.cgi_process->valid()) {
+	if (!process->valid()) {
 		log.error("cgi: failed to open pipes for " + request.cgi.binary_path);
+		delete process;
 		return INTERNAL_SERVER_ERROR;
 	}
+
+	if (!process->spawn()) {
+		log.error("cgi: failed to spawn " + request.cgi.binary_path);
+		delete process;
+		return INTERNAL_SERVER_ERROR;
+	}
+
+	// epoll registration for stdinFd()/stdoutFd() is still ahead, that's
+	// on the server side, not here
+	request.cgi_handler = new CgiHandler(process, cgi_input);
 
 	return NO_STATUS;
 
@@ -92,6 +110,62 @@ CgiHandler::~CgiHandler() {
 
 CgiHandler::ScriptState CgiHandler::state(void) const {
 	return _state;
+}
+
+// cgi output is "headers, blank line, body",  same split CgiProcess::result()
+// used to do. we read Status/Content-Type out of the headers ourselves,
+// everything else just gets passed through as-is
+void CgiHandler::buildResponse(HTTPResponse& response, bool headers_only) const {
+
+	if (_state != COMPLETE)
+		return;
+
+	std::string raw = _outstream.str();
+
+	std::size_t sep = raw.find("\r\n\r\n");
+	std::size_t sep_len = 4;
+	if (sep == std::string::npos) {
+		sep = raw.find("\n\n");
+		sep_len = 2;
+	}
+
+	std::string header_block = (sep == std::string::npos) ? "" : raw.substr(0, sep);
+	std::string body = (sep == std::string::npos) ? raw : raw.substr(sep + sep_len);
+
+	StatusCode status = OK;
+	std::string content_type = "text/html";
+
+	std::istringstream ss(header_block);
+	std::string line;
+	while (std::getline(ss, line)) {
+
+		line = trim(line);
+		if (line.empty())
+			continue;
+
+		std::size_t colon = line.find(':');
+		if (colon == std::string::npos)
+			continue;
+
+		std::string key = line.substr(0, colon);
+		std::string value = trim(line.substr(colon + 1));
+		std::string key_lower = tolowerASCII(key);
+
+		if (key_lower == "status") {
+			int code = std::atoi(value.c_str());
+			if (code >= 100 && code <= 599)
+				status = static_cast<StatusCode>(code);
+			continue;
+		}
+		if (key_lower == "content-type")
+			content_type = value;
+
+		response.setHeader(key, value);
+	}
+
+	response.setStatus(status);
+	response.setBody(body, HEAP, content_type, headers_only);
+
 }
 
 // same shape as CgiProcess::handleWritable(), just writing from _instream
@@ -117,6 +191,35 @@ void CgiHandler::writeStdin(void) {
 	if (_instream.begin == _instream.end) {
 		_process->closeStdin();
 		_state = PROCESSING;
+	}
+
+}
+
+// same shape as writeStdin(), just filling _outstream from the fd instead
+// of draining _instream into it
+void CgiHandler::readStdout(void) {
+
+	// nothing else moves us from PROCESSING to READING_PIPES, do it here
+	if (_state == PROCESSING)
+		_state = READING_PIPES;
+
+	if (_state != READING_PIPES)
+		return;
+
+	// buffer full, not necessarily eof, wait for something to drain it
+	if (_outstream.end == _outstream.data.size())
+		return;
+
+	ssize_t got = _outstream.fetchData(_process->stdoutFd(), true);
+
+	if (got == -1 && errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK) {
+		_state = ERROR;
+		return;
+	}
+
+	if (got == 0) {
+		_process->closeStdout();
+		_state = COMPLETE;
 	}
 
 }

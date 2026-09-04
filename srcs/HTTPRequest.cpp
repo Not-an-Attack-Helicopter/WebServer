@@ -11,6 +11,7 @@
 /* ************************************************************************** */
 
 #include "../incs/HTTPRequest.hpp"
+#include "../incs/CgiHandler.hpp" // full CgiHandler type, needed to delete cgi_handler
 // #include "../incs/constexpr.hpp"
 // #include "../incs/templates.hpp"
 #include "../incs/Logger.hpp"
@@ -29,7 +30,7 @@
 /*	@brief Constructor	*/
 HTTPRequest::HTTPRequest(void) {
 	log.debug("HTTPRequest Constructor called");
-	cgi_process = NULL;
+	cgi_handler = NULL;
 	headers_only = false;
 	is_multipart = false;
 	body_chunked = false;
@@ -45,7 +46,7 @@ HTTPRequest::HTTPRequest(void) {
 /*	@brief Destructor	*/
 HTTPRequest::~HTTPRequest(void) {
 	log.debug("HTTPRequest Destructor called");
-	delete cgi_process;
+	delete cgi_handler;
 	return;
 }
 
@@ -143,8 +144,8 @@ void HTTPRequest::reset(void) {
 	resolved.method = METHOD_COUNT;
 	resolved.domain = NULL;
 	resolved.location = NULL;
-	delete cgi_process;
-	cgi_process = NULL;
+	delete cgi_handler;
+	cgi_handler = NULL;
 	headers_only = false;
 	created_file = false;
 	_method = METHOD_COUNT;

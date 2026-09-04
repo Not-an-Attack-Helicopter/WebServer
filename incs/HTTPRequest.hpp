@@ -17,8 +17,9 @@
 // #include "Buffer.hpp"
 #include "HTTPResponse.hpp"
 #include "HTTPParameters.hpp"
-#include "CgiProcess.hpp"
 #include <netinet/in.h>
+
+class CgiHandler; // full type only needed where we delete it, in HTTPRequest.cpp
 // #include <fstream>
 #include <sstream>
 #include <string>
@@ -245,7 +246,7 @@ public:
 
 	RequestBody											body;
 
-	CgiProcess*											cgi_process; // owns the live CGI child while one is running (NULL otherwise)
+	CgiHandler*											cgi_handler; // owns the live CGI child while one is running (NULL otherwise)
 
 	bool												headers_only; // HEAD method
 	bool												requires_CGI;
