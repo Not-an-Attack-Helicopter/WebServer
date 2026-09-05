@@ -35,6 +35,7 @@ static void signal_handler(int sig) {
 		log.info("Connection closed by the server");
         should_exit = 1;
     }
+    return;
 }
 
   //~~~~~~~~~~//
@@ -165,7 +166,6 @@ void Server::prepareEPollInstance(void) {
 	}
 
 	log.debug("Prepared epoll instance epfd fd_" + i2a(_epfd));
-
 	return;
 }
 
@@ -225,9 +225,7 @@ void Server::prepareListeningPort(const Config::Socket& soc) {
 	}
 
 	log.debug("Now listening on listen_fd fd_" + i2a(_sockets.rbegin()->first));
-
 	return;
-
 }
 
 void Server::handleEvents(void) {
@@ -564,7 +562,6 @@ void Server::handleSocketWriteEvent(int fd) {
 	}
 
 	return;
-
 }
 
 void Server::handlePipeWriteEvent(int fd) {
@@ -631,7 +628,6 @@ void Server::cleanUpAllRessources(void) {
 	}
 
 	// _addr.clear();
-
 	return;
 }
 
@@ -658,6 +654,7 @@ void Server::cleanUpClient(std::map<int, Client*>::iterator it) {
 
 	log.debug("Erasing container entry for above client");
 	_clients.erase(it);
+	return;
 
 }
 
@@ -679,6 +676,7 @@ void Server::cleanUpSocket(std::map<int, ListeningSocket>::iterator it) {
 
 	log.debug("Erasing container entry for above socket");
 	_sockets.erase(it);
+	return;
 }
 
   //~~~~~~~~~~~//
