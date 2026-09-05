@@ -53,7 +53,6 @@ Client::Client(const sockaddr_in socket, const Config::Socket* config)
 	pushResponse();
 
 	return;
-
 }
 
 /*	@brief Destructor	*/
@@ -90,7 +89,6 @@ Client::~Client(void) {
 	 _request_queue.clear();
 
 	return;
-
 }
 
 // DEBUG BEGIN
@@ -318,9 +316,7 @@ void Client::parseDataFromPeer(void) {
 
 			if (!request.requires_CGI) promoteFile(request);
 			break;
-
 		}
-
 	}
 
 	dumpRequest(&request);
@@ -360,11 +356,8 @@ void Client::parseDataFromPeer(void) {
 			}
 			_instream.reset();
 			break;
-
 	}
-
 	return;
-
 }
 
 void Client::queueOutgoingData(void) {
@@ -600,7 +593,6 @@ void Client::reset(void) {
 
 	_last_event = std::time(NULL);
 	return;
-
 }
 
   //~~~~~~~~~~~//
@@ -651,15 +643,18 @@ void Client::_stateTransitionHandler(int fd) {
 		_state = IDLE;
 		log.debug("client_" + i2a(fd) + ": state set to IDLE");
 	}
+	return;
 }
 
 // Overload for std::stringstream
 void Client::_clearStream(std::stringstream& stream) {
 	stream.str("");
 	stream.clear();
+	return;
 }
 
 // Overload for std::ifstream
 void Client::_clearStream(std::ifstream& stream) {
 	stream.close();
+	return;
 }
