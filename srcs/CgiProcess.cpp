@@ -162,7 +162,7 @@ void CgiProcess::closeStdout() {
 	}
 }
 
-// same shape as handleWritable(), just using _instream (a Buffer) instead
+// same shape as handleWritable(), just using _instream
 // of the raw _input string
 void CgiProcess::writeStdin() {
 
@@ -185,6 +185,34 @@ void CgiProcess::writeStdin() {
 	if (_instream.begin == _instream.end) {
 		closeStdin();
 		_state = PROCESSING;
+	}
+
+}
+
+// same shape as writeStdin(), just reading into _outstream instead
+void CgiProcess::readStdout() {
+
+	// nothing else moves us from PROCESSING to READING_PIPES, do it here
+	if (_state == PROCESSING)
+		_state = READING_PIPES;
+
+	if (_state != READING_PIPES)
+		return;
+
+	// buffer full, not necessarily eof, wait for something to drain it
+	if (_outstream.end == _outstream.data.size())
+		return;
+
+	ssize_t got = _outstream.fetchData(stdoutFd(), true);
+
+	if (got == -1 && errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK) {
+		_state = ERROR;
+		return;
+	}
+
+	if (got == 0) {
+		closeStdout();
+		_state = COMPLETE;
 	}
 
 }

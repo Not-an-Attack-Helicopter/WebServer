@@ -23,8 +23,6 @@ struct CGIResult {
 // blocking wait anywhere in this class.
 class CgiProcess {
 public:
-    // step 1 of the CgiHandler merge: state moving in here, nothing uses
-    // this yet
     enum ScriptState {
         WRITING_PIPES,
         PROCESSING,
@@ -54,9 +52,8 @@ public:
     void closeStdin();
     void closeStdout();
 
-    // step 2 of the CgiHandler merge: same as CgiHandler::writeStdin() was,
-    // just against our own _instream/fds directly now
-    void writeStdin();
+    void writeStdin(); // one non-blocking write attempt, WRITING_PIPES only
+    void readStdout();  // one non-blocking read attempt, moves PROCESSING -> READING_PIPES
 
     bool wantsWrite() const;
     bool wantsRead()  const;
@@ -96,9 +93,8 @@ private:
     int         _exit_code;
     time_t      _deadline;
 
-    // step 1 of the CgiHandler merge: not used yet
-    Buffer      _instream;
-    Buffer      _outstream;
+    Buffer      _instream;  // -> our stdin
+    Buffer      _outstream; // <- our stdout
     ScriptState _state;
 };
 
