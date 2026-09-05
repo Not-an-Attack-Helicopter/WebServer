@@ -115,12 +115,16 @@ public:
 		sockaddr_in										server_socket;
 
 		std::string										binary_path;
+		std::string										script_name;
+		std::string										path_info;
 
 		int												std_out;
 		int												std_in;
 
 		CGIContext(void)
 			:	binary_path(""),
+				script_name(""),
+				path_info(""),
 				std_out(-1),
 				std_in(-1) {
 			std::memset(&remote_socket, 0, sizeof(remote_socket));
@@ -219,13 +223,13 @@ public:
 		Method											method;
 		const Config::Domain*							domain;
 		const Config::Location*							location;
-		std::string										path;
+		std::string										filepath;
 
 		ResolvedRoute(void)
 			:	method(METHOD_COUNT),
 				domain(NULL),
 				location(NULL),
-				path("") {}
+				filepath("") {}
 
 	};
 

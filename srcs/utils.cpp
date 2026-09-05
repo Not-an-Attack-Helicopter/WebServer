@@ -361,11 +361,11 @@ void promoteFile(HTTPRequest& request) {
 	}
 	std::string new_path;
 	if (request.resolved.method == POST) {
-		const std::string& path = request.resolved.path;
+		const std::string& path = request.resolved.filepath;
 		const Config::Location& location = *request.resolved.location;
 		new_path = path + location.upload_dir + "/upload-" + suffix + extension;
 	} else if (request.resolved.method == PUT) {
-		new_path = request.resolved.path;
+		new_path = request.resolved.filepath;
 	} else {
 		new_path = old_path + "." + suffix + extension;
 	}
