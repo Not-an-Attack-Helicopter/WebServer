@@ -1,5 +1,6 @@
 #pragma once
 #include "Buffer.hpp"
+#include "HTTPResponse.hpp"
 #include <string>
 #include <vector>
 #include <map>
@@ -96,6 +97,16 @@ private:
     Buffer      _instream;  // -> our stdin
     Buffer      _outstream; // <- our stdout
     ScriptState _state;
+
+    // response, parsed incrementally as bytes arrive instead of all at
+    // once from a fully-buffered _outstream -- not used yet
+    std::map<std::string, std::string> _headers;
+    StatusCode  _status;
+    std::string _content_type;
+    bool        _has_status;
+    bool        _has_location;
+    bool        _headers_done;
+    std::string _body;
 };
 
 // Blocking convenience wrapper around CgiProcess for standalone/offline use

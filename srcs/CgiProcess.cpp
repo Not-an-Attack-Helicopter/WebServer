@@ -35,7 +35,9 @@ CgiProcess::CgiProcess(const std::string& path, const std::vector<std::string>& 
       _pipes_open(false),
       _pid(-1), _stdin_fd(-1), _stdout_fd(-1), _input(input), _input_offset(0),
       _reaped(false), _exit_code(-1), _deadline(0),
-      _state(WRITING_PIPES)
+      _state(WRITING_PIPES),
+      _status(OK), _content_type("text/html"),
+      _has_status(false), _has_location(false), _headers_done(false)
 {
     _in_pipe[0] = -1; _in_pipe[1] = -1;
     _out_pipe[0] = -1; _out_pipe[1] = -1;
