@@ -131,11 +131,11 @@ private:
 	bool							_blocked_from_receiving;
 	bool							_marked_for_termination;
 
+	const Config::Socket*			_config;
+
 	sockaddr_in						_server_addr;
 	sockaddr_storage				_remote_addr;
 	socklen_t						_addrlen;
-
-	const Config::Socket*			_config;
 
 	std::deque<HTTPRequest*>		_request_queue;		// FIFO queue of requests to dispatch
 	std::deque<HTTPResponse*>		_response_queue;	// FIFO queue of responses to send
