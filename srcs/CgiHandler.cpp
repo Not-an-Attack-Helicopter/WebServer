@@ -10,7 +10,7 @@
 bool hasCGIExtension(HTTPRequest& request) {
 
 	const Config::Location& location = *request.resolved.location;
-	const std::string& path = request.resolved.path;
+	const std::string& path = request.resolved.filepath;
 
 	std::size_t dot = path.rfind('.');
 	if (dot == std::string::npos || dot == path.size() - 1) {
@@ -33,7 +33,7 @@ static std::vector<std::string> buildCgiArgs(const HTTPRequest& request) {
 
 	std::vector<std::string> args;
 	args.push_back(request.cgi.binary_path);
-	args.push_back(request.resolved.path);
+	args.push_back(request.resolved.filepath);
 	return args;
 
 }
@@ -65,12 +65,12 @@ StatusCode handleCGI(HTTPRequest& request, HTTPResponse& response,
 
 	std::string cgi_input = readCgiInput(request);
 	std::vector<std::string> cgi_args = buildCgiArgs(request);
-	std::string working_dir = request.resolved.path.substr(0, request.resolved.path.find_last_of('/'));
+	std::string working_dir = request.resolved.filepath.substr(0, request.resolved.filepath.find_last_of('/'));
 
 	std::map<std::string, std::string> env = build_cgi_env(request, socket,
 															*request.resolved.domain,
 															*request.resolved.location,
-															request.resolved.path);
+															request.resolved.filepath);
 
 	CgiProcess* process = new CgiProcess(request.cgi.binary_path, cgi_args, env, cgi_input, working_dir);
 

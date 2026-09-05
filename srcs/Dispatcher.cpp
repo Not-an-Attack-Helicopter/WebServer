@@ -124,8 +124,11 @@ static bool decodeURL(const std::string& input, std::string& result) {
 		int hi = hexDigitValue(input[i + 1]);
 		int lo = hexDigitValue(input[i + 2]);
 
-		result += static_cast<char>((hi << 4) | lo);
+		char decoded = static_cast<char>((hi << 4) | lo);
+		if (decoded == '\0')
+			return false;
 
+		result += decoded;
 		i += 3;
 	}
 
@@ -346,7 +349,7 @@ static StatusCode handleGET(const HTTPRequest& request,
 							HTTPResponse& response) {
 
 	const Config::Location& location = *request.resolved.location;
-	const std::string& path = request.resolved.path;
+	const std::string& path = request.resolved.filepath;
 
 	// Only redirect GET requests missing trailing slash
 	// (browsers need it for relative links)
@@ -412,7 +415,7 @@ static StatusCode handleRegularFile(HTTPRequest& request,
 									HTTPResponse& response) {
 
 	const Method& method = request.resolved.method;
-	const std::string& path = request.resolved.path;
+	const std::string& path = request.resolved.filepath;
 
 	StatusCode status_code = NO_STATUS;
 
@@ -499,8 +502,7 @@ static StatusCode routeRequest(HTTPRequest& request,
 		// return handleCGI(request, response);
 
 	// Match CGI extensions
-	if (hasCGIExtension(request)) {
-		request.requires_CGI = true;
+	if (request.requires_CGI) {
 		// TODO we need to put setting up all things CGI here! The cgi pipes need to be ready to be written to during READING_BODY
 		if (request.body.size != 0 ||
 			request.body_chunked == true) {
@@ -511,12 +513,12 @@ static StatusCode routeRequest(HTTPRequest& request,
 		return NO_STATUS;
 
 	// Check if request path exists as static file in `root`
-	} else if (isRegularFile(request.resolved.path)) {
+	} else if (isRegularFile(request.resolved.filepath)) {
 
 		return handleRegularFile(request, response);
 
 	// Check if request is for a directory
-	} else if (isDirectory(request.resolved.path) || request.resolved.method == PUT) {
+	} else if (isDirectory(request.resolved.filepath) || request.resolved.method == PUT) {
 
 		return handleDirectory(request, response);
 
@@ -567,7 +569,7 @@ static StatusCode resolveRoute(Client& client) {
 	if (!request.resolved.location) {
 		return NOT_FOUND;
 	}
-	if (!(*request.resolved.location).redirect.empty()) {
+	if (!request.resolved.location->redirect.empty()) {
 		return handleRedirect((*request.resolved.location), request, response);
 	}
 
@@ -577,10 +579,34 @@ static StatusCode resolveRoute(Client& client) {
 		return METHOD_NOT_ALLOWED;
 	}
 
+	// Detect requests requiring CGI and eventually split path_info from path
+	std::string path_info;
+	std::string path = request.getPath();
+	for (std::map<std::string, std::string>::const_iterator it = request.resolved.location->interpreters.begin();
+		it != request.resolved.location->interpreters.end(); ++it) {
+		size_t pos = path.find(it->first);
+		if (pos != std::string::npos) {
+			pos += it->first.size();
+			if (pos == path.size()) {
+				request.requires_CGI = true;
+				request.cgi.binary_path = it->second;
+				break;
+			} else if (path[pos] == '/') {
+				path_info = path.substr(pos);
+				path.erase(pos);
+				request.requires_CGI = true;
+				request.cgi.binary_path = it->second;
+				break;
+			} else {
+				continue;
+			}
+		}
+	}
+
 	// Decode and normalize path, then check for traversal attempts
 	// (verify that the resulting path remains inside location's root)
 	std::string decoded;
-	if (!decodeURL(request.getPath(), decoded)) {
+	if (!decodeURL(path, decoded)) {
 		log.error("dispatch error: malformed target URL");
 		return BAD_REQUEST;
 	}
@@ -589,15 +615,22 @@ static StatusCode resolveRoute(Client& client) {
 		log.error("dispatch error: forbidden path");
 		return NOT_FOUND;
 	}
+	request.cgi.script_name = normalized;
 
-	// Create absolute path from root or alias
+	// Create absolute file path from root or alias
 	if (!request.resolved.location->root.empty()) {
-		request.resolved.path = request.resolved.location->root + normalized;
+		request.resolved.filepath = request.resolved.location->root + normalized;
 	} else {
-		request.resolved.path = request.resolved.location->alias +
+		request.resolved.filepath = request.resolved.location->alias +
 		normalized.substr(request.resolved.location->path.size());
 	}
-	log.debug("absolute path: " + request.resolved.path);
+	log.debug("absolute file path: " + request.resolved.filepath);
+
+	// Only after path resolving succeeds decode path_info
+	if (!decodeURL(path_info, request.cgi.path_info)) {
+		log.error("dispatch error: malformed CGI path info");
+		return BAD_REQUEST;
+	}
 
 	return NO_STATUS;
 
