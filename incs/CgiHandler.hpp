@@ -3,10 +3,6 @@
 #include "Buffer.hpp"
 #include "HTTPRequest.hpp"
 
-// true if the request's path matches a configured CGI extension; also sets
-// request.cgi.binary_path as a side effect
-bool hasCGIExtension(HTTPRequest& request);
-
 // body's fully in by now, build the process and kick it off. Not spawned
 // yet, that + epoll registration is still ahead.
 StatusCode handleCGI(HTTPRequest& request, HTTPResponse& response,

@@ -7,27 +7,6 @@
 #include <fstream>
 #include <sstream>
 
-bool hasCGIExtension(HTTPRequest& request) {
-
-	const Config::Location& location = *request.resolved.location;
-	const std::string& path = request.resolved.filepath;
-
-	std::size_t dot = path.rfind('.');
-	if (dot == std::string::npos || dot == path.size() - 1) {
-		return false;
-	}
-
-	const std::string ext = path.substr(dot);
-	std::map<std::string, std::string>::const_iterator it = location.interpreters.find(ext);
-	if (it != location.interpreters.end()) {
-		request.cgi.binary_path = it->second;
-		return true;
-	}
-
-	return false;
-
-}
-
 // argv for execve
 static std::vector<std::string> buildCgiArgs(const HTTPRequest& request) {
 
