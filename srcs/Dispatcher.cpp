@@ -596,6 +596,7 @@ static StatusCode resolveRoute(Client& client) {
 				path.erase(pos);
 				request.requires_CGI = true;
 				request.cgi.binary_path = it->second;
+				break;
 			} else {
 				continue;
 			}
