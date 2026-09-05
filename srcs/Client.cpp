@@ -33,9 +33,9 @@ Client::Client(const sockaddr_in socket, const Config::Socket* config)
 	:	_state(IDLE),
 		_blocked_from_receiving(false),
 		_marked_for_termination(false),
+		_config(config),
 		_server_addr(socket),
 		_addrlen(sizeof(_remote_addr)),
-		_config(config),
 		_last_event(std::time(NULL)) {
 
 	log.debug("Client Constructor called");
@@ -566,6 +566,8 @@ void Client::reset(void) {
 	_state = IDLE;
 	_blocked_from_receiving = false;
 	_marked_for_termination = false;
+	_config = NULL;
+	std::memset(&_server_addr, 0, _addrlen);
 	std::memset(&_remote_addr, 0, _addrlen);
 
 	if (!_request_queue.empty()) {
