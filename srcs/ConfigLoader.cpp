@@ -41,7 +41,7 @@ static bool isConfigFile(const std::string& filename) {
 	return (ext == "conf");
 }
 
-static std::string stripInlineComment(std::string line) {
+static inline std::string stripInlineComment(std::string line) {
 
 	std::size_t commentPos = line.find('#');
 	if (commentPos != std::string::npos) {
@@ -161,6 +161,7 @@ static bool isDuplicateLocation(const std::vector<Config::Location>& locations,
 		}
 	}
 	return false;
+
 }
 
 static std::string extractDirectiveKey(const std::string& line) {
@@ -298,6 +299,22 @@ static void extractLocationPath(const std::string& header, Config::Location& loc
 
 }
 
+static Method extractMethod(const std::string& method) {
+
+	static const std::string valid_methods[
+		static_cast<int>(METHOD_COUNT)
+	] = {
+		"GET", "HEAD", "DELETE", "POST", "PUT", "PATCH"
+	};
+	for (std::size_t i = 0; i < static_cast<int>(METHOD_COUNT); ++i) {
+		if (valid_methods[i] == method) {
+			return static_cast<Method>(i);
+		}
+	}
+	return METHOD_COUNT;
+
+}
+
   //~~~~~~~~~~//
  /*  Public  */
 //~~~~~~~~~~//
@@ -358,22 +375,6 @@ void ConfigLoader::loadConfig(const std::string& config_file) {
 	_validateRedirectChains();
 
 	return;
-
-}
-
-static Method extractMethod(const std::string& method) {
-
-	static const std::string valid_methods[
-		static_cast<int>(METHOD_COUNT)
-	] = {
-		"GET", "HEAD", "DELETE", "POST", "PUT"
-	};
-	for (std::size_t i = 0; i < static_cast<int>(METHOD_COUNT); ++i) {
-		if (valid_methods[i] == method) {
-			return static_cast<Method>(i);
-		}
-	}
-	return METHOD_COUNT;
 
 }
 

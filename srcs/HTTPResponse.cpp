@@ -101,6 +101,7 @@ void HTTPResponse::setBody(const std::string& str,
 			log.error("set body: unable to open file");
 			_body_sink = NONE;
 			_body_size = 0;
+			break;
 		}
 		file.seekg(0, std::ios::end);
 		_body_size = static_cast<std::size_t>(file.tellg());

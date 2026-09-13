@@ -100,6 +100,7 @@ void dumpRequest(const HTTPRequest* request) {
 	case DELETE: log.debug("Method:\t\tDELETE"); break;
 	case POST: log.debug("Method:\t\tPOST"); break;
 	case PUT: log.debug("Method:\t\tPUT"); break;
+	case PATCH: log.debug("Method:\t\tPATCH"); break;
 	case METHOD_COUNT: log.debug("Method:\t\tN/A"); break;
 	}
 

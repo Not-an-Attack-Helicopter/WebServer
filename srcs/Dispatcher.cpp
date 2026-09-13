@@ -94,7 +94,6 @@ static  Method resolveMethod(const HTTPRequest& request) {
 			return requested_method;
 		}
 	}
-	log.error("dispatch error: no method found");
 	return METHOD_COUNT;
 }
 
