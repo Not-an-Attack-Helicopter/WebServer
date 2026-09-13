@@ -31,7 +31,7 @@ public:
 
 	bool									buffer(Buffer& buff, CGIProcess* cgi_process, HTTPRequest& request);
 
-	Method									matchMethod(const std::string& name);
+	// Method									matchMethod(const std::string& name);
 
 private:
 

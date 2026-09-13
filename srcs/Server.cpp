@@ -724,9 +724,9 @@ void Server::_handlePipeError(std::map<int, Client*>::iterator it) {
 	_cleanUpScriptPipeEnd(it);
 	client.cgi_process->forceKill();
 	dispatcher.buildErrorResponse(INTERNAL_SERVER_ERROR,
-									client.getCurrentRequest().resolved.location,
-									client.getCurrentRequest().headers_only,
-									client.getCurrentResponse());
+								  client.getCurrentRequest().resolved.location,
+								  client.getCurrentRequest().headers_only,
+								  client.getCurrentResponse());
 	client.setState(Client::PENDING_RESPONSE);
 	log.debug("client_" + i2a(client_fd) + ": state set to PENDING_RESPONSE");
 	client.popRequest();

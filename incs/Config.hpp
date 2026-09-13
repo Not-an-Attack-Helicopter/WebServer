@@ -32,6 +32,7 @@ enum Method {
 	DELETE,
 	POST,
 	PUT,
+	PATCH,
 	METHOD_COUNT
 };
 

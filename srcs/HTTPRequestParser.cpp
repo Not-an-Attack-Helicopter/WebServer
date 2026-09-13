@@ -51,22 +51,6 @@ bool RequestParser::buffer(Buffer& buffer, CGIProcess* cgi_process, HTTPRequest&
 	}
 }
 
-Method RequestParser::matchMethod(const std::string& method) {
-
-	static const std::string valid_methods[
-		static_cast<int>(METHOD_COUNT)
-	] = {
-		"GET", "HEAD", "DELETE", "POST", "PUT"
-	};
-	for (std::size_t i = 0; i < static_cast<int>(METHOD_COUNT); ++i) {
-		if (valid_methods[i] == method) {
-			return static_cast<Method>(i);
-		}
-	}
-
-	return METHOD_COUNT;
-}
-
   //~~~~~~~~~~~//
  /*  Private  */
 //~~~~~~~~~~~//
@@ -108,6 +92,22 @@ std::size_t RequestParser::_findRequestLineEnd(const Buffer& buffer, HTTPRequest
 	}
 
 	return static_cast<std::size_t>(LF_pos);
+}
+
+static inline Method matchMethod(const std::string& method) {
+
+	static const std::string valid_methods[
+		static_cast<int>(METHOD_COUNT)
+	] = {
+		"GET", "HEAD", "DELETE", "POST", "PUT", "PATCH"
+	};
+	for (std::size_t i = 0; i < static_cast<int>(METHOD_COUNT); ++i) {
+		if (valid_methods[i] == method) {
+			return static_cast<Method>(i);
+		}
+	}
+
+	return METHOD_COUNT;
 }
 
 bool RequestParser::_extractTokens(const Buffer& buffer, HTTPRequest& request) {
