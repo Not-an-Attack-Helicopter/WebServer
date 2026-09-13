@@ -12,6 +12,7 @@
 
 #include "../incs/CGISetUp.hpp"
 #include "../incs/Logger.hpp"
+
 #include <arpa/inet.h>
 
 static std::string to_string_int(int v) {

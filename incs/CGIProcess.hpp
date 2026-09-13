@@ -13,8 +13,9 @@
 #ifndef CGI_PROCESS_HPP
 #define CGI_PROCESS_HPP
 
-# include "HTTPResponse.hpp"
+#include "HTTPResponse.hpp"
 #include "Buffer.hpp"
+
 #include <cstddef>
 #include <string>
 #include <vector>
