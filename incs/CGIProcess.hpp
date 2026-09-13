@@ -1,5 +1,19 @@
-#pragma once
-#include "HTTPResponse.hpp"
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   CGIProcess.hpp                                     :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: gpochon <marvin@42.fr>                     +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2026/09/13 08:48:18 by gpochon           #+#    #+#             */
+/*   Updated: 2026/09/13 08:48:19 by gpochon          ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
+#ifndef CGI_PROCESS_HPP
+#define CGI_PROCESS_HPP
+
+# include "HTTPResponse.hpp"
 #include "Buffer.hpp"
 #include <cstddef>
 #include <string>
@@ -127,6 +141,8 @@ private:
 	std::string _line_ending;
 	std::string _body;
 };
+
+#endif
 
 // deprecated: called handleWritable()/handleReadable()/result(), which are
 // now commented out in CGIProcess.cpp (used the removed _input/_output)

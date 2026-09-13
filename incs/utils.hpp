@@ -3,7 +3,7 @@
 /*                                                        :::      ::::::::   */
 /*   utils.hpp                                          :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: sholz + bstorck <marvin@42.fr>             +#+  +:+       +#+        */
+/*   By: sholz, bstorck <marvin@42.fr>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/30 18:39:31 by sholz             #+#    #+#             */
 /*   Updated: 2026/06/30 18:39:32 by bstorck          ###   ########.fr       */
