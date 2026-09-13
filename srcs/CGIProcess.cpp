@@ -391,7 +391,7 @@ void CGIProcess::consumeAvailableOutput() {
 
 	if (_outstream.begin == _outstream.end) {
 		_outstream.reset();
-	} else if (_instream.end == _instream.data.size()) {
+	} else if (_outstream.end == _outstream.data.size()) {
 		if (_outstream.begin > 0) {
 			// free up what we already committed past
 			_outstream.compact();

@@ -821,10 +821,12 @@ void Server::_reapStaleClients(const std::time_t now) {
 				client.setState(Client::PENDING_RESPONSE);
 				log.debug("client_" + i2a(fd) + ": state set to PENDING_RESPONSE");
 				client.popRequest();
-				if (_setWRONLYInterest(fd)) {
-					client.markForTermination();
-					return;
+				if (!_setWRONLYInterest(fd)) {
+					_cleanUpClient(immediate);
+					continue;
 				}
+				client.markForTermination();
+				continue;
 			}
 			_cleanUpClient(immediate);
 // DEBUG BEGIN
