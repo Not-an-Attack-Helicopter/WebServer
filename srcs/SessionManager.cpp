@@ -109,7 +109,8 @@ void SessionManager::_sweepExpiredSessions(const std::time_t now) {
 		immediate = it;
 		++it;
 
-		if (immediate->second->getExpirationTime() > now) {
+		// expired, not still valid so we delete those
+		if (immediate->second->getExpirationTime() <= now) {
 			delete immediate->second;
 			_sessions.erase(immediate);
 		}
