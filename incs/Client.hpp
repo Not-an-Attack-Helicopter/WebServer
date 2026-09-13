@@ -118,7 +118,7 @@ public:
 	void							popResponse(void);
 	void							blockFromReceiving(void);
 	void							markForTermination(void);
-	void							uptdateTimeStamp(void);
+	void							updateTimeStamp(void);
 	void							reset(void);
 
 private:

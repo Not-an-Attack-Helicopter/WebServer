@@ -54,7 +54,7 @@ static std::string stripInlineComment(std::string line) {
 
 static bool isSupportedCGIExtension(const std::string& ext) {
 
-	const std::string valid_exts[] = {".py", ".sh"};
+	const std::string valid_exts[] = {".pl", ".py", ".sh"};
 	const std::size_t size = arraySize(valid_exts);
 
 	return (std::find(valid_exts, valid_exts + size, ext) != valid_exts + size);

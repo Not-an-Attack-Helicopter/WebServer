@@ -248,6 +248,7 @@ void Client::parseDataFromPeer(void) {
 			return;
 		} else {
 			_instream.mark += bytes_read;
+			_last_event = std::time(NULL);
 		}
 
 		if (has_consumed_line == true) {
@@ -363,18 +364,18 @@ void Client::parseDataFromPeer(void) {
 
 void Client::queueOutgoingData(void) {
 
-	_pending_response.headers	<< http::V_1_1 << http::_ << _response->getStatusCode()
-						<< http::_ << _response->getStatusReason() << http::CRLF;
+	_pending_response.headers	<< HTTP::V_1_1 << HTTP::_ << _response->getStatusCode()
+						<< HTTP::_ << _response->getStatusReason() << HTTP::CRLF;
 
 	if (!_response->getHeaders().empty()) {
 		std::map<std::string, std::string>::const_iterator it = _response->getHeaders().begin();
 		while (it != _response->getHeaders().end()) {
-			_pending_response.headers << it->first << ": " << it->second << http::CRLF;
+			_pending_response.headers << it->first << ": " << it->second << HTTP::CRLF;
 			// log.debug(it->first + ": " + it->second);
 			++it;
 		}
 	}
-	_pending_response.headers << http::CRLF;
+	_pending_response.headers << HTTP::CRLF;
 
 	_pending_response.body.sink = _response->getBodySink();
 	switch (_pending_response.body.sink) {
@@ -591,7 +592,7 @@ void Client::markForTermination(void) {
 	return;
 }
 
-void Client::uptdateTimeStamp(void) {
+void Client::updateTimeStamp(void) {
 	_last_event = std::time(NULL);
 	return;
 }

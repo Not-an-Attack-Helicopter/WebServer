@@ -30,7 +30,7 @@ public:
 
 	std::time_t										getExpirationTime(void) const;
 
-	void											uptdateTimeStamp(const std::time_t now);
+	void											updateTimeStamp(const std::time_t now);
 
 	void											setAttribute(const std::string& attribute);
 

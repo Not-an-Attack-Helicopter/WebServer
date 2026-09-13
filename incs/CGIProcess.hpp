@@ -26,10 +26,11 @@ struct CGIResult {
 class CGIProcess {
 public:
 
-	enum LineEnding {
-		LF,
-		CRLF
-	};
+	// enum LineEnding {
+	// 	NONE,
+	// 	LF,
+	// 	CRLF
+	// };
 
 	CGIProcess(const std::string& path,
 			const std::vector<std::string>& args,
@@ -121,8 +122,9 @@ private:
 	bool        _has_status;
 	bool        _has_location;
 	bool        _headers_done;
-	LineEnding  _line_ending;
+	// LineEnding  _line_ending;
 	std::size_t _line_end_size;
+	std::string _line_ending;
 	std::string _body;
 };
 

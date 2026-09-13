@@ -11,7 +11,7 @@
 /* ************************************************************************** */
 
 #include "../incs/Buffer.hpp"
-#include "../incs/Logger.hpp"
+// #include "../incs/Logger.hpp"
 #include <sys/socket.h>
 #include <unistd.h>
 #include <cstring>
@@ -49,7 +49,7 @@ void Buffer::reset(void) {
 }
 
 void Buffer::compact(void) {
-	log.error("buffer is compacted");
+	// log.error("buffer is compacted");
 	std::memmove(&data[0], &data[begin], range());
 	mark -= begin;
 	end -= begin;

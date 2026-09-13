@@ -100,9 +100,9 @@ RequestParser::~RequestParser() {
 
 std::size_t RequestParser::_findRequestLineEnd(const Buffer& buffer, HTTPRequest& request) {
 
-	ssize_t LF_pos = buffer.find(http::LF);
+	ssize_t LF_pos = buffer.find(HTTP::LF);
 	if (LF_pos == -1) return std::string::npos;
-	if (LF_pos != 0 && buffer.data[LF_pos - 1] == http::CR) {
+	if (LF_pos != 0 && buffer.data[LF_pos - 1] == HTTP::CR) {
 		request.parsing.line_ending = HTTPRequest::CRLF;
 		return static_cast<std::size_t>(LF_pos) - 1;
 	}
@@ -164,7 +164,7 @@ bool RequestParser::_extractTokens(const Buffer& buffer, HTTPRequest& request) {
 
 	// Validate HTTP version
 	version = trim(version); // strip trailing \r
-	if (version != http::V_1_1 && version != http::V_1_0) {
+	if (version != HTTP::V_1_1 && version != HTTP::V_1_0) {
 		log.warn("request line: http version not supported");
 		request.parsing.error_cause = HTTP_VERSION_NOT_SUPPORTED;
 		return false;
@@ -291,9 +291,9 @@ bool RequestParser::_parseHeaders(const Buffer& buffer, HTTPRequest& request) {
 
 	// Check for line break
 	if (request.parsing.line_ending == HTTPRequest::CRLF) {
-		request.parsing.line_end_pos = buffer.find(http::CRLF);
+		request.parsing.line_end_pos = buffer.find(HTTP::CRLF);
 	} else {
-		request.parsing.line_end_pos = buffer.find(http::LF);
+		request.parsing.line_end_pos = buffer.find(HTTP::LF);
 	}
 
 	// Empty line detected, proceed with validity checks
@@ -339,7 +339,7 @@ bool RequestParser::_parseHeaders(const Buffer& buffer, HTTPRequest& request) {
 			}
 
 			// Check for Host Header (mandatory for HTTP/1.1)
-			if (request.getVersion() == http::V_1_1 && request.getHeader("host") == NULL) {
+			if (request.getVersion() == HTTP::V_1_1 && request.getHeader("host") == NULL) {
 				log.warn("request: no host header provided");
 				request.parsing.error_cause = BAD_REQUEST;
 				request.parsing.state = HTTPRequest::ERROR;
@@ -479,9 +479,9 @@ bool RequestParser::_parseChunks(Buffer& buffer, CGIProcess* cgi_process, HTTPRe
 
 		ssize_t pos;
 		if (p.line_ending == HTTPRequest::CRLF) {
-			pos = buffer.find(http::CRLF);
+			pos = buffer.find(HTTP::CRLF);
 		} else if (p.line_ending == HTTPRequest::LF) {
-			pos = buffer.find(http::LF);
+			pos = buffer.find(HTTP::LF);
 		} else {
 			return false;
 		}

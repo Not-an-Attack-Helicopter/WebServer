@@ -96,6 +96,10 @@ StatusCode setUpCGI(Client& client) {
 														   *request.resolved.location,
 														   request.resolved.filepath);
 
+	if (client.cgi_process != NULL) {
+		delete client.cgi_process;
+		client.cgi_process = NULL;
+	}
 	client.cgi_process = new CGIProcess(request.cgi.binary_path, cgi_args, env, working_dir);
 	// CGIProcess* cgi_process = new CGIProcess(request.cgi.binary_path, cgi_args, env, working_dir);
 

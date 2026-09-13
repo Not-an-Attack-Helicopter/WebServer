@@ -39,7 +39,7 @@ static inline const std::string setUpCookieHeader(const std::string& session_id,
 
 	std::string cookie_header = "Session_ID=" + session_id;
 	cookie_header += "; Max-Age=" + i2a(Session::LIFETIME);
-	cookie_header += ": Path=/";
+	cookie_header += "; Path=/";
 	const std::vector<std::string>& attributes = session.getAttributes();
 	for (size_t i = 0; i < attributes.size(); ++i) {
 		cookie_header += "; " + attributes[i];
@@ -63,7 +63,7 @@ void SessionManager::retrieveSession(Client& client) {
 			Session& session = *it->second;
 			response.setHeader("Custom-Header1", "session found: " + session_id);
 			if (session.getExpirationTime() > now) {
-				session.uptdateTimeStamp(now);
+				session.updateTimeStamp(now);
 				response.setHeader("Custom-Header2", "updated session end-of-life");
 				// request.setSession(session);
 				client.setState(Client::DISPATCHING);

@@ -26,7 +26,7 @@ SRCS		=	main.cpp Config.cpp ConfigLoader.cpp \
 			HTTPContentType.cpp HTTPContentDisposition.cpp \
 			HTTPCookie.cpp Session.cpp SessionManager.cpp \
 			HTTPResponse.cpp Dispatcher.cpp \
-			CGIProcess.cpp CGISetUp.cpp \
+			CGISetUp.cpp CGIProcess.cpp \
 			Logger.cpp utils.cpp
 
 OBJS		=	$(addprefix $(OBJS_DIR), $(SRCS:.cpp=.o))

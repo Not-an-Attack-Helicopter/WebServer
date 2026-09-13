@@ -1,6 +1,7 @@
 #include "../incs/CGIProcess.hpp"
 #include "../incs/templates.hpp"
 #include "../incs/constexpr.hpp"
+// #include "../incs/Logger.hpp"
 #include "../incs/utils.hpp"
 
 #include <unistd.h>
@@ -25,7 +26,8 @@ CGIProcess::CGIProcess(const std::string& path, const std::vector<std::string>& 
 	// _state(WRITING_PIPES),
 	_status(OK), _content_type("text/html"),
 	_has_status(false), _has_location(false), _headers_done(false),
-	_line_ending(LF), _line_end_size(LF_SIZE) {
+	// _line_ending(NONE), _line_end_size(0) {
+	_line_end_size(0), _line_ending("") {
 
 	_in_pipe[0] = -1; _in_pipe[1] = -1;
 	_out_pipe[0] = -1; _out_pipe[1] = -1;
@@ -251,14 +253,18 @@ static bool isIgnored(const std::string& name) {
 
 std::size_t CGIProcess::_findHeaderLineEnd() {
 
-	ssize_t LF_pos = _outstream.find(http::LF);
+	ssize_t LF_pos = _outstream.find(HTTP::LF);
 	if (LF_pos == -1) return std::string::npos;
-	if (LF_pos != 0 && _outstream.data[LF_pos - 1] == http::CR) {
-		_line_ending = CRLF;
+	if (LF_pos != 0 && _outstream.data[LF_pos - 1] == HTTP::CR) {
+		// _line_ending = CRLF;
+		_line_ending = HTTP::CRLF;
 		_line_end_size = CRLF_SIZE;
 		return static_cast<std::size_t>(LF_pos) - 1;
    }
 
+	// _line_ending = LF;
+	_line_ending = HTTP::LF;
+	_line_end_size = LF_SIZE;
 	return static_cast<std::size_t>(LF_pos);
 }
 
@@ -267,7 +273,19 @@ std::size_t CGIProcess::_findHeaderLineEnd() {
 // inside trim()
 bool CGIProcess::_consumeHeaderLine() {
 
-	size_t line_end_pos = _findHeaderLineEnd();
+	size_t line_end_pos = 0;
+	// if (_line_ending == NONE) {
+	// 	line_end_pos = _findHeaderLineEnd();
+	// } else if (_line_ending == CRLF) {
+	// 	line_end_pos = _outstream.find(http::CRLF);
+	// } else {
+	// 	line_end_pos = _outstream.find(http::LF);
+	// }
+	if (_line_ending.empty()) {
+		line_end_pos = _findHeaderLineEnd();
+	} else {
+		line_end_pos = _outstream.find(_line_ending);
+	}
 
 	if (line_end_pos == 0) {
 

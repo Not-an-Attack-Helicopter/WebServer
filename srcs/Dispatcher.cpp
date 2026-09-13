@@ -258,14 +258,14 @@ static StatusCode serveDirectoryListing(const std::string& path,
 	response.setHeader("Connection", "keep-alive");
 
 	std::ostringstream body;
-	body	<< tag::DOC << tag::HTML << tag::HEAD << define::META << define::FAVICON << define::STYLE
-			<< tag::TITLE << "Index of" << http::_ << request.getPath() << tag::_TITLE
-			<< tag::_HEAD << tag::BODY
-			<< tag::H1 << "Index of" << http::_ << request.getPath() << tag::_H1;
+	body	<< HTML::DOC << HTML::LANG << HTML::HEAD << TAG::META << TAG::FAVICON << TAG::STYLE
+			<< HTML::TITLE << "Index of" << HTTP::_ << request.getPath() << HTML::_TITLE
+			<< HTML::_HEAD << HTML::BODY
+			<< HTML::H1 << "Index of" << HTTP::_ << request.getPath() << HTML::_H1;
 
 	struct dirent* entry;
 
-	body	<< tag::UL;
+	body	<< HTML::UL;
 	while ((entry = readdir(dir)) != NULL) {
 
 		std::string name = entry->d_name;
@@ -273,7 +273,7 @@ static StatusCode serveDirectoryListing(const std::string& path,
 			continue;
 		}
 
-		body	<< tag::LI << tag::A << tag::HREF << name << tag::_HREF;
+		body	<< HTML::LI << HTML::A << HTML::HREF << name << HTML::_HREF;
 
 		if (name == "..") {
 			body	<< "Parent Directory";
@@ -281,22 +281,22 @@ static StatusCode serveDirectoryListing(const std::string& path,
 			body	<< name;
 		}
 
-		body	<< tag::_A;
+		body	<< HTML::_A;
 
 		if (supports_delete == true && name != "..") {
-			body	<< tag::TAB << button::DELETE_ << request.getPath() << name << button::_DELETE;
+			body	<< HTML::TAB << BUTTON::DELETE_ << request.getPath() << name << BUTTON::_DELETE;
 		}
 
-		body	<< tag::_LI << tag::BR;
+		body	<< HTML::_LI << HTML::BR;
 
 	}
-	body	<< tag::_UL;
+	body	<< HTML::_UL;
 
 	if (supports_delete == true) {
-		body	<< button::SCRIPT;
+		body	<< BUTTON::SCRIPT;
 	}
 
-	body	<< tag::_BODY << tag::_HTML;
+	body	<< HTML::_BODY << HTML::_LANG;
 
 	closedir(dir);
 
@@ -512,12 +512,12 @@ static StatusCode resolveRoute(Client& client) {
 
 	// Check HTTP version
 	const std::string* connection = request.getHeader("connection");
-	if (version == http::V_1_1) {
+	if (version == HTTP::V_1_1) {
 		if (connection != NULL && *connection == "close") {
 			response.setHeader("Connection", "close");
 			client.markForTermination();
 		}
-	} else if (version ==  http::V_1_0) {
+	} else if (version ==  HTTP::V_1_0) {
 		if (connection != NULL && *connection == "keep-alive") {
 			response.setHeader("Connection", "close");
 			client.markForTermination();
@@ -525,7 +525,7 @@ static StatusCode resolveRoute(Client& client) {
 	}
 
 	// Match domain by name
-	if (host.empty() && version == http::V_1_0) {
+	if (host.empty() && version == HTTP::V_1_0) {
 		request.resolved.domain = &socket.domains[0];
 	} else {
 		request.resolved.domain = resolveDomain(socket.domains, host);
@@ -793,8 +793,8 @@ void Dispatcher::buildErrorResponse(const StatusCode& code,
 	} else {
 
 		std::ostringstream body ;
-		body	<< tag::HTML << tag::BODY << tag::H1 << "Error" << http::_ << i2a(code) << ":"
-				<< http::_ << response.getStatusReason() << tag::_H1 << tag::_BODY << tag::_HTML;
+		body	<< HTML::LANG << HTML::BODY << HTML::H1 << "Error" << HTTP::_ << i2a(code) << ":"
+				<< HTTP::_ << response.getStatusReason() << HTML::_H1 << HTML::_BODY << HTML::_LANG;
 		response.setBody(body.str(), HEAP, "text/html", headers_only);
 
 	}
