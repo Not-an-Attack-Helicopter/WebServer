@@ -432,10 +432,10 @@ static StatusCode handleRegularFile(HTTPRequest& request,
 			if (status_code >= BAD_REQUEST) {
 				return status_code;
 			}
-			if (request.body.size > request.resolved.location->client_max_body_size) {
-				log.warn("payload size exceeds the maximum allowed");
-				return PAYLOAD_TOO_LARGE;
-			}
+			// if (request.body.size > request.resolved.location->client_max_body_size) {
+			// 	log.warn("payload size exceeds the maximum allowed");
+			// 	return PAYLOAD_TOO_LARGE;
+			// }
 			request.parsing.state = HTTPRequest::READING_BODY;
 			return NO_STATUS;
 		case HEAD:
@@ -454,19 +454,19 @@ static StatusCode handleDirectory(HTTPRequest& request,
 	case GET:
 		return handleGET(request, response);
 	case POST:
-		if (request.body.size > request.resolved.location->client_max_body_size) {
-			log.warn("payload size exceeds the maximum allowed");
-			return PAYLOAD_TOO_LARGE;
-		}
+		// if (request.body.size > request.resolved.location->client_max_body_size) {
+		// 	log.warn("payload size exceeds the maximum allowed");
+		// 	return PAYLOAD_TOO_LARGE;
+		// }
 		request.parsing.state = HTTPRequest::READING_BODY;
 		return NO_STATUS;
 	case DELETE:
 		return METHOD_NOT_ALLOWED;
 	case PUT:
-		if (request.body.size > request.resolved.location->client_max_body_size) {
-			log.warn("payload size exceeds the maximum allowed");
-			return PAYLOAD_TOO_LARGE;
-		}
+		// if (request.body.size > request.resolved.location->client_max_body_size) {
+		// 	log.warn("payload size exceeds the maximum allowed");
+		// 	return PAYLOAD_TOO_LARGE;
+		// }
 		request.parsing.state = HTTPRequest::READING_BODY;
 		request.created_file = true;
 		return NO_STATUS;
@@ -675,6 +675,27 @@ static StatusCode resolveRoute(Client& client) {
 		return setUpCGI(client);
 	}
 
+	// Check for missing Content-Length header (mandatory for POST and PUT)
+	if ((request.resolved.method == POST || request.resolved.method == PUT) &&
+		!request.body_chunked) {
+		const std::string* content_length = request.getHeader("content-length");
+		if (content_length == NULL) {
+			log.warn("request: no content-length header provided");
+			return LENGTH_REQUIRED;
+		}
+	}
+
+	//  Check if Content-Length value exceeds global body size treshold
+	if (request.body.size > Config::SERVER_MAX_BODY_SIZE) {
+		log.warn("request: content-length exceeds global treshold");
+		return PAYLOAD_TOO_LARGE;
+	}
+	//  Check if Content-Length value exceeds location's body size treshold
+	if (request.body.size > request.resolved.location->client_max_body_size) {
+		log.warn("request: content-length exceeds local treshold");
+		return PAYLOAD_TOO_LARGE;
+	}
+
 	return NO_STATUS;
 }
 
@@ -808,6 +829,7 @@ void Dispatcher::handleRequest(Client& client) {
 	}
 
 	if (status_code == BAD_REQUEST ||
+		status_code == METHOD_NOT_ALLOWED ||
 		status_code == REQUEST_TIMEOUT ||
 		status_code == LENGTH_REQUIRED ||
 		status_code >= INTERNAL_SERVER_ERROR) {
@@ -840,6 +862,7 @@ void Dispatcher::buildErrorResponse(const StatusCode& code,
 
 	response.setStatus(code);
 	if (code == BAD_REQUEST ||
+		code == METHOD_NOT_ALLOWED ||
 		code == REQUEST_TIMEOUT ||
 		code == LENGTH_REQUIRED ||
 		code == PAYLOAD_TOO_LARGE ||

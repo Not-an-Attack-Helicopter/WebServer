@@ -155,15 +155,12 @@ void HTTPRequest::setSessionID(const std::string& session_id) {
 // 	_session = &session;
 // }
 
-bool HTTPRequest::extractContentLength(void) {
-
-	const std::string* value = getHeader("content-length");
-	if (value == NULL) return false; // empty value
+bool HTTPRequest::extractContentLength(const std::string& value) {
 
 	std::size_t size;
 	char* endptr;
-	size = static_cast<std::size_t>(strtoul((*value).c_str(), &endptr, 10));
-	if (std::strcmp(endptr, (*value).c_str()) == 0 || *endptr != '\0')
+	size = static_cast<std::size_t>(strtoul((value).c_str(), &endptr, 10));
+	if (std::strcmp(endptr, (value).c_str()) == 0 || *endptr != '\0')
 		return false; // malformed content-length header
 
 	body.size = size;
