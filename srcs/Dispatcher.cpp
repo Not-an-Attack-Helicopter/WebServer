@@ -590,24 +590,27 @@ static StatusCode resolveRoute(Client& client) {
 	}
 	request.cgi.script_name = normalized;
 
+	// Decode (but don't normalize) path_info
+	if (!path_info.empty() && !decodeURL(path_info, request.cgi.path_info)) {
+		log.error("dispatch error: malformed CGI path info");
+		return BAD_REQUEST;
+	}
+
 	// Create absolute file path from root or alias
 	if (!request.resolved.location->root.empty()) {
 		request.resolved.filepath = request.resolved.location->root + normalized;
+		request.cgi.path_translated = request.resolved.location->root + request.cgi.path_info;
 	} else {
 		request.resolved.filepath = request.resolved.location->alias +
 		normalized.substr(request.resolved.location->path.size());
+		request.cgi.path_translated = request.resolved.location->alias +
+		request.cgi.path_info.substr(request.resolved.location->path.size());
 	}
 	log.debug("absolute file path: " + request.resolved.filepath);
 
 	// In case of ".cgi" file extension set binary_path to filepath
 	if (request.requires_CGI && request.cgi.binary_path.empty()) {
 		request.cgi.binary_path = request.resolved.filepath;
-	}
-
-	// Only after path resolving succeeds decode path_info
-	if (!path_info.empty() && !decodeURL(path_info, request.cgi.path_info)) {
-		log.error("dispatch error: malformed CGI path info");
-		return BAD_REQUEST;
 	}
 
 	// Set up CGI
