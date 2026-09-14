@@ -599,6 +599,11 @@ static StatusCode resolveRoute(Client& client) {
 	}
 	log.debug("absolute file path: " + request.resolved.filepath);
 
+	// In case of ".cgi" file extension set binary_path to filepath
+	if (request.requires_CGI && request.cgi.binary_path.empty()) {
+		request.cgi.binary_path = request.resolved.filepath;
+	}
+
 	// Only after path resolving succeeds decode path_info
 	if (!path_info.empty() && !decodeURL(path_info, request.cgi.path_info)) {
 		log.error("dispatch error: malformed CGI path info");
@@ -607,6 +612,12 @@ static StatusCode resolveRoute(Client& client) {
 
 	// Set up CGI
 	if (request.requires_CGI) {
+		if (!isRegularFile(request.cgi.binary_path)) {
+			return NOT_FOUND;
+		}
+		if (access(request.cgi.binary_path.c_str(), X_OK) != 0) {
+			return FORBIDDEN;
+		}
 		// TEST we need to put setting up all things CGI here! The cgi pipes need to be ready to be written to during READING_BODY
 		return setUpCGI(client);
 	}
@@ -765,7 +776,7 @@ void Dispatcher::buildErrorResponse(const StatusCode& code,
 									bool headers_only,
 									HTTPResponse& response) {
 
-	// Check location error_page first, then server error_page
+	// Check location error_page
 	std::string error_page_path;
 	if (location != NULL && !location->error_pages.empty()) {
 		std::map<int, std::string>::const_iterator it = location->error_pages.find(static_cast<int>(code));

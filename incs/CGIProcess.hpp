@@ -102,14 +102,19 @@ private:
 	// once the blank line is hit, the rest becomes _body
 	// void _consumeAvailableOutput();
 
-	static const std::size_t           LF_SIZE = 1;
-	static const std::size_t           CRLF_SIZE = 2;
+	static const std::size_t			LF_SIZE = 1;
+	static const std::size_t			CRLF_SIZE = 2;
+
+	static const unsigned short			CGI_EXIT_SETUP_FAILED = 125;
+	static const unsigned short			CGI_EXIT_EXEC_FAILED = 126;
+	static const unsigned short			CGI_EXIT_BIN_NOT_FOUND = 127;
+
 
 	// stored for spawn() (next step), which forks+execve's using these
-	std::string                        _path;
-	std::vector<std::string>           _args;
-	std::map<std::string, std::string> _env;
-	std::string                        _working_dir;
+	std::string							_path;
+	std::vector<std::string>			_args;
+	std::map<std::string, std::string>	_env;
+	std::string							_working_dir;
 
 	// raw pipe ends opened by the constructor; consumed by spawn()
 	int         _in_pipe[2];  // [0] read end (child stdin), [1] write end (we write the body here)
