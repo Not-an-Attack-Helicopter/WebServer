@@ -73,11 +73,11 @@ bool CGIProcess::spawn() {
 	if (pid == 0) {
 		close(_in_pipe[1]);
 		close(_out_pipe[0]);
-		if (dup2(_in_pipe[0], STDIN_FILENO) == -1) _exit(127);
-		if (dup2(_out_pipe[1], STDOUT_FILENO) == -1) _exit(127);
+		if (dup2(_in_pipe[0], STDIN_FILENO) == -1) _exit(CGI_EXIT_SETUP_FAILED);
+		if (dup2(_out_pipe[1], STDOUT_FILENO) == -1) _exit(CGI_EXIT_SETUP_FAILED);
 		close(_in_pipe[0]); close(_out_pipe[1]);
 		if (!_working_dir.empty()) {
-			if (chdir(_working_dir.c_str()) != 0) _exit(126);
+			if (chdir(_working_dir.c_str()) != 0) _exit(CGI_EXIT_SETUP_FAILED);
 		}
 
 		std::vector<char*> argv;
@@ -99,8 +99,11 @@ bool CGIProcess::spawn() {
 			envp.push_back(const_cast<char*>(env_strings[i].c_str()));
 		envp.push_back(NULL);
 
-		execve(_path.c_str(), &argv[0], &envp[0]);
-		_exit(127);
+		if (execve(_path.c_str(), &argv[0], &envp[0]) == -1) {
+			if (errno == ENOENT)
+				_exit(CGI_EXIT_BIN_NOT_FOUND);
+			_exit(CGI_EXIT_EXEC_FAILED);
+		}
 	}
 
 	close(_in_pipe[0]);
@@ -254,7 +257,9 @@ static bool isIgnored(const std::string& name) {
 	 * The HTTP server controls message framing and connection
 	 * management. These are not copied from CGI.
 	 */
-	return equalCI(name, "Content-Length") ||
+	return equalCI(name, "Status") ||
+		   equalCI(name, "Content-Type") ||
+		   equalCI(name, "Content-Length") ||
 		   equalCI(name, "Transfer-Encoding") ||
 		   equalCI(name, "Connection") ||
 		   equalCI(name, "Keep-Alive") ||
@@ -370,6 +375,7 @@ bool CGIProcess::_consumeHeaderLine() {
 // parseRequestLine()/parseHeaders(), just for cgi output
 void CGIProcess::consumeAvailableOutput() {
 
+	// log.error(_outstream.str());
 	while (!_headers_done && _outstream.mark < _outstream.end) {
 
 		bool has_consumed_line;
