@@ -62,16 +62,16 @@ private:
 
 	void									_handleSocketError(std::map<int, Client*>::iterator it);
 	void									_handleSocketReadEvent(std::map<int, Client*>::iterator it);
-	void									_handlePipeWriteEvent(std::map<int, Client*>::iterator it);
-	void									_handlePipeReadEvent(std::map<int, Client*>::iterator it);
-	// void									_handlePipeEOFEvent(std::map<int, Client*>::iterator it);
-	void									_handlePipeError(std::map<int, Client*>::iterator it);
 	void									_handleSocketWriteEvent(std::map<int, Client*>::iterator it);
+	void									_handlePipeError(std::map<int, int>::iterator it);
+	void									_handlePipeWriteEvent(std::map<int, int>::iterator it);
+	void									_handlePipeReadEvent(std::map<int, int>::iterator it);
+	// void									_handlePipeEOFEvent(std::map<int, Client*>::iterator it);
 
 	void									_reapStaleClients(const std::time_t now);
 
 	void									_cleanUpAllRessources(void);
-	void									_cleanUpScriptPipeEnd(std::map<int, Client*>::iterator it);
+	void									_cleanUpScriptPipeEnd(std::map<int, int>::iterator it);
 	void									_cleanUpClient(std::map<int, Client*>::iterator it);
 	void									_cleanUpSocket(std::map<int, ListeningSocket>::iterator it);
 
@@ -86,8 +86,9 @@ private:
 
 	std::map<int, ListeningSocket>			_sockets;
 	std::map<int, Client*>					_clients;
-	std::map<Client*, int>					_reverse;
-	std::map<int, Client*>					_scripts;
+	// std::map<Client*, int>					_reverse;
+	// std::map<int, Client*>					_pipes;
+	std::map<int, int>						_scripts;
 
 	epoll_event								_events[MAX_EPOLL_EVENTS];
 
