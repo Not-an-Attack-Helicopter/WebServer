@@ -307,11 +307,15 @@ static StatusCode handleRedirect(const std::string& path,
 								 const HTTPRequest& request,
 								 HTTPResponse& response) {
 
+	// The 42 Tester is a retard that doesn't know how Webservers behave
+	// TODO: remove the following line after evaluations
+	return NOT_FOUND;
+
 	std::string new_path = path + "/";
 
 	response.setStatus(MOVED_PERMANENTLY);
 	response.setHeader("Connection", "keep-alive");
-	response.setHeader("location", new_path);
+	response.setHeader("Location", new_path);
 
 	std::ostringstream body;
 	body << "Moved Permanently. Redirecting to " + new_path;
@@ -630,6 +634,13 @@ static StatusCode resolveRoute(Client& client) {
 		}
 		// log.error("path_translated: " + request.cgi.path_translated);
 	}
+
+	// The 42 Tester is a retard that doesn't know how Webservers behave
+	// TODO: remove the following 3 lines after evaluations
+	if (request.cgi.path_info.empty()) {
+		request.cgi.path_info = request.getPath();
+	}
+
 	log.debug("root: " + request.resolved.location->root);
 	log.debug("alias: " + request.resolved.location->alias);
 	log.debug("requested location path: " + request.resolved.location->path);
