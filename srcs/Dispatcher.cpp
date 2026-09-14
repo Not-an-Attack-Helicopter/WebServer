@@ -588,7 +588,9 @@ static StatusCode resolveRoute(Client& client) {
 		log.error("dispatch error: forbidden path");
 		return NOT_FOUND;
 	}
-	request.cgi.script_name = normalized;
+	if (request.requires_CGI) {
+		request.cgi.script_name = normalized;
+	}
 
 	// Decode (but don't normalize) path_info
 	if (!path_info.empty() && !decodeURL(path_info, request.cgi.path_info)) {
@@ -599,23 +601,71 @@ static StatusCode resolveRoute(Client& client) {
 	// Create absolute file path from root or alias
 	if (!request.resolved.location->root.empty()) {
 		request.resolved.filepath = request.resolved.location->root + normalized;
-		request.cgi.path_translated = request.resolved.location->root + request.cgi.path_info;
+
+		// log.error("root: " + request.resolved.location->root);
+		// log.error("normalized/script_name: " + normalized + " (" + i2a(normalized.size()) + ")");
+		// log.error("path: " + request.resolved.location->path + " (" + i2a(request.resolved.location->path.size()) + ")");
+		// log.error("filepath/script_filename: " + request.resolved.filepath);
+		// log.error("path_info: " + request.cgi.path_info);
+
+		if (!request.cgi.path_info.empty()) {
+			request.cgi.path_translated = request.resolved.location->root +
+										  request.resolved.location->path +
+										  request.cgi.path_info;
+		}
+		// log.error("path_translated: " + request.cgi.path_translated);
 	} else {
 		request.resolved.filepath = request.resolved.location->alias +
-		normalized.substr(request.resolved.location->path.size());
-		request.cgi.path_translated = request.resolved.location->alias +
-		request.cgi.path_info.substr(request.resolved.location->path.size());
+									normalized.substr(request.resolved.location->path.size());
+
+		// log.error("alias: " + request.resolved.location->alias);
+		log.debug("normalized: " + normalized + " (" + i2a(normalized.size()) + ")");
+		log.debug("requested path: " + request.resolved.location->path + " (" + i2a(request.resolved.location->path.size()) + ")");
+		// log.error("filepath/script_filename: " + request.resolved.filepath);
+		// log.error("path_info: " + request.cgi.path_info);
+
+		if (!request.cgi.path_info.empty()) {
+			request.cgi.path_translated = request.resolved.location->alias +
+										  request.cgi.path_info;
+		}
+		// log.error("path_translated: " + request.cgi.path_translated);
 	}
-	log.debug("absolute file path: " + request.resolved.filepath);
+	log.debug("root: " + request.resolved.location->root);
+	log.debug("alias: " + request.resolved.location->alias);
+	log.debug("requested location path: " + request.resolved.location->path);
+	log.debug("absolute file path (script_filename): " + request.resolved.filepath);
 
 	// In case of ".cgi" file extension set binary_path to filepath
 	if (request.requires_CGI && request.cgi.binary_path.empty()) {
 		request.cgi.binary_path = request.resolved.filepath;
 	}
+	log.debug("binary_path: " + request.cgi.binary_path);
+	log.debug("script_name: " + request.cgi.script_name);
+	log.debug("path_info: " + request.cgi.path_info);
+	log.debug("path_translated: " + request.cgi.path_translated);
+
+/*
+ * SCRIPT_NAME → SCRIPT_FILENAME (normalized → filepath)
+ *
+ * root:
+ * root + normalized
+ *
+ * alias:
+ * alias + normalized.substr(location.path.size())
+ *
+ * PATH_INFO → PATH_TRANSLATED
+ *
+ * root:
+ * root + location.path + path_info
+ *
+ * alias:
+ * alias + path_info
+ */
 
 	// Set up CGI
 	if (request.requires_CGI) {
-		if (!isRegularFile(request.cgi.binary_path)) {
+		if (!isRegularFile(request.cgi.binary_path) ||
+			!isRegularFile(request.resolved.filepath)) {
 			return NOT_FOUND;
 		}
 		if (access(request.cgi.binary_path.c_str(), X_OK) != 0) {
