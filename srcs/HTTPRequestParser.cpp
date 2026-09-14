@@ -353,35 +353,45 @@ bool RequestParser::_parseHeaders(const Buffer& buffer, HTTPRequest& request) {
 				return true;
 			}
 
-			// DELETE may come with a body (optional)
-			if (requested_method == DELETE) {
-				if (request.getHeader("content_length") !=  NULL) {
-					if (!request.extractContentLength()) {
-						log.info("request: no content-length header provided");
-						request.body.size = 0;
-					}
-				} else {
-					request.parsing.state = HTTPRequest::RESOLVING_ROUTE;
-					return true;
+			// This only test if the value is malformed (NaN) and sends BAD_REQUEST if applicable
+			// Checks if header is missing or if its value is exceeding thresholds come after resolving route
+			const std::string* content_length = request.getHeader("content-length");
+			if (content_length != NULL) {
+				if (!request.extractContentLength(*content_length)) {
+					log.warn("request: malformed content-length header provided");
+					request.parsing.error_cause = BAD_REQUEST;
+					request.parsing.state = HTTPRequest::ERROR;
+					return false;
 				}
 			}
 
-			// Extract Content-Length value (mandatory for POST and PUY)
-			if ((requested_method == POST || requested_method == PUT) &&
-				!request.body_chunked && !request.extractContentLength()) {
-				log.warn("request: no content-length header provided");
-				request.parsing.error_cause = LENGTH_REQUIRED;
-				request.parsing.state = HTTPRequest::ERROR;
-				return false;
-			}
+			// // After this check DELETE can procced
+			// if (requested_method == DELETE) {
+			// 	request.parsing.state = HTTPRequest::RESOLVING_ROUTE;
+			// 	return true;
+			// }
 
-			//  Check if Content-Length value exceeds global body size treshold
-			if (request.body.size > Config::SERVER_MAX_BODY_SIZE) {
-				log.warn("request: content-length exceeds global treshold");
-				request.parsing.error_cause = PAYLOAD_TOO_LARGE;
-				request.parsing.state = HTTPRequest::ERROR;
-				return false;
-			}
+			// // Extract Content-Length value (mandatory for POST and PUT)
+			// if ((requested_method == POST || requested_method == PUT) &&
+			// 	!request.body_chunked) {
+			// 	const std::string* content_length = request.getHeader("content-length");
+			// 	if (content_length != NULL) {
+			// 		if (!request.extractContentLength(*content_length)) {
+			// 			log.warn("request: malformed content-length header provided");
+			// 			request.parsing.error_cause = BAD_REQUEST;
+			// 			request.parsing.state = HTTPRequest::ERROR;
+			// 			return false;
+			// 		}
+			// 	}
+			// }
+
+			// //  Check if Content-Length value exceeds global body size treshold
+			// if (request.body.size > Config::SERVER_MAX_BODY_SIZE) {
+			// 	log.warn("request: content-length exceeds global treshold");
+			// 	request.parsing.error_cause = PAYLOAD_TOO_LARGE;
+			// 	request.parsing.state = HTTPRequest::ERROR;
+			// 	return false;
+			// }
 
 			request.parsing.state = HTTPRequest::RESOLVING_ROUTE;
 

@@ -266,7 +266,7 @@ public:
 	// void												setSession(const Session& session);
 	void												setSessionID(const std::string& session_id);
 
-	bool												extractContentLength(void);
+	bool												extractContentLength(const std::string& value);
 
 	void												reset(void);
 
