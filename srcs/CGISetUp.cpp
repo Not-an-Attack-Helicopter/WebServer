@@ -55,10 +55,12 @@ static std::map<std::string,std::string> buildCGIenv(const HTTPRequest& req) {
 	env["SERVER_NAME"] = req.resolved.domain->names[0]; // extractDomainNames() throws on empty, always non-empty here
 	env["SERVER_PORT"] = i2a(ntohs(req.cgi.server_socket.sin_port));
 
-	if (!req.cgi.path_info.empty()) {
-		env["PATH_INFO"] = req.cgi.path_info;
-		env["PATH_TRANSLATED"] = req.resolved.filepath;
-	}
+	// if (!req.cgi.path_info.empty()) {
+	// 	env["PATH_INFO"] = req.cgi.path_info;
+	// 	env["PATH_TRANSLATED"] = req.resolved.filepath;
+	// }
+	env["PATH_INFO"] = req.cgi.path_info;
+	env["PATH_TRANSLATED"] = req.cgi.path_translated;
 
 	// sin_port is network byte order, ntohs() before treating it as a number
 	env["REMOTE_ADDR"] = addr2string(req.cgi.remote_socket);

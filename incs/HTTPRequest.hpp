@@ -213,11 +213,13 @@ public:
 		std::string										binary_path;
 		std::string										script_name;
 		std::string										path_info;
+		std::string										path_translated;
 
 		CGIContext(void)
 			:	binary_path(""),
 				script_name(""),
-				path_info("") {
+				path_info(""),
+				path_translated("") {
 			std::memset(&remote_socket, 0, sizeof(remote_socket));
 			std::memset(&server_socket, 0, sizeof(server_socket));
 		}

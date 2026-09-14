@@ -54,7 +54,7 @@ static inline std::string stripInlineComment(std::string line) {
 
 static bool isSupportedCGIExtension(const std::string& ext) {
 
-	const std::string valid_exts[] = {".php", ".pl", ".py", ".rb", ".sh"};
+	const std::string valid_exts[] = {".bla", ".php", ".pl", ".py", ".rb", ".sh"};
 	const std::size_t size = arraySize(valid_exts);
 
 	return (std::find(valid_exts, valid_exts + size, ext) != valid_exts + size);
@@ -509,6 +509,8 @@ void ConfigLoader::_parseLocationBlock(std::ifstream& config_file_stream,
 			// If CGI scripts allowed, add catch-all extension ".cgi"
 			if (!loc.interpreters.empty()) {
 				loc.interpreters[".cgi"];
+				// Only needed for stupid 42 tester
+				loc.interpreters[".bla"];
 			}
 
 			// Check for duplicate paths

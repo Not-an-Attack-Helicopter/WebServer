@@ -384,9 +384,13 @@ void CGIProcess::consumeAvailableOutput() {
 		} catch (std::exception& e) {
 			throw std::runtime_error(e.what());
 		}
-		if (has_consumed_line == true) {
-			_outstream.begin = _outstream.mark;
+		// if (has_consumed_line == true) {
+		// 	_outstream.begin = _outstream.mark;
+		// }
+		if (has_consumed_line == false) {
+			return;
 		}
+		_outstream.begin = _outstream.mark;
 	}
 
 	if (_headers_done) {
