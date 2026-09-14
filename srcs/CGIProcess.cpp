@@ -13,7 +13,7 @@
 #include "../incs/CGIProcess.hpp"
 #include "../incs/templates.hpp"
 #include "../incs/constexpr.hpp"
-// #include "../incs/Logger.hpp"
+#include "../incs/Logger.hpp"
 #include "../incs/utils.hpp"
 
 #include <unistd.h>
@@ -46,11 +46,15 @@ CGIProcess::CGIProcess(const std::string& path, const std::vector<std::string>& 
 
 	if (pipe(_in_pipe) == -1)
 		return;
+	log.error("_in_pipe read end: " + i2a(_in_pipe[0]));
+	log.error("_in_pipe write end: " + i2a(_in_pipe[1]));
 	if (pipe(_out_pipe) == -1) {
 		close(_in_pipe[0]); close(_in_pipe[1]);
 		_in_pipe[0] = -1; _in_pipe[1] = -1;
 		return;
 	}
+	log.error("_out_pipe read end: " + i2a(_out_pipe[0]));
+	log.error("_out_pipe write end: " + i2a(_out_pipe[1]));
 
 	_pipes_open = true;
 }
