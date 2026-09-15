@@ -36,9 +36,9 @@ public:
 private:
 
 	RequestParser(void);
+	~RequestParser(void);
 	RequestParser(const RequestParser& other);
 	RequestParser& operator = (const RequestParser& other);
-	~RequestParser(void);
 
 	static const std::size_t 				LF_SIZE = 1;
 	static const std::size_t 				CRLF_SIZE = 2;

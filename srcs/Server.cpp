@@ -461,6 +461,7 @@ void Server::_handleSocketReadEvent(std::map<int, Client*>::iterator client_it) 
 		}
 
 		if (client.getState() == Client::DISPATCHING) {
+			log.error("client fd_" + i2a(client_fd) + " state: DISPATCHING");
 			dispatcher.handleRequest(client);
 		}
 
@@ -533,14 +534,17 @@ void Server::_handleSocketReadEvent(std::map<int, Client*>::iterator client_it) 
 		}
 
 		if (client.getState() == Client::RECEIVING_BODY) {
+			log.error("client fd_" + i2a(client_fd) + " state: RECEIVING_BODY");
 			client.parseDataFromPeer();
 		}
 
 		if (client.getState() == Client::PREPARING_RESPONSE) {
+			log.error("client fd_" + i2a(client_fd) + " state: PREPARING_RESPONSE");
 			dispatcher.handleRequest(client);
 		}
 
 		if (client.getState() == Client::PENDING_RESPONSE) {
+			log.error("client fd_" + i2a(client_fd) + " state: PENDING_RESPONSE");
 			client.popRequest();
 			client.pushRequest();
 

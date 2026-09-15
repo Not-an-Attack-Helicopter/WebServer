@@ -92,21 +92,21 @@ void dumpRequest(const HTTPRequest* request) {
 	case HTTPRequest::COMPLETE: state = "complete"; break;
 	case HTTPRequest::ERROR: state = "error"; break;
 	}
-	log.debug("State:\t\t" + state + " (" + i2a(request->parsing.state) + ")");
+	log.debug("State:\t\t\t\t" + state + " (" + i2a(request->parsing.state) + ")");
 
 	switch (request->getMethod()) {
-	case GET: log.debug("Method:\t\tGET"); break;
-	case HEAD: log.debug("Method:\t\tHEAD"); break;
-	case DELETE: log.debug("Method:\t\tDELETE"); break;
-	case POST: log.debug("Method:\t\tPOST"); break;
-	case PUT: log.debug("Method:\t\tPUT"); break;
-	case PATCH: log.debug("Method:\t\tPATCH"); break;
-	case METHOD_COUNT: log.debug("Method:\t\tN/A"); break;
+	case GET: log.debug("Method:\t\t\t\tGET"); break;
+	case HEAD: log.debug("Method:\t\t\t\tHEAD"); break;
+	case DELETE: log.debug("Method:\t\t\t\tDELETE"); break;
+	case POST: log.debug("Method:\t\t\t\tPOST"); break;
+	case PUT: log.debug("Method:\t\t\t\tPUT"); break;
+	case PATCH: log.debug("Method:\t\t\t\tPATCH"); break;
+	case METHOD_COUNT: log.debug("Method:\t\t\t\tN/A"); break;
 	}
 
-	log.debug("Path:\t\t" + request->getPath());
-	log.debug("Query:\t\t" + request->getQuery());
-	log.debug("Version:\t" + request->getVersion());
+	log.debug("Path:\t\t\t\t" + request->getPath());
+	log.debug("Query:\t\t\t\t" + request->getQuery());
+	log.debug("Version:\t\t\t" + request->getVersion());
 
 	// Print all headers
 	// std::map<std::string, std::string>::iterator it = request->getHeaders().begin();
@@ -118,19 +118,22 @@ void dumpRequest(const HTTPRequest* request) {
 	// Print select headers
 	const std::string* host = request->getHeader("host");
 	if (host != NULL)
-		log.debug("Host:\t\t" + *host);
+		log.debug("Host:\t\t\t\t" + *host);
 	const std::string* user_agent = request->getHeader("user-agent");
 	if (user_agent != NULL)
-		log.debug("User-Agent:\t" + *user_agent);
+		log.debug("User-Agent:\t\t\t" + *user_agent);
 	const std::string* accept = request->getHeader("accept");
 	if (accept != NULL)
-		log.debug("Accept:\t\t" + *accept);
+		log.debug("Accept:\t\t\t\t" + *accept);
+	const std::string* accept_encoding = request->getHeader("accept-encoding");
+	if (accept_encoding != NULL)
+		log.debug("Accept-Encoding:\t" + *accept_encoding);
 	const std::string* connection = request->getHeader("connection");
 	if (connection != NULL)
-		log.debug("Connection:\t" + *connection);
+		log.debug("Connection:\t\t" + *connection);
 	const std::string* type = request->getHeader("content-type");
 	if (type != NULL)
-		log.debug("Content-Type:\t" + *type);
+		log.debug("Content-Type:\t\t" + *type);
 	const std::string* disposition = request->getHeader("content-disposition");
 	if (disposition != NULL)
 		log.debug("Content-Disposition:\t" + *disposition);
@@ -139,7 +142,7 @@ void dumpRequest(const HTTPRequest* request) {
 		log.debug("Content-Length:\t" + *content_length);
 	const std::string* cookie = request->getHeader("cookie");
 	if (cookie != NULL)
-		log.debug("Cookie:\t\t" + *cookie);
+		log.debug("Cookie:\t\t\t\t" + *cookie);
 }
 // DEBUG END
 

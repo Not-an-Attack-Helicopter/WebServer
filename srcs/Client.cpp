@@ -89,8 +89,6 @@ Client::~Client(void) {
 	}
 
 	delete cgi_process;
-	// while (!process_queue.empty()) popProcess();
-	// process_queue.clear();
 	// while (!_request_queue.empty()) popRequest();
 	// _request_queue.clear();
 	// while (!_response_queue.empty()) popResponse();
@@ -220,15 +218,23 @@ bool Client::isTimedOut(const std::time_t now) const {
 }
 
 ssize_t Client::queueIncomingData(int fd) {
-	ssize_t bytes_read = _instream.fetchData(fd);
-	if (bytes_read > 0) _last_event = std::time(NULL);
-	return bytes_read;
+	ssize_t bytes_received = _instream.fetchData(fd);
+	if (bytes_received > 0) _last_event = std::time(NULL);
+	log.debug("client_" + i2a(fd) + ": bytes received: " + i2a(bytes_received));
+	return bytes_received;
 }
 
 void Client::parseDataFromPeer(void) {
 
+	if (blockedFromReceiving()) {
+		log.notice("\"consuming\" bytes in buffer:\n-------");
+		log.notice(_instream.str());
+		log.notice("-------");
+		_instream.reset();
+		return;
+	}
+
 	HTTPRequest& request = *_request;
-	// CGIProcess* process = process_queue.back();
 
 	if (request.parsing.state == HTTPRequest::READING_BODY &&
 		_instream.data.size() == BUFFER_SIZE) {
@@ -317,8 +323,6 @@ void Client::parseDataFromPeer(void) {
 		}
 	}
 
-	dumpRequest(&request);
-
 	switch (request.parsing.state) {
 
 		case HTTPRequest::READING_REQUEST_LINE:
@@ -332,6 +336,7 @@ void Client::parseDataFromPeer(void) {
 			break;
 		case HTTPRequest::RESOLVING_ROUTE:
 			log.info("All HTTP request headers received");
+			dumpRequest(&request);
 			setState(Client::RETRIEVING_SESSION);
 			if (_instream.data.size() != BUFFER_SIZE) {
 				_instream.data.resize(BUFFER_SIZE);
@@ -352,6 +357,7 @@ void Client::parseDataFromPeer(void) {
 			break;
 		case HTTPRequest::ERROR:
 			log.warn("HTTP request parser returned error");
+			dumpRequest(&request);
 			setState(Client::PREPARING_RESPONSE);
 			if (_instream.data.size() != BUFFER_SIZE) {
 				_instream.data.resize(BUFFER_SIZE);
@@ -359,6 +365,7 @@ void Client::parseDataFromPeer(void) {
 			_instream.reset();
 			break;
 	}
+
 	return;
 }
 
@@ -399,6 +406,12 @@ void Client::queueOutgoingData(void) {
 		break;
 	}
 
+	log.notice("Response:\n-------");
+	log.notice(_pending_response.headers.str());
+	if (!_pending_response.body.temp.str().empty()) {
+		log.notice(_pending_response.body.temp.str());
+	}
+	log.notice("-------");
 	_state = SENDING_HEADERS;
 	return;
 }
@@ -608,8 +621,6 @@ void Client::reset(void) {
 	std::memset(&_server_addr, 0, _addrlen);
 	std::memset(&_remote_addr, 0, _addrlen);
 
-	// while (!process_queue.empty()) popProcess();
-	// process_queue.clear();
 	// while (!_request_queue.empty()) popRequest();
 	// _request_queue.clear();
 	// while (!_response_queue.empty()) popResponse();

@@ -35,6 +35,17 @@ RequestParser& RequestParser::instance(void) {
 // Feed raw bytes; returns the current parse_state:
 bool RequestParser::buffer(Buffer& buffer, CGIProcess* cgi_process, HTTPRequest& request) {
 
+	std::string state;
+	switch(request.parsing.state) {
+	case HTTPRequest::READING_REQUEST_LINE: state = "reading request line"; break;
+	case HTTPRequest::READING_HEADERS: state = "reading headers"; break;
+	case HTTPRequest::RESOLVING_ROUTE: state = "resolving route"; break;
+	case HTTPRequest::READING_BODY: state = "reading body"; break;
+	case HTTPRequest::COMPLETE: state = "complete"; break;
+	case HTTPRequest::ERROR: state = "error"; break;
+	}
+	log.error("State:\t\t" + state + " (" + i2a(request.parsing.state) + ")");
+
 	switch (request.parsing.state) {
 
 	case HTTPRequest::READING_REQUEST_LINE:
@@ -61,6 +72,12 @@ RequestParser::RequestParser(void) {
 	return;
 };
 
+/*	@brief Destructor	*/
+RequestParser::~RequestParser() {
+	log.debug("RequestParser Destructor called");
+	return;
+};
+
 /*	@brief Copy Constructor	*/
 RequestParser::RequestParser(const RequestParser& other)/* : _configs(other._configs) */{
 	log.debug("RequestParser Copy Constructor called");
@@ -74,12 +91,6 @@ RequestParser& RequestParser::operator=(const RequestParser& other) {
 		log.debug("RequestParser Copy Assignment Operator called");
 	}
 	return *this;
-};
-
-/*	@brief Destructor	*/
-RequestParser::~RequestParser() {
-	log.debug("RequestParser Destructor called");
-	return;
 };
 
 std::size_t RequestParser::_findRequestLineEnd(const Buffer& buffer, HTTPRequest& request) {
@@ -113,6 +124,7 @@ static inline Method matchMethod(const std::string& method) {
 bool RequestParser::_extractTokens(const Buffer& buffer, HTTPRequest& request) {
 
 	// Transform to stream
+	log.notice("Request:\n-------\n" + buffer.str() + "\n-------\n");
 	std::stringstream ss;
 	buffer.sstream(ss, 0, request.parsing.line_end_pos);
 	if (ss.fail()) {

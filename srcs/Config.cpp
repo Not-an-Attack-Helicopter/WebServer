@@ -49,6 +49,12 @@ Config::Config(void) {
 	return;
 };
 
+/*	@brief Destructor	*/
+Config::~Config() {
+	log.debug("Config Destructor called");
+	return;
+};
+
 /*	@brief Copy Constructor	*/
 Config::Config(const Config& other) : _configs(other._configs) {
 	log.debug("Config Copy Constructor called");
@@ -62,10 +68,4 @@ Config& Config::operator=(const Config& other) {
 		this->_configs = other._configs;
 	}
 	return *this;
-};
-
-/*	@brief Destructor	*/
-Config::~Config() {
-	log.debug("Config Destructor called");
-	return;
 };

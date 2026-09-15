@@ -119,9 +119,9 @@ public:
 private:
 
 	Config(void);
+	~Config(void);
 	Config(const Config& other);
 	Config& operator = (const Config& other);
-	~Config(void);
 
 	std::vector<Socket>							_configs;
 

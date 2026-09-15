@@ -489,11 +489,13 @@ static StatusCode routeRequest(HTTPRequest& request, HTTPResponse& response) {
 	// Check if request path exists as static file in `root`
 	} else if (isRegularFile(request.resolved.filepath)) {
 
+		log.error("regular file routing");
 		return handleRegularFile(request, response);
 
 	// Check if request is for a directory
 	} else if (isDirectory(request.resolved.filepath) || request.resolved.method == PUT) {
 
+		log.error("directory routing");
 		return handleDirectory(request, response);
 
 	// If target not found, send 404
@@ -782,6 +784,17 @@ void Dispatcher::handleRequest(Client& client) {
 	HTTPResponse& response = client.getCurrentResponse();
 	HTTPRequest& request = client.getCurrentRequest();
 
+	std::string state;
+	switch(request.parsing.state) {
+	case HTTPRequest::READING_REQUEST_LINE: state = "reading request line"; break;
+	case HTTPRequest::READING_HEADERS: state = "reading headers"; break;
+	case HTTPRequest::RESOLVING_ROUTE: state = "resolving route"; break;
+	case HTTPRequest::READING_BODY: state = "reading body"; break;
+	case HTTPRequest::COMPLETE: state = "complete"; break;
+	case HTTPRequest::ERROR: state = "error"; break;
+	}
+	log.error("State:\t\t" + state + " (" + i2a(request.parsing.state) + ")");
+
 	switch (request.parsing.state) {
 	case HTTPRequest::ERROR:
 		client.markForTermination();
@@ -813,6 +826,7 @@ void Dispatcher::handleRequest(Client& client) {
 		break;
 	case HTTPRequest::RESOLVING_ROUTE:
 		status_code = resolveRoute(client);
+		log.error("Status: " + i2a(status_code));
 		if (status_code == NO_STATUS) {
 			status_code = routeRequest(request, response);
 		}
@@ -841,11 +855,17 @@ void Dispatcher::handleRequest(Client& client) {
 		status_code == METHOD_NOT_ALLOWED ||
 		status_code == REQUEST_TIMEOUT ||
 		status_code == LENGTH_REQUIRED ||
+		status_code == PAYLOAD_TOO_LARGE ||
 		status_code >= INTERNAL_SERVER_ERROR) {
-		client.markForTermination();
-	} else if (status_code == PAYLOAD_TOO_LARGE) {
-		client.blockFromReceiving();
+		response.setHeader("Connection", "close");
+		if (request.resolved.method != GET &&
+			request.resolved.method != HEAD) {
+			client.blockFromReceiving();
+		} else {
+			client.markForTermination();
+		}
 	}
+
 	buildErrorResponse(status_code,
 					   request.resolved.location,
 					   request.headers_only,
@@ -870,16 +890,17 @@ void Dispatcher::buildErrorResponse(const StatusCode& code,
 	}
 
 	response.setStatus(code);
-	if (code == BAD_REQUEST ||
-		code == METHOD_NOT_ALLOWED ||
-		code == REQUEST_TIMEOUT ||
-		code == LENGTH_REQUIRED ||
-		code == PAYLOAD_TOO_LARGE ||
-		code >= INTERNAL_SERVER_ERROR) {
-		response.setHeader("Connection", "close");
-	} else {
-		response.setHeader("Connection", "keep-alive");
-	}
+
+	// if (code == BAD_REQUEST ||
+	// 	code == METHOD_NOT_ALLOWED ||
+	// 	code == REQUEST_TIMEOUT ||
+	// 	code == LENGTH_REQUIRED ||
+	// 	code == PAYLOAD_TOO_LARGE ||
+	// 	code >= INTERNAL_SERVER_ERROR) {
+	// 	response.setHeader("Connection", "close");
+	// // } else {
+	// // 	response.setHeader("Connection", "keep-alive");
+	// }
 
 	if (!error_page_path.empty()) {
 

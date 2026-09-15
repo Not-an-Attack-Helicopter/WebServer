@@ -384,13 +384,19 @@ void ConfigLoader::loadConfig(const std::string& config_file) {
 
 /*	@brief Constructor	*/
 ConfigLoader::ConfigLoader(void) {
-	log.debug("Parser Constructor called");
+	log.debug("ConfigLoader Constructor called");
+	return;
+};
+
+/*	@brief Destructor	*/
+ConfigLoader::~ConfigLoader() {
+	log.debug("ConfigLoader Destructor called");
 	return;
 };
 
 /*	@brief Copy Constructor	*/
 ConfigLoader::ConfigLoader(const ConfigLoader& other) {
-	log.debug("Parser Copy Constructor called");
+	log.debug("ConfigLoader Copy Constructor called");
 	*this = other;
 	return;
 };
@@ -398,15 +404,9 @@ ConfigLoader::ConfigLoader(const ConfigLoader& other) {
 /*	@brief Copy Assignment Operator	*/
 ConfigLoader& ConfigLoader::operator=(const ConfigLoader& other) {
 	if (this != &other) {
-		log.debug("Parser Copy Assignment Operator called");
+		log.debug("ConfigLoader Copy Assignment Operator called");
 	}
 	return *this;
-};
-
-/*	@brief Destructor	*/
-ConfigLoader::~ConfigLoader() {
-	log.debug("Parser Destructor called");
-	return;
 };
 
 ConfigLoader::location_directive_handler_map ConfigLoader::_initLocationDirectiveHandlerMap(void) {

@@ -72,7 +72,6 @@ public:
 	};
 
 	CGIProcess*						cgi_process; // owns the live CGI child while one is running (NULL otherwise)
-	// std::deque<CGIProcess*>			process_queue;
 
 // DEBUG BEGIN
 	double							getIdleTime(void) const;
@@ -113,7 +112,6 @@ public:
 	void							sendDataToTCPPeer(int fd);		// send response to peer
 	void							pushRequest(void);
 	void							pushResponse(void);
-	void							popProcess(void);
 	void							popRequest(void);
 	void							popResponse(void);
 	void							blockFromReceiving(void);
