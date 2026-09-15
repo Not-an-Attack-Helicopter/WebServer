@@ -23,7 +23,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
-#include <deque>
+// #include <deque>
 #include <ctime>
 #include <cstring>
 #include <cstddef>
@@ -48,7 +48,6 @@ public:
 		SENDING_BODY,
 		CONCLUDED,
 		REJECTED,
-		LINGERING,
 		ERROR
    };
 
@@ -56,12 +55,10 @@ public:
 
 		std::stringstream			temp;
 		std::ifstream				file;
-		std::string					path;
 		std::size_t					size;
 		Sink						sink;
-		bool						temporary;
 
-		Body(void) : size(0), sink(NONE), temporary(false) {temp.clear();file.close();}
+		Body(void) : size(0), sink(NONE) {temp.clear();file.close();}
 
 	};
 
@@ -75,7 +72,6 @@ public:
 	};
 
 	CGIProcess*						cgi_process; // owns the live CGI child while one is running (NULL otherwise)
-
 
 // DEBUG BEGIN
 	double							getIdleTime(void) const;
@@ -96,7 +92,7 @@ public:
 	const Config::Socket&			getConfig(void) const;
 
 	HTTPRequest&					getCurrentRequest(void);
-	HTTPRequest&					getRecentRequest(void);
+	// HTTPRequest&					getRecentRequest(void);
 
 	HTTPResponse&					getCurrentResponse(void);
 
@@ -105,12 +101,9 @@ public:
 	void							setState(State state);
 
 	bool							hasPendingResponse(void) const;
-	bool							hasPendingData(void) const;
 	bool							blockedFromReceiving() const;
-	bool							canReceiveMore() const;
-	bool							drainIncomingData(int fd);
 	bool							markedForTermination() const;
-	bool							isTimedOut(void) const;
+	bool							isTimedOut(const std::time_t now) const;
 
 	ssize_t							queueIncomingData(int fd);
 
@@ -123,20 +116,21 @@ public:
 	void							popResponse(void);
 	void							blockFromReceiving(void);
 	void							markForTermination(void);
+	void							updateTimeStamp(void);
 	void							reset(void);
-
 
 private:
 
 	Client(const Client& other);
 	Client& operator = (const Client& other);
 
-	static const time_t				IDLE_TIMEOUT_SECONDS		= 60;
-	static const time_t				HEADER_TIMEOUT_SECONDS		= 12;
-	static const time_t				BODY_TIMEOUT_SECONDS		= 120;
-	static const time_t				LINGER_TIMEOUT_SECONDS		= 30;
-	static const time_t				PROCESSING_TIMEOUT_SECONDS	= 420;
-	static const time_t				REJECTED_TIMEOUT_SECONDS	= 10;
+	// static const unsigned short		REQUEST_ID_BIT_WIDTH = 48;
+
+	static const std::time_t		IDLE_TIMEOUT_SECONDS		= 60;
+	static const std::time_t		HEADER_TIMEOUT_SECONDS		= 12;
+	static const std::time_t		BODY_TIMEOUT_SECONDS		= 120;
+	static const std::time_t		PROCESSING_TIMEOUT_SECONDS	= 420;
+	static const std::time_t		REJECTED_TIMEOUT_SECONDS	= 10;
 
 	State							_state;
 
@@ -149,15 +143,18 @@ private:
 	sockaddr_storage				_remote_addr;
 	socklen_t						_addrlen;
 
-	std::deque<HTTPRequest*>		_request_queue;		// FIFO queue of requests to dispatch
-	std::deque<HTTPResponse*>		_response_queue;	// FIFO queue of responses to send
+	// std::deque<HTTPRequest*>		_request_queue;		// FIFO queue of requests to dispatch
+	// std::deque<HTTPResponse*>		_response_queue;	// FIFO queue of responses to send
+
+	HTTPRequest*					_request;
+	HTTPResponse*					_response;
 
 	Buffer							_instream;
 	Buffer							_outstream;
 
-	Response						_response;
+	Response						_pending_response;
 
-	time_t							_last_event;
+	std::time_t						_last_event;
 
 	std::size_t						_adjustBufferSize(std::size_t payload_size);
 

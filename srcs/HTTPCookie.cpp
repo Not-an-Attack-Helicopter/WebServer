@@ -105,6 +105,9 @@ namespace HTTPCookie {
 			* Add cookie to request
 			*/
 			request.setCookie(cookie);
+			if (cookie.name == "Session_ID") {
+				request.setSessionID(cookie.value);
+			}
 
 			/*
 			* End of cookie-string.

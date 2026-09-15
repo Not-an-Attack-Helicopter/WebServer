@@ -57,9 +57,9 @@ public:
 private:
 
 	ConfigLoader(void);
+	~ConfigLoader(void);
 	ConfigLoader(const ConfigLoader& other);
 	ConfigLoader& operator = (const ConfigLoader& other);
-	~ConfigLoader(void);
 
 	static const unsigned short				MAX_REDIRECTS = 5;
 

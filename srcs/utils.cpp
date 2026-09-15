@@ -5,7 +5,7 @@
 /*                                                    +:+ +:+         +:+     */
 /*   By: sholz, bstorck <marvin@42.fr>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/06/30 18:36:42 by bstorck           #+#    #+#             */
+/*   Created: 2026/06/30 18:36:42 by sholz             #+#    #+#             */
 /*   Updated: 2026/06/30 18:36:43 by bstorck          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
@@ -17,12 +17,13 @@
 #include <sys/stat.h>	// stat
 #include <unistd.h>
 #include <fcntl.h>
-#include <iostream>
-#include <climits>		// for USHRT_MAX, INT_MIN, INT_MAX
-#include <cstring>
-#include <cstdlib>
-#include <cstdio>
 #include <vector>
+#include <iostream>
+#include <cstdlib>
+#include <cstddef>
+#include <cstring>
+#include <climits>		// for USHRT_MAX, INT_MIN, INT_MAX
+#include <cstdio>
 
 // DEBUG BEGIN
 void warnHighEventLoad(int nfds, int max_capacity) {
@@ -91,20 +92,21 @@ void dumpRequest(const HTTPRequest* request) {
 	case HTTPRequest::COMPLETE: state = "complete"; break;
 	case HTTPRequest::ERROR: state = "error"; break;
 	}
-	log.debug("State:\t\t" + state + " (" + i2a(request->parsing.state) + ")");
+	log.debug("State:\t\t\t\t" + state + " (" + i2a(request->parsing.state) + ")");
 
 	switch (request->getMethod()) {
-	case GET: log.debug("Method:\t\tGET"); break;
-	case HEAD: log.debug("Method:\t\tHEAD"); break;
-	case DELETE: log.debug("Method:\t\tDELETE"); break;
-	case POST: log.debug("Method:\t\tPOST"); break;
-	case PUT: log.debug("Method:\t\tPUT"); break;
-	case METHOD_COUNT: log.debug("Method:\t\tN/A"); break;
+	case GET: log.debug("Method:\t\t\t\tGET"); break;
+	case HEAD: log.debug("Method:\t\t\t\tHEAD"); break;
+	case DELETE: log.debug("Method:\t\t\t\tDELETE"); break;
+	case POST: log.debug("Method:\t\t\t\tPOST"); break;
+	case PUT: log.debug("Method:\t\t\t\tPUT"); break;
+	case PATCH: log.debug("Method:\t\t\t\tPATCH"); break;
+	case METHOD_COUNT: log.debug("Method:\t\t\t\tN/A"); break;
 	}
 
-	log.debug("Path:\t\t" + request->getPath());
-	log.debug("Query:\t\t" + request->getQuery());
-	log.debug("Version:\t" + request->getVersion());
+	log.debug("Path:\t\t\t\t" + request->getPath());
+	log.debug("Query:\t\t\t\t" + request->getQuery());
+	log.debug("Version:\t\t\t" + request->getVersion());
 
 	// Print all headers
 	// std::map<std::string, std::string>::iterator it = request->getHeaders().begin();
@@ -116,19 +118,22 @@ void dumpRequest(const HTTPRequest* request) {
 	// Print select headers
 	const std::string* host = request->getHeader("host");
 	if (host != NULL)
-		log.debug("Host:\t\t" + *host);
+		log.debug("Host:\t\t\t\t" + *host);
 	const std::string* user_agent = request->getHeader("user-agent");
 	if (user_agent != NULL)
-		log.debug("User-Agent:\t" + *user_agent);
+		log.debug("User-Agent:\t\t\t" + *user_agent);
 	const std::string* accept = request->getHeader("accept");
 	if (accept != NULL)
-		log.debug("Accept:\t\t" + *accept);
+		log.debug("Accept:\t\t\t\t" + *accept);
+	const std::string* accept_encoding = request->getHeader("accept-encoding");
+	if (accept_encoding != NULL)
+		log.debug("Accept-Encoding:\t" + *accept_encoding);
 	const std::string* connection = request->getHeader("connection");
 	if (connection != NULL)
-		log.debug("Connection:\t" + *connection);
+		log.debug("Connection:\t\t" + *connection);
 	const std::string* type = request->getHeader("content-type");
 	if (type != NULL)
-		log.debug("Content-Type:\t" + *type);
+		log.debug("Content-Type:\t\t" + *type);
 	const std::string* disposition = request->getHeader("content-disposition");
 	if (disposition != NULL)
 		log.debug("Content-Disposition:\t" + *disposition);
@@ -137,7 +142,7 @@ void dumpRequest(const HTTPRequest* request) {
 		log.debug("Content-Length:\t" + *content_length);
 	const std::string* cookie = request->getHeader("cookie");
 	if (cookie != NULL)
-		log.debug("Cookie:\t\t" + *cookie);
+		log.debug("Cookie:\t\t\t\t" + *cookie);
 }
 // DEBUG END
 
@@ -225,11 +230,11 @@ std::string unquote(const std::string& str) {
 	return str;
 }
 
-std::string randomHexString(std::size_t byte_width) {
+std::string randomHexString(unsigned short bit_width) {
 
 	static const char hex[] = "0123456789abcdef";
 
-	unsigned char* bytes = new unsigned char[byte_width];
+	unsigned char* bytes = new unsigned char[bit_width / 8];
 
 	try {
 		std::ifstream urandom("/dev/urandom", std::ios::in | std::ios::binary);
@@ -238,16 +243,16 @@ std::string randomHexString(std::size_t byte_width) {
 			throw std::runtime_error("cannot open /dev/urandom");
 		}
 
-		urandom.read(reinterpret_cast<char*>(bytes), static_cast<std::streamsize>(byte_width));
+		urandom.read(reinterpret_cast<char*>(bytes), static_cast<std::streamsize>(bit_width / 8));
 
-		if (urandom.gcount() != static_cast<std::streamsize>(byte_width)) {
+		if (urandom.gcount() != static_cast<std::streamsize>(bit_width / 8)) {
 			throw std::runtime_error("cannot read /dev/urandom");
 		}
 
 		std::string result;
-		result.reserve(byte_width * 2);
+		result.reserve(static_cast<std::size_t>(bit_width / 8) * 2);
 
-		for (std::size_t i = 0; i < byte_width; ++i) {
+		for (std::size_t i = 0; i < static_cast<std::size_t>(bit_width / 8); ++i) {
 			result += hex[bytes[i] >> 4];
 			result += hex[bytes[i] & 0x0f];
 		}
@@ -259,7 +264,7 @@ std::string randomHexString(std::size_t byte_width) {
 		delete [] bytes;
 		log.error("hexgen: " + std::string(e.what()) + ". Falling back to std::rand");
 		std::string unique_id;
-		while (unique_id.empty() || unique_id.size() < byte_width * 2) {
+		while (unique_id.empty() || unique_id.size() < static_cast<std::size_t>(bit_width / 8) * 2) {
 			unique_id += i2a(std::rand());
 		}
 		return unique_id;
@@ -297,10 +302,10 @@ void createFile(HTTPRequest& request) {
 	std::string suffix;
 	int file_descriptor;
 	unsigned short count = 0;
-	std::time_t timestamp = std::time(NULL);
+	const std::time_t timestamp = std::time(NULL);
 	do {
 		try {
-			suffix = randomHexString(TEMPORARY_SUFFIX_BYTE_WIDTH);
+			suffix = randomHexString(TEMPORARY_SUFFIX_BIT_WIDTH);
 		} catch (std::exception& e) {
 			log.warn("random hex string generator: " + std::string(e.what()));
 			std::stringstream oss;
@@ -357,9 +362,9 @@ void promoteFile(HTTPRequest& request) {
 	}
 
 	std::string suffix;
-	std::time_t timestamp = std::time(NULL);
+	const std::time_t timestamp = std::time(NULL);
 	try {
-		suffix = randomHexString(SUFFIX_BYTE_WIDTH);
+		suffix = randomHexString(SUFFIX_BIT_WIDTH);
 	} catch (std::exception& e) {
 		log.warn("random hex string generator: " + std::string(e.what()));
 		std::stringstream oss;
@@ -391,40 +396,6 @@ void promoteFile(HTTPRequest& request) {
 
 	return;
 
-}
-
-ssize_t fetchNbuff(int fd, Buffer& buffer) {
-	ssize_t bytes_read = buffer.fetchData(fd);
-	return bytes_read;
-}
-
-ssize_t buffNflush(std::istream& stream, Buffer& b, int fd, bool is_pipe) {
-
-	// Fill buffer if not saturated and stream has not reached EOF
-	if (!stream.eof() && b.end < b.data.size()) {
-		stream.read(&b.data[b.end], b.data.size() - b.end);
-		std::streamsize bytes_read = stream.gcount();
-		if (bytes_read > 0) b.end += static_cast<std::size_t>(bytes_read);
-	}
-
-	// Send/write pending bytes
-	ssize_t n = b.flushData(fd, is_pipe);
-	if (n < 0) return n;
-
-	// Everything has been sent/written; reset indices
-	if (b.begin == b.end) {
-		b.reset();
-
-	// Compact buffer if needed
-	} else if (b.end == b.data.size()) {
-
-		if (b.begin > 0) {
-			b.compact();
-		} else {
-			throw std::runtime_error("client_" + i2a(fd) + ": buffer overflow");
-		}
-	}
-	return n;
 }
 
 void dumpConfigs(const std::vector<Config::Socket>& sockets) {

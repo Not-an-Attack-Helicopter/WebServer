@@ -118,9 +118,6 @@ public:
 	std::size_t									getBodySize(void) const;
 	Sink										getBodySink(void) const;
 
-	void										setTemporary(void);
-	bool										isTemporary(void) const;
-
 	void										reset(void);
 
 private:
@@ -141,8 +138,6 @@ private:
 	std::size_t									_body_size;
 
 	Sink										_body_sink;
-
-	bool										_temporary;
 
 };
 

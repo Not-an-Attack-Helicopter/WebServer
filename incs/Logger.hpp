@@ -28,6 +28,7 @@
 class Logger {
 
 public:
+
 	static Logger&		instance(void);
 
 	enum Level {
@@ -54,6 +55,7 @@ public:
 	void				notice(const std::string& msg);
 
 private:
+
 	Logger(void);
 	~Logger(void);
 	Logger(const Logger&);

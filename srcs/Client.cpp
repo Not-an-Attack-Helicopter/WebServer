@@ -38,20 +38,22 @@ Client::Client(const sockaddr_in socket, const Config::Socket* config)
 		_config(config),
 		_server_addr(socket),
 		_addrlen(sizeof(_remote_addr)),
+		_request(NULL),
+		_response(NULL),
 		_last_event(std::time(NULL)) {
 
 	log.debug("Client Constructor called");
 
 	std::memset(&_remote_addr, 0, _addrlen);
-	_response.headers.clear();
-	_response.body.temp.clear();
-	_response.body.file.clear();
-	_response.body.size = 0;
-	_response.body.sink = NONE;
+	_pending_response.headers.clear();
+	_pending_response.body.temp.clear();
+	_pending_response.body.file.clear();
+	_pending_response.body.size = 0;
+	_pending_response.body.sink = NONE;
 
-	// Create new request object in deque container
+	// Create new request object
 	pushRequest();
-	// Create new response object in deque container
+	// Create new response object
 	pushResponse();
 
 	return;
@@ -64,7 +66,7 @@ Client::~Client(void) {
 
 	if (_state == Client::RECEIVING_BODY) {
 		std::string path;
-		const HTTPRequest& request = *_request_queue.back();
+		const HTTPRequest& request = *_request;
 		if (!request.body.path.empty()) {
 			path = request.body.path;
 			log.error("path: " + path);
@@ -87,32 +89,20 @@ Client::~Client(void) {
 	}
 
 	delete cgi_process;
-
-	// Delete temp spool files of responses that were never fully sent
-	while (!_response_queue.empty()) {
-		if (_response_queue.front() != NULL &&
-			_response_queue.front()->isTemporary() &&
-			_response_queue.front()->getBodySink() == DISK) {
-			std::remove(_response_queue.front()->getBody().c_str());
-		}
-		popResponse();
-	}
-	if (_response.body.sink == DISK && _response.body.temporary &&
-		!_response.body.path.empty()) {
-		_response.body.file.close();
-		std::remove(_response.body.path.c_str());
-		_response.body.temporary = false;
-	}
-
-	while (!_request_queue.empty()) popRequest();
-	 _request_queue.clear();
+	// while (!_request_queue.empty()) popRequest();
+	// _request_queue.clear();
+	// while (!_response_queue.empty()) popResponse();
+	// _response_queue.clear();
+	if (_request != NULL) popRequest();
+	if (_response != NULL) popResponse();
 
 	return;
 }
 
 // DEBUG BEGIN
 double Client::getIdleTime(void) const {
-	return (std::difftime(std::time(NULL), _last_event));
+	const std::time_t now = std::time(NULL);
+	return (std::difftime(now, _last_event));
 }
 
 unsigned short int Client::getRemotePort(void) const {
@@ -149,15 +139,15 @@ const Config::Socket& Client::getConfig(void) const {
 }
 
 HTTPRequest& Client::getCurrentRequest(void) {
-	return *_request_queue.front();
+	return *_request;
 }
 
-HTTPRequest& Client::getRecentRequest(void) {
-	return *_request_queue.back();
-}
+// HTTPRequest& Client::getRecentRequest(void) {
+// 	return *_request_queue.back();
+// }
 
 HTTPResponse& Client::getCurrentResponse(void) {
-	return *_response_queue.front();
+	return *_response;
 }
 
 Buffer& Client::getIncomingData(void) {
@@ -169,37 +159,19 @@ void Client::setState(State state) {
 }
 
 bool Client::hasPendingResponse(void) const {
-	return !_response_queue.empty();
-}
-
-bool Client::hasPendingData(void) const {
-	return _instream.mark < _instream.end;
+	// return !_response_queue.empty();
+	return _response != NULL;
 }
 
 bool Client::blockedFromReceiving(void) const {
 	return _blocked_from_receiving;
 }
 
-bool Client::canReceiveMore(void) const {
-	return _instream.end < _instream.data.size();
-}
-
-bool Client::drainIncomingData(int fd) {
-
-	_instream.reset();
-	ssize_t bytes_read = fetchNbuff(fd, _instream);
-	if (bytes_read > 0) {
-		_last_event = std::time(NULL);
-	}
-	_instream.reset();
-	return bytes_read > 0;
-}
-
 bool Client::markedForTermination(void) const {
 	return _marked_for_termination;
 }
 
-bool Client::isTimedOut(void) const {
+bool Client::isTimedOut(const std::time_t now) const {
 
 	std::time_t timeout = 0;
 	switch (_state) {
@@ -238,42 +210,39 @@ bool Client::isTimedOut(void) const {
 	case REJECTED:
 		timeout = REJECTED_TIMEOUT_SECONDS;
 		break;
-	case LINGERING:
-		timeout = LINGER_TIMEOUT_SECONDS;
-		break;
 	case ERROR:
 		return true;
 	}
 
-	const std::time_t now = std::time(NULL);
 	return std::difftime(now, _last_event) > timeout;
-
 }
 
 ssize_t Client::queueIncomingData(int fd) {
-	ssize_t bytes_read = fetchNbuff(fd, _instream);
-	if (bytes_read > 0) _last_event = std::time(NULL);
-	return bytes_read;
+
+	if (_request->parsing.state == HTTPRequest::READING_BODY &&
+		_instream.data.size() == BUFFER_SIZE &&
+		_request->body.size > BUFFER_SIZE) {
+		std::size_t buffer_size = _adjustBufferSize(_request->body.size);
+		_instream.data.resize(buffer_size);
+	}
+
+	ssize_t bytes_received = _instream.fetchData(fd);
+	if (bytes_received > 0) _last_event = std::time(NULL);
+	log.debug("client_" + i2a(fd) + ": bytes received: " + i2a(bytes_received));
+	return bytes_received;
 }
 
 void Client::parseDataFromPeer(void) {
 
-	HTTPRequest& request = *_request_queue.back();
-
-	// A request was already rejected (error status sent or queued):
-	// the connection is being torn down. Whatever is still buffered
-	// here is unread request-body data and must not be parsed as a
-	// new pipelined request.
-	if (_marked_for_termination || _blocked_from_receiving) {
+	if (blockedFromReceiving()) {
+		log.notice("\"consuming\" bytes in buffer:\n-------");
+		log.notice(_instream.str());
+		log.notice("-------");
 		_instream.reset();
 		return;
 	}
 
-	if (request.parsing.state == HTTPRequest::READING_BODY &&
-		_instream.data.size() == BUFFER_SIZE) {
-		std::size_t buffer_size = _adjustBufferSize(request.body.size);
-		_instream.data.resize(buffer_size);
-	}
+	HTTPRequest& request = *_request;
 
 	while (_instream.mark < _instream.end) {
 
@@ -287,6 +256,7 @@ void Client::parseDataFromPeer(void) {
 			return;
 		} else {
 			_instream.mark += bytes_read;
+			_last_event = std::time(NULL);
 		}
 
 		if (has_consumed_line == true) {
@@ -315,11 +285,10 @@ void Client::parseDataFromPeer(void) {
 		}
 
 		if (request.parsing.state == HTTPRequest::READING_BODY) {
-			if (request.body_chunked) {
+			if (request.body_chunked)
 				request.parsing.body_size += request.parsing.payload_read_count;
-			} else {
+			else
 				request.parsing.body_size += bytes_read;
-			}
 
 			if (request.body_chunked &&
 				request.parsing.body_size > request.resolved.location->client_max_body_size) {
@@ -337,31 +306,30 @@ void Client::parseDataFromPeer(void) {
 
 		if (request.parsing.state == HTTPRequest::COMPLETE) {
 
-			if (request.body_chunked) {
-				if (!request.requires_CGI) promoteFile(request);
-				break;
-			}
+			if (!request.body_chunked) {
 
-			if (request.parsing.body_size < request.body.size) {
-				log.error("parse error: received body shorter than advertised size");
-				request.parsing.state = HTTPRequest::ERROR;
-				request.parsing.error_cause = BAD_REQUEST;
-				break;
-			}
+				if (request.parsing.body_size < request.body.size) {
+					log.error("parse error: received body shorter than advertised size");
+					request.parsing.state = HTTPRequest::ERROR;
+					request.parsing.error_cause = BAD_REQUEST;
+					break;
+				}
 
-			if (request.parsing.body_size > request.body.size) {
-				log.error("parse error: received body exceeded advertised size");
-				request.parsing.state = HTTPRequest::ERROR;
-				request.parsing.error_cause = BAD_REQUEST;
-				break;
+				if (request.parsing.body_size > request.body.size) {
+					log.error("parse error: received body exceeded advertised size");
+					request.parsing.state = HTTPRequest::ERROR;
+					request.parsing.error_cause = BAD_REQUEST;
+					break;
+				}
 			}
 
 			if (!request.requires_CGI) promoteFile(request);
 			break;
 		}
-	}
 
-	dumpRequest(&request);
+		if (request.requires_CGI && request.parsing.state == HTTPRequest::READING_BODY)
+			break;
+	}
 
 	switch (request.parsing.state) {
 
@@ -376,6 +344,7 @@ void Client::parseDataFromPeer(void) {
 			break;
 		case HTTPRequest::RESOLVING_ROUTE:
 			log.info("All HTTP request headers received");
+			dumpRequest(&request);
 			setState(Client::RETRIEVING_SESSION);
 			if (_instream.data.size() != BUFFER_SIZE) {
 				_instream.data.resize(BUFFER_SIZE);
@@ -383,7 +352,12 @@ void Client::parseDataFromPeer(void) {
 			break;
 		case HTTPRequest::COMPLETE:
 			log.info("Full HTTP request body received");
-			// same for CGI, Dispatcher handles it from here
+			// TODO decide:
+			// We could set client state to AWAITING_CGI_OUTPUT
+			// here, instead of having the dispatcher do it
+			// if (request.requires_CGI == true) {
+			// 	setState(Client::AWAITING_CGI_OUTPUT);
+			// } else {}
 			setState(Client::PREPARING_RESPONSE);
 			if (_instream.data.size() != BUFFER_SIZE) {
 				_instream.data.resize(BUFFER_SIZE);
@@ -392,6 +366,7 @@ void Client::parseDataFromPeer(void) {
 			break;
 		case HTTPRequest::ERROR:
 			log.warn("HTTP request parser returned error");
+			dumpRequest(&request);
 			setState(Client::PREPARING_RESPONSE);
 			if (_instream.data.size() != BUFFER_SIZE) {
 				_instream.data.resize(BUFFER_SIZE);
@@ -399,50 +374,85 @@ void Client::parseDataFromPeer(void) {
 			_instream.reset();
 			break;
 	}
+
 	return;
 }
 
 void Client::queueOutgoingData(void) {
 
-	_response.headers	<< http::V_1_1 << http::_ << _response_queue.front()->getStatusCode()
-						<< http::_ << _response_queue.front()->getStatusReason() << http::CRLF;
+	_pending_response.headers	<< HTTP::V_1_1 << HTTP::_ << _response->getStatusCode()
+						<< HTTP::_ << _response->getStatusReason() << HTTP::CRLF;
 
-	if (!_response_queue.front()->getHeaders().empty()) {
-		std::map<std::string, std::string>::const_iterator it = _response_queue.front()->getHeaders().begin();
-		while (it != _response_queue.front()->getHeaders().end()) {
-			_response.headers << it->first << ": " << it->second << http::CRLF;
+	if (!_response->getHeaders().empty()) {
+		std::map<std::string, std::string>::const_iterator it = _response->getHeaders().begin();
+		while (it != _response->getHeaders().end()) {
+			_pending_response.headers << it->first << ": " << it->second << HTTP::CRLF;
 			// log.debug(it->first + ": " + it->second);
 			++it;
 		}
 	}
-	_response.headers << http::CRLF;
+	_pending_response.headers << HTTP::CRLF;
 
-	_response.body.sink = _response_queue.front()->getBodySink();
-	switch (_response.body.sink) {
+	_pending_response.body.sink = _response->getBodySink();
+	switch (_pending_response.body.sink) {
 
 	case HEAP:
-		_response.body.temp << _response_queue.front()->getBody();
-		_response.body.size = _response_queue.front()->getBodySize();
+		_pending_response.body.temp << _response->getBody();
+		_pending_response.body.size = _response->getBodySize();
 		break;
 
 	case DISK:
-		_response.body.path = _response_queue.front()->getBody();
-		_response.body.temporary = _response_queue.front()->isTemporary();
-		_response.body.file.open(_response.body.path.c_str(), std::ios::binary);
-		if (!_response.body.file.is_open()) {
+		_pending_response.body.file.open(_response->getBody().c_str(), std::ios::binary);
+		if (!_pending_response.body.file.is_open()) {
 			log.error("preparing send: unable to open file");
-			_response.body.sink = NONE;
+			_pending_response.body.sink = NONE;
 			break;
 		}
-		_response.body.size = _response_queue.front()->getBodySize();
+		_pending_response.body.size = _response->getBodySize();
 		break;
 
 	case NONE:
 		break;
 	}
 
+	log.notice("Response:\n-------");
+	log.notice(_pending_response.headers.str());
+	if (!_pending_response.body.temp.str().empty()) {
+		log.notice(_pending_response.body.temp.str());
+	}
+	log.notice("-------");
 	_state = SENDING_HEADERS;
 	return;
+}
+
+static inline ssize_t buffNflush(std::istream& stream, Buffer& b, int fd) {
+
+	// Fill buffer if not saturated and stream has not reached EOF
+	if (!stream.eof() && b.end < b.data.size()) {
+		stream.read(&b.data[b.end], b.data.size() - b.end);
+		std::streamsize bytes_read = stream.gcount();
+		if (bytes_read > 0) b.end += static_cast<std::size_t>(bytes_read);
+	}
+
+	// Send/write pending bytes
+	ssize_t n = b.flushData(fd);
+	if (n < 0) return n;
+
+	// Everything has been sent/written; reset indices
+	if (b.begin == b.end) {
+		b.reset();
+
+	// Compact buffer if needed
+	} else if (b.end == b.data.size()) {
+
+		if (b.begin > 0) {
+			b.compact();
+		} else {
+			throw std::runtime_error("client_" + i2a(fd) + ": buffer overflow");
+		}
+	}
+
+	return n;
 }
 
 void Client::sendDataToTCPPeer(int fd) {
@@ -456,28 +466,28 @@ void Client::sendDataToTCPPeer(int fd) {
 
 		log.info("client_" + i2a(fd) + " sending response headers");
 
-		data = &_response.headers;
+		data = &_pending_response.headers;
 		break;
 
 	case SENDING_BODY:
 
 		log.info("client_" + i2a(fd) + " sending response body");
 
-		switch (_response.body.sink) {
+		switch (_pending_response.body.sink) {
 
 		case HEAP:
 
-			data = &_response.body.temp;
+			data = &_pending_response.body.temp;
 			break;
 
 		case DISK:
 
 			if (_outstream.data.size() == BUFFER_SIZE) {
-				std::size_t buffer_size = _adjustBufferSize(_response.body.size);
+				std::size_t buffer_size = _adjustBufferSize(_pending_response.body.size);
 				_outstream.data.resize(buffer_size);
 			}
 
-			data = &_response.body.file;
+			data = &_pending_response.body.file;
 			break;
 
 		default:
@@ -525,7 +535,7 @@ void Client::sendDataToTCPPeer(int fd) {
 
 		case SENDING_HEADERS:
 
-			if (_response.body.sink == NONE) {
+			if (_pending_response.body.sink == NONE) {
 				log.info("client_" + i2a(fd) + ": full response sent");
 				_stateTransitionHandler(fd);
 			} else {
@@ -537,14 +547,8 @@ void Client::sendDataToTCPPeer(int fd) {
 		case SENDING_BODY:
 
 			log.info("client_" + i2a(fd) + ": full body/file sent");
-			if (_response.body.sink == DISK && _response.body.temporary) {
-				_response.body.file.close();
-				std::remove(_response.body.path.c_str());
-				_response.body.temporary = false;
-				_response.body.path.clear();
-			}
 			_stateTransitionHandler(fd);
-			if (_response.body.sink == DISK && _outstream.data.size() != BUFFER_SIZE) {
+			if (_pending_response.body.sink == DISK && _outstream.data.size() != BUFFER_SIZE) {
 				_outstream.data.resize(BUFFER_SIZE);
 			}
 			break;
@@ -553,41 +557,48 @@ void Client::sendDataToTCPPeer(int fd) {
 			break;
 		}
 	}
+
 	return;
 }
 
-// Create new request object in deque container
+// Create new request object
 void Client::pushRequest(void) {
 
-	HTTPRequest* request = new HTTPRequest((sockaddr_in*)&_remote_addr, &_server_addr);
-	_request_queue.push_back(request);
+	// HTTPRequest* request = new HTTPRequest((sockaddr_in*)&_remote_addr, &_server_addr);
+	// _request_queue.push_back(request);
+	_request = new HTTPRequest((sockaddr_in*)&_remote_addr, &_server_addr);;
 
 	return;
 }
 
-// Create new response object in deque container
+// Create new response object
 void Client::pushResponse(void) {
 
-	HTTPResponse* response = new HTTPResponse;
-	_response_queue.push_back(response);
+	// HTTPResponse* response = new HTTPResponse;
+	// _response_queue.push_back(response);
+	_response = new HTTPResponse;
 
 	return;
 }
 
-// Delete processed request from deque container
+// Delete processed request object
 void Client::popRequest(void) {
 
-	delete _request_queue.front();
-	_request_queue.pop_front();
+	// delete _request_queue.front();
+	// _request_queue.pop_front();
+	delete _request;
+	_request = NULL;
 
 	return;
 }
 
-// Delete processed response object in deque container
+// Delete processed response object
 void Client::popResponse(void) {
 
-	delete _response_queue.front();
-	_response_queue.pop_front();
+	// delete _response_queue.front();
+	// _response_queue.pop_front();
+	delete _response;
+	_response = NULL;
 
 	return;
 }
@@ -603,6 +614,11 @@ void Client::markForTermination(void) {
 	return;
 }
 
+void Client::updateTimeStamp(void) {
+	_last_event = std::time(NULL);
+	return;
+}
+
 void Client::reset(void) {
 
 	delete cgi_process;
@@ -614,27 +630,18 @@ void Client::reset(void) {
 	std::memset(&_server_addr, 0, _addrlen);
 	std::memset(&_remote_addr, 0, _addrlen);
 
-	if (!_request_queue.empty()) {
-		while (_request_queue.begin() != _request_queue.end()) {
-			delete _request_queue.back();
-			_request_queue.pop_back();
-		}
-		_request_queue.clear();
-	}
+	// while (!_request_queue.empty()) popRequest();
+	// _request_queue.clear();
+	// while (!_response_queue.empty()) popResponse();
+	// _response_queue.clear();
+	if (_request !=  NULL) popRequest();
+	if (_response != NULL) popResponse();
 
-	if (!_response_queue.empty()) {
-		while (_response_queue.begin() != _response_queue.end()) {
-			delete _response_queue.front();
-			_response_queue.pop_front();
-		}
-		_response_queue.clear();
-	}
-
-	_response.headers.clear();
-	_response.body.temp.clear();
-	_response.body.file.clear();
-	_response.body.size = 0;
-	_response.body.sink = NONE;
+	_pending_response.headers.clear();
+	_pending_response.body.temp.clear();
+	_pending_response.body.file.clear();
+	_pending_response.body.size = 0;
+	_pending_response.body.sink = NONE;
 	_instream.data.resize(BUFFER_SIZE);
 	_instream.reset();
 	_outstream.data.resize(BUFFER_SIZE);
@@ -666,12 +673,11 @@ Client& Client::operator = (const Client& other) {
 }
 
 std::size_t Client::_adjustBufferSize(std::size_t payload_size) {
-	if (payload_size < std::size_t(5) * 1024) return 8 * 1024;
-	else if (payload_size < std::size_t(50) * 1024) return 16 * 1024;
-	else if (payload_size < std::size_t(500) * 1024) return 32 * 1024;
-	else if (payload_size < std::size_t(5) * 1024 * 1024) return 64 * 1024;
-	else if (payload_size < std::size_t(50) * 1024 * 1024) return 128 * 1024;
-	else if (payload_size < std::size_t(500) * 1024 * 1024) return 192 * 1024;
+	if (payload_size < std::size_t(8) * 1024) return 8 * 1024;
+	else if (payload_size < std::size_t(32) * 1024) return 16 * 1024;
+	else if (payload_size < std::size_t(128) * 1024) return 32 * 1024;
+	else if (payload_size < std::size_t(512) * 1024) return 64 * 1024;
+	else if (payload_size < std::size_t(2) * 1024 * 1024) return 128 * 1024;
 	else return 256 * 1024;
 }
 
@@ -680,8 +686,8 @@ void Client::_stateTransitionHandler(int fd) {
 		_state = REJECTED;
 		log.debug("client_" + i2a(fd) + ": state set to REJECTED");
 	} else if (_marked_for_termination) {
-		_state = LINGERING;
-		log.debug("client_" + i2a(fd) + ": state set to LINGERING");
+		_state = CONCLUDED;
+		log.debug("client_" + i2a(fd) + ": state set to CONCLUDED");
 	} else {
 		_state = IDLE;
 		log.debug("client_" + i2a(fd) + ": state set to IDLE");

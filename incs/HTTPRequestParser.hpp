@@ -31,21 +31,21 @@ public:
 
 	bool									buffer(Buffer& buff, CGIProcess* cgi_process, HTTPRequest& request);
 
-	Method									matchMethod(const std::string& name);
+	// Method									matchMethod(const std::string& name);
 
 private:
 
 	RequestParser(void);
+	~RequestParser(void);
 	RequestParser(const RequestParser& other);
 	RequestParser& operator = (const RequestParser& other);
-	~RequestParser(void);
 
 	static const std::size_t 				LF_SIZE = 1;
 	static const std::size_t 				CRLF_SIZE = 2;
 	static const std::size_t				LFLF_SIZE = 2;
 	static const std::size_t				CRLFCRLF_SIZE = 4;
 
-	ssize_t									_findRequestLineEnd(const Buffer& buffer, HTTPRequest& request);
+	std::size_t								_findRequestLineEnd(const Buffer& buffer, HTTPRequest& request);
 
 	bool									_extractTokens(const Buffer& buffer, HTTPRequest& request);
 	bool									_parseHeaderLine(const Buffer& buffer, HTTPRequest& request);

@@ -1,2 +1,4 @@
-/objs
+.gitignore
+dev/
+objs/
 webserv

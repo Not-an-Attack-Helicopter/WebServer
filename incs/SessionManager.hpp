@@ -26,10 +26,14 @@ public:
 
 	static SessionManager&				instance(void);
 
-	void								getSession(Client& client);
+	const Session*						getSession(const std::string& session_id);
+
+	void								retrieveSession(Client& client);
 
 	void								setAttribute(const std::string& session_id,
 													 const std::string& attribute);
+
+	void								_sweepExpiredSessions(const std::time_t now);
 
 private:
 
@@ -38,7 +42,7 @@ private:
 	SessionManager(const SessionManager& other);
 	SessionManager& operator = (const SessionManager& other);
 
-	static const unsigned short			SESSION_ID_BYTE_WIDTH = 7;
+	static const unsigned short			SESSION_ID_BIT_WIDTH = 56;
 
 	std::map<std::string, Session*>		_sessions;
 

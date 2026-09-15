@@ -5,7 +5,7 @@
 /*                                                    +:+ +:+         +:+     */
 /*   By: sholz, bstorck <marvin@42.fr>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/06/30 18:35:38 by bstorck           #+#    #+#             */
+/*   Created: 2026/06/30 18:35:38 by sholz             #+#    #+#             */
 /*   Updated: 2026/08/24 21:59:05 by bstorck          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
@@ -19,7 +19,6 @@
 #include "../incs/Logger.hpp"
 #include "../incs/utils.hpp"
 #include <unistd.h>
-#include <cerrno>
 #include <cstddef>
 #include <cctype>
 
@@ -35,6 +34,17 @@ RequestParser& RequestParser::instance(void) {
 
 // Feed raw bytes; returns the current parse_state:
 bool RequestParser::buffer(Buffer& buffer, CGIProcess* cgi_process, HTTPRequest& request) {
+
+	std::string state;
+	switch(request.parsing.state) {
+	case HTTPRequest::READING_REQUEST_LINE: state = "reading request line"; break;
+	case HTTPRequest::READING_HEADERS: state = "reading headers"; break;
+	case HTTPRequest::RESOLVING_ROUTE: state = "resolving route"; break;
+	case HTTPRequest::READING_BODY: state = "reading body"; break;
+	case HTTPRequest::COMPLETE: state = "complete"; break;
+	case HTTPRequest::ERROR: state = "error"; break;
+	}
+	log.error("State:\t\t" + state + " (" + i2a(request.parsing.state) + ")");
 
 	switch (request.parsing.state) {
 
@@ -52,22 +62,6 @@ bool RequestParser::buffer(Buffer& buffer, CGIProcess* cgi_process, HTTPRequest&
 	}
 }
 
-Method RequestParser::matchMethod(const std::string& method) {
-
-	static const std::string valid_methods[
-		static_cast<int>(METHOD_COUNT)
-	] = {
-		"GET", "HEAD", "DELETE", "POST", "PUT"
-	};
-	for (std::size_t i = 0; i < static_cast<int>(METHOD_COUNT); ++i) {
-		if (valid_methods[i] == method) {
-			return static_cast<Method>(i);
-		}
-	}
-
-	return METHOD_COUNT;
-}
-
   //~~~~~~~~~~~//
  /*  Private  */
 //~~~~~~~~~~~//
@@ -75,6 +69,12 @@ Method RequestParser::matchMethod(const std::string& method) {
 /*	@brief Constructor	*/
 RequestParser::RequestParser(void) {
 	log.debug("RequestParser Constructor called");
+	return;
+};
+
+/*	@brief Destructor	*/
+RequestParser::~RequestParser() {
+	log.debug("RequestParser Destructor called");
 	return;
 };
 
@@ -93,27 +93,38 @@ RequestParser& RequestParser::operator=(const RequestParser& other) {
 	return *this;
 };
 
-/*	@brief Destructor	*/
-RequestParser::~RequestParser() {
-	log.debug("RequestParser Destructor called");
-	return;
-};
+std::size_t RequestParser::_findRequestLineEnd(const Buffer& buffer, HTTPRequest& request) {
 
-ssize_t RequestParser::_findRequestLineEnd(const Buffer& buffer, HTTPRequest& request) {
-
-	ssize_t LF_pos = buffer.find(http::LF);
+	ssize_t LF_pos = buffer.find(HTTP::LF);
 	if (LF_pos == -1) return std::string::npos;
-	if (LF_pos != 0 && buffer.data[LF_pos - 1] == http::CR) {
+	if (LF_pos != 0 && buffer.data[LF_pos - 1] == HTTP::CR) {
 		request.parsing.line_ending = HTTPRequest::CRLF;
-		return LF_pos - 1;
+		return static_cast<std::size_t>(LF_pos) - 1;
 	}
 
-	return LF_pos;
+	return static_cast<std::size_t>(LF_pos);
+}
+
+static inline Method matchMethod(const std::string& method) {
+
+	static const std::string valid_methods[
+		static_cast<int>(METHOD_COUNT)
+	] = {
+		"GET", "HEAD", "DELETE", "POST", "PUT", "PATCH"
+	};
+	for (std::size_t i = 0; i < static_cast<int>(METHOD_COUNT); ++i) {
+		if (valid_methods[i] == method) {
+			return static_cast<Method>(i);
+		}
+	}
+
+	return METHOD_COUNT;
 }
 
 bool RequestParser::_extractTokens(const Buffer& buffer, HTTPRequest& request) {
 
 	// Transform to stream
+	log.notice("Request:\n-------\n" + buffer.str() + "\n-------\n");
 	std::stringstream ss;
 	buffer.sstream(ss, 0, request.parsing.line_end_pos);
 	if (ss.fail()) {
@@ -165,7 +176,7 @@ bool RequestParser::_extractTokens(const Buffer& buffer, HTTPRequest& request) {
 
 	// Validate HTTP version
 	version = trim(version); // strip trailing \r
-	if (version != http::V_1_1 && version != http::V_1_0) {
+	if (version != HTTP::V_1_1 && version != HTTP::V_1_0) {
 		log.warn("request line: http version not supported");
 		request.parsing.error_cause = HTTP_VERSION_NOT_SUPPORTED;
 		return false;
@@ -274,8 +285,8 @@ bool RequestParser::_parseRequestLine(const Buffer& buffer, HTTPRequest& request
 	// Line feed detected (end of request line): procced with line parsing
 	} else {
 
-		request.parsing.bytes_read_count =	request.parsing.line_end_pos +
-											request.parsing.line_end_size;
+		request.parsing.bytes_read_count = request.parsing.line_end_pos +
+										   request.parsing.line_end_size;
 
 		if (!_extractTokens(buffer, request)) {
 			request.parsing.state = HTTPRequest::ERROR;
@@ -292,9 +303,9 @@ bool RequestParser::_parseHeaders(const Buffer& buffer, HTTPRequest& request) {
 
 	// Check for line break
 	if (request.parsing.line_ending == HTTPRequest::CRLF) {
-		request.parsing.line_end_pos = buffer.find(http::CRLF);
+		request.parsing.line_end_pos = buffer.find(HTTP::CRLF);
 	} else {
-		request.parsing.line_end_pos = buffer.find(http::LF);
+		request.parsing.line_end_pos = buffer.find(HTTP::LF);
 	}
 
 	// Empty line detected, proceed with validity checks
@@ -329,10 +340,10 @@ bool RequestParser::_parseHeaders(const Buffer& buffer, HTTPRequest& request) {
 				}
 			}
 
-			const std::string* session_id = request.getCookie("session_id");
-			if (session_id != NULL) {
-				request.setSessionID(*session_id);
-			}
+			// const std::string* session_id = request.getCookie("Session_ID");
+			// if (session_id != NULL) {
+			// 	request.setSessionID(*session_id);
+			// }
 
 			const std::string* transfer_endcoding = request.getHeader("transfer-encoding");
 			if (transfer_endcoding != NULL && equalCI(*transfer_endcoding, "chunked")) {
@@ -340,7 +351,7 @@ bool RequestParser::_parseHeaders(const Buffer& buffer, HTTPRequest& request) {
 			}
 
 			// Check for Host Header (mandatory for HTTP/1.1)
-			if (request.getVersion() == http::V_1_1 && request.getHeader("host") == NULL) {
+			if (request.getVersion() == HTTP::V_1_1 && request.getHeader("host") == NULL) {
 				log.warn("request: no host header provided");
 				request.parsing.error_cause = BAD_REQUEST;
 				request.parsing.state = HTTPRequest::ERROR;
@@ -354,27 +365,45 @@ bool RequestParser::_parseHeaders(const Buffer& buffer, HTTPRequest& request) {
 				return true;
 			}
 
-			// DELETE may come with a body (optional)
-			if (requested_method == DELETE) {
-				if (request.getHeader("content_length") !=  NULL) {
-					if (!request.extractContentLength()) {
-						log.info("request: no content-length header provided");
-						request.body.size = 0;
-					}
-				} else {
-					request.parsing.state = HTTPRequest::RESOLVING_ROUTE;
-					return true;
+			// This only test if the value is malformed (NaN) and sends BAD_REQUEST if applicable
+			// Checks if header is missing or if its value is exceeding thresholds come after resolving route
+			const std::string* content_length = request.getHeader("content-length");
+			if (content_length != NULL) {
+				if (!request.extractContentLength(*content_length)) {
+					log.warn("request: malformed content-length header provided");
+					request.parsing.error_cause = BAD_REQUEST;
+					request.parsing.state = HTTPRequest::ERROR;
+					return false;
 				}
 			}
 
-			// Extract Content-Length value (mandatory for POST and PUY)
-			if ((requested_method == POST || requested_method == PUT) &&
-				!request.body_chunked && !request.extractContentLength()) {
-				log.warn("request: no content-length header provided");
-				request.parsing.error_cause = LENGTH_REQUIRED;
-				request.parsing.state = HTTPRequest::ERROR;
-				return false;
-			}
+			// // After this check DELETE can procced
+			// if (requested_method == DELETE) {
+			// 	request.parsing.state = HTTPRequest::RESOLVING_ROUTE;
+			// 	return true;
+			// }
+
+			// // Extract Content-Length value (mandatory for POST and PUT)
+			// if ((requested_method == POST || requested_method == PUT) &&
+			// 	!request.body_chunked) {
+			// 	const std::string* content_length = request.getHeader("content-length");
+			// 	if (content_length != NULL) {
+			// 		if (!request.extractContentLength(*content_length)) {
+			// 			log.warn("request: malformed content-length header provided");
+			// 			request.parsing.error_cause = BAD_REQUEST;
+			// 			request.parsing.state = HTTPRequest::ERROR;
+			// 			return false;
+			// 		}
+			// 	}
+			// }
+
+			// //  Check if Content-Length value exceeds global body size treshold
+			// if (request.body.size > Config::SERVER_MAX_BODY_SIZE) {
+			// 	log.warn("request: content-length exceeds global treshold");
+			// 	request.parsing.error_cause = PAYLOAD_TOO_LARGE;
+			// 	request.parsing.state = HTTPRequest::ERROR;
+			// 	return false;
+			// }
 
 			request.parsing.state = HTTPRequest::RESOLVING_ROUTE;
 
@@ -453,7 +482,8 @@ bool RequestParser::_parseHeaders(const Buffer& buffer, HTTPRequest& request) {
 			return false;
 		}
 
-		request.parsing.bytes_read_count = request.parsing.line_end_pos + request.parsing.line_end_size;
+		request.parsing.bytes_read_count = request.parsing.line_end_pos +
+										   request.parsing.line_end_size;
 		return true;
 
 	}
@@ -472,9 +502,9 @@ bool RequestParser::_parseChunks(Buffer& buffer, CGIProcess* cgi_process, HTTPRe
 
 		ssize_t pos;
 		if (p.line_ending == HTTPRequest::CRLF) {
-			pos = buffer.find(http::CRLF);
+			pos = buffer.find(HTTP::CRLF);
 		} else if (p.line_ending == HTTPRequest::LF) {
-			pos = buffer.find(http::LF);
+			pos = buffer.find(HTTP::LF);
 		} else {
 			return false;
 		}
@@ -702,8 +732,8 @@ bool RequestParser::_parseBody(const Buffer& buffer, CGIProcess* cgi_process, HT
 											  &buffer.data[buffer.begin], n);
 				if (bytes_consumed < 0) {
 					log.error("write: " + std::string(strerror(errno)));
-					request.parsing.error_cause = INTERNAL_SERVER_ERROR;
-					request.parsing.state = HTTPRequest::ERROR;
+					p.error_cause = INTERNAL_SERVER_ERROR;
+					p.state = HTTPRequest::ERROR;
 					return false;
 				}
 
@@ -729,8 +759,8 @@ bool RequestParser::_parseBody(const Buffer& buffer, CGIProcess* cgi_process, HT
 											  &buffer.data[buffer.begin], boundary_pos);
 				if (bytes_consumed < 0) {
 					log.error("write: " + std::string(strerror(errno)));
-					request.parsing.error_cause = INTERNAL_SERVER_ERROR;
-					request.parsing.state = HTTPRequest::ERROR;
+					p.error_cause = INTERNAL_SERVER_ERROR;
+					p.state = HTTPRequest::ERROR;
 					return false;
 				}
 
@@ -851,8 +881,8 @@ bool RequestParser::_parseBody(const Buffer& buffer, CGIProcess* cgi_process, HT
 		*/
 		if (cgi_process == NULL) {
 			log.error("null pointer provided");
-			request.parsing.error_cause = INTERNAL_SERVER_ERROR;
-			request.parsing.state = HTTPRequest::ERROR;
+			p.error_cause = INTERNAL_SERVER_ERROR;
+			p.state = HTTPRequest::ERROR;
 			return false;
 		}
 
@@ -867,25 +897,12 @@ bool RequestParser::_parseBody(const Buffer& buffer, CGIProcess* cgi_process, HT
 
 		if (n == 0) return true;
 
-		ssize_t bytes_consumed = 0;
-		if (cgi_process->stdinFd() == -1) {
-			// The child already closed its stdin (it does not read the
-			// body): consume and discard the remaining body bytes.
-			bytes_consumed = static_cast<ssize_t>(n);
-		} else {
-			bytes_consumed = write(cgi_process->stdinFd(), &buffer.data[buffer.begin], n);
-			if (bytes_consumed < 0) {
-				if (errno == EAGAIN || errno == EWOULDBLOCK) {
-					// Pipe is full: keep the bytes in the buffer and wait
-					// for EPOLLOUT on the pipe to resume forwarding.
-					bytes_consumed = 0;
-				} else {
-					log.error("write: " + std::string(strerror(errno)));
-					request.parsing.error_cause = INTERNAL_SERVER_ERROR;
-					request.parsing.state = HTTPRequest::ERROR;
-					return false;
-				}
-			}
+		ssize_t bytes_consumed = write(cgi_process->stdinFd(), &buffer.data[buffer.begin], n);
+		if (bytes_consumed < 0) {
+			log.error("write: " + std::string(strerror(errno)));
+			p.error_cause = INTERNAL_SERVER_ERROR;
+			p.state = HTTPRequest::ERROR;
+			return false;
 		}
 
 		p.bytes_read_count = bytes_consumed;
@@ -901,8 +918,8 @@ bool RequestParser::_parseBody(const Buffer& buffer, CGIProcess* cgi_process, HT
 			try {
 				createFile(request);
 			} catch (std::exception& e) {
-				request.parsing.error_cause = INTERNAL_SERVER_ERROR;
-				request.parsing.state = HTTPRequest::ERROR;
+				p.error_cause = INTERNAL_SERVER_ERROR;
+				p.state = HTTPRequest::ERROR;
 				log.warn(e.what());
 				return false;
 			}
@@ -929,14 +946,14 @@ bool RequestParser::_parseBody(const Buffer& buffer, CGIProcess* cgi_process, HT
 				try {
 					createFile(request);
 				} catch (std::exception& e) {
-					request.parsing.error_cause = INTERNAL_SERVER_ERROR;
-					request.parsing.state = HTTPRequest::ERROR;
+					p.error_cause = INTERNAL_SERVER_ERROR;
+					p.state = HTTPRequest::ERROR;
 					log.warn(e.what());
 					return false;
 				}
 				if (!spoolBody(request.body.temp, request.body.file)) {
-					request.parsing.error_cause = INTERNAL_SERVER_ERROR;
-					request.parsing.state = HTTPRequest::ERROR;
+					p.error_cause = INTERNAL_SERVER_ERROR;
+					p.state = HTTPRequest::ERROR;
 					std::remove(request.body.path.c_str());
 					return false;
 				}
@@ -949,15 +966,15 @@ bool RequestParser::_parseBody(const Buffer& buffer, CGIProcess* cgi_process, HT
 			bytes_consumed = write(request.body.file, &buffer.data[buffer.begin], n);
 			if (bytes_consumed < 0) {
 				log.error("write: " + std::string(strerror(errno)));
-				request.parsing.error_cause = INTERNAL_SERVER_ERROR;
-				request.parsing.state = HTTPRequest::ERROR;
+				p.error_cause = INTERNAL_SERVER_ERROR;
+				p.state = HTTPRequest::ERROR;
 				return false;
 			}
 			break;
 
 		case NONE:
-			request.parsing.error_cause = INTERNAL_SERVER_ERROR;
-			request.parsing.state = HTTPRequest::ERROR;
+			p.error_cause = INTERNAL_SERVER_ERROR;
+			p.state = HTTPRequest::ERROR;
 			return false;
 		}
 

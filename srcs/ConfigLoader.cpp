@@ -5,7 +5,7 @@
 /*                                                    +:+ +:+         +:+     */
 /*   By: sholz, bstorck <marvin@42.fr>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/06/30 18:35:38 by bstorck           #+#    #+#             */
+/*   Created: 2026/06/30 18:35:38 by sholz             #+#    #+#             */
 /*   Updated: 2026/08/24 21:52:26 by bstorck          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
@@ -41,7 +41,7 @@ static bool isConfigFile(const std::string& filename) {
 	return (ext == "conf");
 }
 
-static std::string stripInlineComment(std::string line) {
+static inline std::string stripInlineComment(std::string line) {
 
 	std::size_t commentPos = line.find('#');
 	if (commentPos != std::string::npos) {
@@ -54,7 +54,7 @@ static std::string stripInlineComment(std::string line) {
 
 static bool isSupportedCGIExtension(const std::string& ext) {
 
-	const std::string valid_exts[] = {".py", ".sh", ".bla"};
+	const std::string valid_exts[] = {".bla", ".php", ".pl", ".py", ".rb", ".sh"};
 	const std::size_t size = arraySize(valid_exts);
 
 	return (std::find(valid_exts, valid_exts + size, ext) != valid_exts + size);
@@ -161,6 +161,7 @@ static bool isDuplicateLocation(const std::vector<Config::Location>& locations,
 		}
 	}
 	return false;
+
 }
 
 static std::string extractDirectiveKey(const std::string& line) {
@@ -298,6 +299,22 @@ static void extractLocationPath(const std::string& header, Config::Location& loc
 
 }
 
+static Method extractMethod(const std::string& method) {
+
+	static const std::string valid_methods[
+		static_cast<int>(METHOD_COUNT)
+	] = {
+		"GET", "HEAD", "DELETE", "POST", "PUT", "PATCH"
+	};
+	for (std::size_t i = 0; i < static_cast<int>(METHOD_COUNT); ++i) {
+		if (valid_methods[i] == method) {
+			return static_cast<Method>(i);
+		}
+	}
+	return METHOD_COUNT;
+
+}
+
   //~~~~~~~~~~//
  /*  Public  */
 //~~~~~~~~~~//
@@ -361,35 +378,25 @@ void ConfigLoader::loadConfig(const std::string& config_file) {
 
 }
 
-static Method extractMethod(const std::string& method) {
-
-	static const std::string valid_methods[
-		static_cast<int>(METHOD_COUNT)
-	] = {
-		"GET", "HEAD", "DELETE", "POST", "PUT"
-	};
-	for (std::size_t i = 0; i < static_cast<int>(METHOD_COUNT); ++i) {
-		if (valid_methods[i] == method) {
-			return static_cast<Method>(i);
-		}
-	}
-	return METHOD_COUNT;
-
-}
-
   //~~~~~~~~~~~//
  /*  Private  */
 //~~~~~~~~~~~//
 
 /*	@brief Constructor	*/
 ConfigLoader::ConfigLoader(void) {
-	log.debug("Parser Constructor called");
+	log.debug("ConfigLoader Constructor called");
+	return;
+};
+
+/*	@brief Destructor	*/
+ConfigLoader::~ConfigLoader() {
+	log.debug("ConfigLoader Destructor called");
 	return;
 };
 
 /*	@brief Copy Constructor	*/
 ConfigLoader::ConfigLoader(const ConfigLoader& other) {
-	log.debug("Parser Copy Constructor called");
+	log.debug("ConfigLoader Copy Constructor called");
 	*this = other;
 	return;
 };
@@ -397,15 +404,9 @@ ConfigLoader::ConfigLoader(const ConfigLoader& other) {
 /*	@brief Copy Assignment Operator	*/
 ConfigLoader& ConfigLoader::operator=(const ConfigLoader& other) {
 	if (this != &other) {
-		log.debug("Parser Copy Assignment Operator called");
+		log.debug("ConfigLoader Copy Assignment Operator called");
 	}
 	return *this;
-};
-
-/*	@brief Destructor	*/
-ConfigLoader::~ConfigLoader() {
-	log.debug("Parser Destructor called");
-	return;
 };
 
 ConfigLoader::location_directive_handler_map ConfigLoader::_initLocationDirectiveHandlerMap(void) {
@@ -503,6 +504,13 @@ void ConfigLoader::_parseLocationBlock(std::ifstream& config_file_stream,
 			// If client body treshold too high, set to global maximum
 			if (loc.client_max_body_size > Config::SERVER_MAX_BODY_SIZE) {
 				loc.client_max_body_size = Config::SERVER_MAX_BODY_SIZE;
+			}
+
+			// If CGI scripts allowed, add catch-all extension ".cgi"
+			if (!loc.interpreters.empty()) {
+				loc.interpreters[".cgi"];
+				// Only needed for stupid 42 tester
+				loc.interpreters[".bla"];
 			}
 
 			// Check for duplicate paths

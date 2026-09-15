@@ -3,7 +3,7 @@
 /*                                                        :::      ::::::::   */
 /*   HTTPRequest.hpp                                    :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: sholz + bstorck <marvin@42.fr>             +#+  +:+       +#+        */
+/*   By: sholz, bstorck <marvin@42.fr>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/30 18:43:14 by sholz             #+#    #+#             */
 /*   Updated: 2026/06/30 18:43:18 by bstorck          ###   ########.fr       */
@@ -15,7 +15,7 @@
 
 #include "HTTPParameters.hpp"
 #include "HTTPResponse.hpp"
-#include "Session.hpp"
+// #include "Session.hpp"
 #include <sstream>
 #include <string>
 #include <cstring>
@@ -215,11 +215,13 @@ public:
 		std::string										binary_path;
 		std::string										script_name;
 		std::string										path_info;
+		std::string										path_translated;
 
 		CGIContext(void)
 			:	binary_path(""),
 				script_name(""),
-				path_info("") {
+				path_info(""),
+				path_translated("") {
 			std::memset(&remote_socket, 0, sizeof(remote_socket));
 			std::memset(&server_socket, 0, sizeof(server_socket));
 		}
@@ -252,7 +254,7 @@ public:
 	const std::string&									getVersion(void) const;
 	const std::string*									getHeader(const std::string& key) const;
 	const std::map<std::string, std::string>&			getHeaders(void) const;
-	const std::string*									getCookie(const std::string& key) const;
+	// const std::string*									getCookie(const std::string& key) const;
 	const std::string&									getSessionID(void) const;
 
 	const std::stringstream&							getBody(void) const;
@@ -263,10 +265,10 @@ public:
 	void												setVersion(const std::string&);
 	void												setHeader(const std::string& key, const std::string& value);
 	void												setCookie(const Cookie& cookie);
+	// void												setSession(const Session& session);
 	void												setSessionID(const std::string& session_id);
-	void												setSession(const Session& session);
 
-	bool												extractContentLength(void);
+	bool												extractContentLength(const std::string& value);
 
 	void												reset(void);
 
@@ -287,7 +289,7 @@ private:
 
 	std::string											_session_id;
 
-	const Session*										_session;
+	// const Session*										_session;
 
 };
 

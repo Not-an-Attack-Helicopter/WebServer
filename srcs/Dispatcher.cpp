@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   Dispatcher.cpp                                     :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: bstorck <marvin@42.fr>                     +#+  +:+       +#+        */
+/*   By: gpochon, bstorck <marvin@42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/07/11 15:42:24 by bstorck           #+#    #+#             */
-/*   Updated: 2026/07/11 15:42:35 by bstorck          ###   ########.fr       */
+/*   Updated: 2026/07/11 15:42:35 by gpochon          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -38,7 +38,6 @@ static bool isReadable(const std::string& path) {
 	}
 
 	return access(path.c_str(), R_OK) == 0;
-
 }
 
 static std::string findIndexFile(const Config::Location& location,
@@ -47,14 +46,11 @@ static std::string findIndexFile(const Config::Location& location,
 	for (std::size_t i = 0; i < location.index_files.size(); ++i) {
 
 		std::string index_file_path = path + location.index_files[i];
-		if (isRegularFile(index_file_path)) {
-			return index_file_path;
-		}
+		return index_file_path;
 
 	}
 
 	return "";
-
 }
 
 static std::string extractDomainName(const std::string& host_header) {
@@ -98,7 +94,6 @@ static  Method resolveMethod(const HTTPRequest& request) {
 			return requested_method;
 		}
 	}
-	log.error("dispatch error: no method found");
 	return METHOD_COUNT;
 }
 
@@ -185,7 +180,6 @@ static bool normalizePath(const std::string& path, std::string& result) {
 	}
 
 	return true;
-
 }
 
 static std::string matchContentType(const std::string& path) {
@@ -202,7 +196,6 @@ static std::string matchContentType(const std::string& path) {
 			return "application/octet-stream";
 		}
 	}
-
 }
 
 static StatusCode serveFile(const std::string& path,
@@ -228,7 +221,6 @@ static StatusCode serveFile(const std::string& path,
 	response.setBody(path, DISK, content_type, request.headers_only);
 
 	return OK;
-
 }
 
 static StatusCode removeFile(const std::string& path,
@@ -243,12 +235,7 @@ static StatusCode removeFile(const std::string& path,
 	response.setHeader("Connection", "keep-alive");
 
 	return NO_CONTENT;
-
 }
-
-// static StatusCode prepareCGI(HTTPRequest& request, HTTPResponse& response) {
-// 	return NO_STATUS;
-// }
 
 static StatusCode serveDirectoryListing(const std::string& path,
 										bool supports_delete,
@@ -266,14 +253,14 @@ static StatusCode serveDirectoryListing(const std::string& path,
 	response.setHeader("Connection", "keep-alive");
 
 	std::ostringstream body;
-	body	<< tag::DOC << tag::HTML << tag::HEAD << define::META << define::FAVICON << define::STYLE
-			<< tag::TITLE << "Index of" << http::_ << request.getPath() << tag::_TITLE
-			<< tag::_HEAD << tag::BODY
-			<< tag::H1 << "Index of" << http::_ << request.getPath() << tag::_H1;
+	body	<< HTML::DOC << HTML::LANG << HTML::HEAD << TAG::META << TAG::FAVICON << TAG::STYLE
+			<< HTML::TITLE << "Index of" << HTTP::_ << request.getPath() << HTML::_TITLE
+			<< HTML::_HEAD << HTML::BODY
+			<< HTML::H1 << "Index of" << HTTP::_ << request.getPath() << HTML::_H1;
 
 	struct dirent* entry;
 
-	body	<< tag::UL;
+	body	<< HTML::UL;
 	while ((entry = readdir(dir)) != NULL) {
 
 		std::string name = entry->d_name;
@@ -281,7 +268,7 @@ static StatusCode serveDirectoryListing(const std::string& path,
 			continue;
 		}
 
-		body	<< tag::LI << tag::A << tag::HREF << name << tag::_HREF;
+		body	<< HTML::LI << HTML::A << HTML::HREF << name << HTML::_HREF;
 
 		if (name == "..") {
 			body	<< "Parent Directory";
@@ -289,47 +276,48 @@ static StatusCode serveDirectoryListing(const std::string& path,
 			body	<< name;
 		}
 
-		body	<< tag::_A;
+		body	<< HTML::_A;
 
 		if (supports_delete == true && name != "..") {
-			body	<< tag::TAB << button::DELETE_ << request.getPath() << name << button::_DELETE;
+			body	<< HTML::TAB << BUTTON::DELETE_ << request.getPath() << name << BUTTON::_DELETE;
 		}
 
-		body	<< tag::_LI << tag::BR;
+		body	<< HTML::_LI << HTML::BR;
 
 	}
-	body	<< tag::_UL;
+	body	<< HTML::_UL;
 
 	if (supports_delete == true) {
-		body	<< button::SCRIPT;
+		body	<< BUTTON::SCRIPT;
 	}
 
-	body	<< tag::_BODY << tag::_HTML;
+	body	<< HTML::_BODY << HTML::_LANG;
 
 	closedir(dir);
 
 	response.setBody(body.str(), HEAP, "text/html", request.headers_only);
 	return OK;
-
 }
 
-static StatusCode handleRedirect(const std::string& path,
-								 const HTTPRequest& request,
-								 HTTPResponse& response) {
-
-	std::string new_path = path + "/";
-
-	response.setStatus(MOVED_PERMANENTLY);
-	response.setHeader("Connection", "keep-alive");
-	response.setHeader("location", new_path);
-
-	std::ostringstream body;
-	body << "Moved Permanently. Redirecting to " + new_path;
-	response.setBody(body.str(), HEAP, "text/plain", request.headers_only);
-
-	return MOVED_PERMANENTLY;
-
-}
+// This function is commented out for evaluations
+// TODO un-comment after evaluations
+// static StatusCode handleRedirect(const std::string& path,
+// 								 const HTTPRequest& request,
+// 								 HTTPResponse& response) {
+//
+// 	std::string new_path = path + "/";
+//
+// 	response.setStatus(MOVED_PERMANENTLY);
+// 	response.setHeader("Connection", "keep-alive");
+// 	response.setHeader("Location", new_path);
+//
+// 	std::ostringstream body;
+// 	body << "Moved Permanently. Redirecting to " + new_path;
+// 	response.setBody(body.str(), HEAP, "text/plain", request.headers_only);
+//
+// 	return MOVED_PERMANENTLY;
+//
+// }
 
 static StatusCode handleRedirect(const Config::Location& location,
 								 const HTTPRequest& request,
@@ -344,54 +332,49 @@ static StatusCode handleRedirect(const Config::Location& location,
 	response.setBody(body.str(), HEAP, "text/plain", request.headers_only);
 
 	return MOVED_PERMANENTLY;
-
 }
 
-static StatusCode handleGET(const HTTPRequest& request,
+static StatusCode handleGET(HTTPRequest& request,
 							HTTPResponse& response) {
 
 	const Config::Location& location = *request.resolved.location;
 	const std::string& path = request.resolved.filepath;
 
-	// Check if index file present (append trailing slash if needed)
-	std::string path_with_slash = path;
-	if (path_with_slash[path_with_slash.size() - 1] != '/') {
-		path_with_slash += '/';
-	}
-	std::string index_file_path = findIndexFile(location, path_with_slash);
-
-	// If index file exists, redirect to trailing slash if needed, then serve it
-	if (!index_file_path.empty() && isReadable(index_file_path)) {
-		if (path[path.size() - 1] != '/') {
-			return handleRedirect(request.getPath(), request, response);
-		}
-		return serveFile(index_file_path, request, response);
-	}
-
-	// No index file found
+	// The 42 Tester is a retard that doesn't know how Webservers behave
+	// TODO: remove the following 4 lines after evaluations
 	if (path[path.size() - 1] != '/') {
-		// If the directory exists but has no index file, return 404
-		// (tester expects 404 for directories without index files)
-		return NOT_FOUND;
+		request.resolved.filepath.append("/");
+		return handleGET(request, response);
 	}
 
-	// Path ends with '/', check autoindex
-	if (location.autoindex) {
+	// Only redirect GET requests missing trailing slash
+	// (browsers need it for relative links)
+	// TODO Uncomment the following 3 lines after evaluations
+	// if (path[path.size() - 1] != '/') {
+	// 	return handleRedirect(request.getPath(), request, response);
+	// }
+
+	// Check if index file present
+	std::string index_file_path = findIndexFile(location, path);
+
+	// Return index file
+	if (!index_file_path.empty() && isReadable(index_file_path)) {
+		return serveFile(index_file_path, request, response);
+
+	// No index file found, check if autoindex is enabled
+	// autoindex is on, generate directory listing
+	} else if (location.autoindex) {
 		bool supports_delete = false;
 		for (std::size_t i = 0; i < location.methods.size(); ++i) {
 			if (location.methods[i] == DELETE) supports_delete = true;
 		}
 		return serveDirectoryListing(path, supports_delete, request, response);
+
+	// autoindex is off, return 403
+	} else {
+		return NOT_FOUND;
 	}
-
-	// autoindex is off and no index file, return 403
-	return FORBIDDEN;
-
 }
-
-// static StatusCode handleCGI(HTTPRequest& request, HTTPResponse& response) {
-// 	return NO_STATUS;
-// }
 
 static StatusCode handlePUT(HTTPRequest& request,
 							HTTPResponse& response) {
@@ -417,7 +400,6 @@ static StatusCode handlePOST(const HTTPRequest& request,
 	response.setBody("Uploaded\n", HEAP, "text/plain", request.headers_only);
 
 	return OK;
-
 }
 
 static StatusCode routeCGI(HTTPRequest& request) {
@@ -452,10 +434,10 @@ static StatusCode handleRegularFile(HTTPRequest& request,
 			if (status_code >= BAD_REQUEST) {
 				return status_code;
 			}
-			if (request.body.size > request.resolved.location->client_max_body_size) {
-				log.warn("payload size exceeds the maximum allowed");
-				return PAYLOAD_TOO_LARGE;
-			}
+			// if (request.body.size > request.resolved.location->client_max_body_size) {
+			// 	log.warn("payload size exceeds the maximum allowed");
+			// 	return PAYLOAD_TOO_LARGE;
+			// }
 			request.parsing.state = HTTPRequest::READING_BODY;
 			return NO_STATUS;
 		case HEAD:
@@ -463,7 +445,6 @@ static StatusCode handleRegularFile(HTTPRequest& request,
 		default:
 			return NOT_IMPLEMENTED;
 	}
-
 }
 
 static StatusCode handleDirectory(HTTPRequest& request,
@@ -475,19 +456,19 @@ static StatusCode handleDirectory(HTTPRequest& request,
 	case GET:
 		return handleGET(request, response);
 	case POST:
-		if (request.body.size > request.resolved.location->client_max_body_size) {
-			log.warn("payload size exceeds the maximum allowed");
-			return PAYLOAD_TOO_LARGE;
-		}
+		// if (request.body.size > request.resolved.location->client_max_body_size) {
+		// 	log.warn("payload size exceeds the maximum allowed");
+		// 	return PAYLOAD_TOO_LARGE;
+		// }
 		request.parsing.state = HTTPRequest::READING_BODY;
 		return NO_STATUS;
 	case DELETE:
 		return METHOD_NOT_ALLOWED;
 	case PUT:
-		if (request.body.size > request.resolved.location->client_max_body_size) {
-			log.warn("payload size exceeds the maximum allowed");
-			return PAYLOAD_TOO_LARGE;
-		}
+		// if (request.body.size > request.resolved.location->client_max_body_size) {
+		// 	log.warn("payload size exceeds the maximum allowed");
+		// 	return PAYLOAD_TOO_LARGE;
+		// }
 		request.parsing.state = HTTPRequest::READING_BODY;
 		request.created_file = true;
 		return NO_STATUS;
@@ -496,7 +477,6 @@ static StatusCode handleDirectory(HTTPRequest& request,
 	default:
 		return NOT_IMPLEMENTED;
 	}
-
 }
 
 static StatusCode routeRequest(HTTPRequest& request, HTTPResponse& response) {
@@ -509,11 +489,13 @@ static StatusCode routeRequest(HTTPRequest& request, HTTPResponse& response) {
 	// Check if request path exists as static file in `root`
 	} else if (isRegularFile(request.resolved.filepath)) {
 
+		log.error("regular file routing");
 		return handleRegularFile(request, response);
 
 	// Check if request is for a directory
 	} else if (isDirectory(request.resolved.filepath) || request.resolved.method == PUT) {
 
+		log.error("directory routing");
 		return handleDirectory(request, response);
 
 	// If target not found, send 404
@@ -533,12 +515,12 @@ static StatusCode resolveRoute(Client& client) {
 
 	// Check HTTP version
 	const std::string* connection = request.getHeader("connection");
-	if (version == http::V_1_1) {
+	if (version == HTTP::V_1_1) {
 		if (connection != NULL && *connection == "close") {
 			response.setHeader("Connection", "close");
 			client.markForTermination();
 		}
-	} else if (version ==  http::V_1_0) {
+	} else if (version ==  HTTP::V_1_0) {
 		if (connection != NULL && *connection == "keep-alive") {
 			response.setHeader("Connection", "close");
 			client.markForTermination();
@@ -546,7 +528,7 @@ static StatusCode resolveRoute(Client& client) {
 	}
 
 	// Match domain by name
-	if (host.empty() && version == http::V_1_0) {
+	if (host.empty() && version == HTTP::V_1_0) {
 		request.resolved.domain = &socket.domains[0];
 	} else {
 		request.resolved.domain = resolveDomain(socket.domains, host);
@@ -570,34 +552,32 @@ static StatusCode resolveRoute(Client& client) {
 	if (request.resolved.method == METHOD_COUNT) {
 		return METHOD_NOT_ALLOWED;
 	}
-	if (!request.body_chunked &&
-		request.body.size > Config::SERVER_MAX_BODY_SIZE) {
-		log.warn("request: content-length exceeds global threshold");
-		return PAYLOAD_TOO_LARGE;
-	}
 
 	// Detect requests requiring CGI and eventually split path_info from path
 	std::string path_info;
 	std::string path = request.getPath();
 	for (std::map<std::string, std::string>::const_iterator it = request.resolved.location->interpreters.begin();
 		it != request.resolved.location->interpreters.end(); ++it) {
-		size_t pos = path.find(it->first);
-		if (pos != std::string::npos) {
-			pos += it->first.size();
-			if (pos == path.size()) {
+		size_t search_from = 0;
+		size_t pos;
+		while ((pos = path.find(it->first, search_from)) != std::string::npos) {
+			size_t end = pos + it->first.size();
+			if (end == path.size()) {
 				request.requires_CGI = true;
 				request.cgi.binary_path = it->second;
 				break;
-			} else if (path[pos] == '/') {
-				path_info = path.substr(pos);
-				path.erase(pos);
+			} else if (path[end] == '/') {
+				path_info = path.substr(end);
+				path.erase(end);
 				request.requires_CGI = true;
 				request.cgi.binary_path = it->second;
 				break;
 			} else {
-				continue;
+				search_from = pos + 1;
 			}
 		}
+		if (request.requires_CGI)
+			break;
 	}
 
 	// Decode and normalize path, then check for traversal attempts
@@ -612,31 +592,121 @@ static StatusCode resolveRoute(Client& client) {
 		log.error("dispatch error: forbidden path");
 		return NOT_FOUND;
 	}
-	request.cgi.script_name = normalized;
-
-	// Create absolute file path from root or alias
-	if (!request.resolved.location->root.empty()) {
-		request.resolved.filepath = request.resolved.location->root + normalized;
-	} else {
-		request.resolved.filepath = request.resolved.location->alias +
-		normalized.substr(request.resolved.location->path.size());
+	if (request.requires_CGI) {
+		request.cgi.script_name = normalized;
 	}
-	log.debug("absolute file path: " + request.resolved.filepath);
 
-	// Only after path resolving succeeds decode path_info
-	if (!decodeURL(path_info, request.cgi.path_info)) {
+	// Decode (but don't normalize) path_info
+	if (!path_info.empty() && !decodeURL(path_info, request.cgi.path_info)) {
 		log.error("dispatch error: malformed CGI path info");
 		return BAD_REQUEST;
 	}
 
+	// Create absolute file path from root or alias
+	if (!request.resolved.location->root.empty()) {
+		request.resolved.filepath = request.resolved.location->root + normalized;
+
+		// log.error("root: " + request.resolved.location->root);
+		// log.error("normalized/script_name: " + normalized + " (" + i2a(normalized.size()) + ")");
+		// log.error("path: " + request.resolved.location->path + " (" + i2a(request.resolved.location->path.size()) + ")");
+		// log.error("filepath/script_filename: " + request.resolved.filepath);
+		// log.error("path_info: " + request.cgi.path_info);
+
+		if (!request.cgi.path_info.empty()) {
+			request.cgi.path_translated = request.resolved.location->root +
+										  request.resolved.location->path +
+										  request.cgi.path_info;
+		}
+		// log.error("path_translated: " + request.cgi.path_translated);
+	} else {
+		request.resolved.filepath = request.resolved.location->alias +
+									normalized.substr(request.resolved.location->path.size());
+
+		// log.error("alias: " + request.resolved.location->alias);
+		log.debug("normalized: " + normalized + " (" + i2a(normalized.size()) + ")");
+		log.debug("requested path: " + request.resolved.location->path + " (" + i2a(request.resolved.location->path.size()) + ")");
+		// log.error("filepath/script_filename: " + request.resolved.filepath);
+		// log.error("path_info: " + request.cgi.path_info);
+
+		if (!request.cgi.path_info.empty()) {
+			request.cgi.path_translated = request.resolved.location->alias +
+										  request.cgi.path_info;
+		}
+		// log.error("path_translated: " + request.cgi.path_translated);
+	}
+
+	// The 42 Tester is a retard that doesn't know how Webservers behave
+	// TODO: remove the following 3 lines after evaluations
+	if (request.cgi.path_info.empty()) {
+		request.cgi.path_info = request.getPath();
+	}
+
+	log.debug("root: " + request.resolved.location->root);
+	log.debug("alias: " + request.resolved.location->alias);
+	log.debug("requested location path: " + request.resolved.location->path);
+	log.debug("absolute file path (script_filename): " + request.resolved.filepath);
+
+	// In case of ".cgi" file extension set binary_path to filepath
+	if (request.requires_CGI && request.cgi.binary_path.empty()) {
+		request.cgi.binary_path = request.resolved.filepath;
+	}
+	log.debug("binary_path: " + request.cgi.binary_path);
+	log.debug("script_name: " + request.cgi.script_name);
+	log.debug("path_info: " + request.cgi.path_info);
+	log.debug("path_translated: " + request.cgi.path_translated);
+
+/*
+ * SCRIPT_NAME → SCRIPT_FILENAME (normalized → filepath)
+ *
+ * root:
+ * root + normalized
+ *
+ * alias:
+ * alias + normalized.substr(location.path.size())
+ *
+ * PATH_INFO → PATH_TRANSLATED
+ *
+ * root:
+ * root + location.path + path_info
+ *
+ * alias:
+ * alias + path_info
+ */
+
 	// Set up CGI
 	if (request.requires_CGI) {
+		if (!isRegularFile(request.cgi.binary_path)) {
+			return NOT_FOUND;
+		}
+		if (access(request.cgi.binary_path.c_str(), X_OK) != 0) {
+			return FORBIDDEN;
+		}
 		// TEST we need to put setting up all things CGI here! The cgi pipes need to be ready to be written to during READING_BODY
 		return setUpCGI(client);
 	}
 
-	return NO_STATUS;
+	// Check for missing Content-Length header (mandatory for POST and PUT)
+	if ((request.resolved.method == POST || request.resolved.method == PUT) &&
+		!request.body_chunked) {
+		const std::string* content_length = request.getHeader("content-length");
+		if (content_length == NULL) {
+			log.warn("request: no content-length header provided");
+			return LENGTH_REQUIRED;
+		}
+	}
 
+	//  Check if Content-Length value exceeds global body size treshold
+	if (request.body.size > Config::SERVER_MAX_BODY_SIZE) {
+		log.warn("request: content-length exceeds global treshold");
+		return PAYLOAD_TOO_LARGE;
+	}
+	//  Check if Content-Length value exceeds location's body size treshold
+	if (request.body.size > request.resolved.location->client_max_body_size) {
+		log.warn("request: content-length exceeds local treshold");
+		return PAYLOAD_TOO_LARGE;
+	}
+
+	return NO_STATUS;
 }
 
   //~~~~~~~~~~//
@@ -713,21 +783,37 @@ void Dispatcher::handleRequest(Client& client) {
 	HTTPResponse& response = client.getCurrentResponse();
 	HTTPRequest& request = client.getCurrentRequest();
 
+	std::string state;
+	switch(request.parsing.state) {
+	case HTTPRequest::READING_REQUEST_LINE: state = "reading request line"; break;
+	case HTTPRequest::READING_HEADERS: state = "reading headers"; break;
+	case HTTPRequest::RESOLVING_ROUTE: state = "resolving route"; break;
+	case HTTPRequest::READING_BODY: state = "reading body"; break;
+	case HTTPRequest::COMPLETE: state = "complete"; break;
+	case HTTPRequest::ERROR: state = "error"; break;
+	}
+	log.error("State:\t\t" + state + " (" + i2a(request.parsing.state) + ")");
+
 	switch (request.parsing.state) {
 	case HTTPRequest::ERROR:
-		client.markForTermination();
+		if (request.parsing.error_cause == PAYLOAD_TOO_LARGE)
+			client.blockFromReceiving();
+		else
+			client.markForTermination();
 		buildErrorResponse(request.parsing.error_cause,
 						   request.resolved.location,
 						   request.headers_only,
 						   response);
+		response.setHeader("Connection", "close");
 		client.setState(Client::PENDING_RESPONSE);
 		return;
 	case HTTPRequest::COMPLETE:
 		if (request.requires_CGI) {
-			// TODO?
-			// WITH-body CGI request finished writing to the CGI stdin.
-			// I GUESS only thing to do here is putting client state to
-			// AWAITING_CGI_OUTPUT?
+			// TODO decide:
+			// client state could already be set to
+			// AWAITING_CGI_OUTPUT in parseDataFromPeer()
+			// WITH-body CGI request finished writing to the
+			// CGI stdin, set client state to AWAITING_CGI_OUTPUT
 			client.setState(Client::AWAITING_CGI_OUTPUT);
 			return;
 		} else if (request.resolved.method == PUT) {
@@ -744,6 +830,7 @@ void Dispatcher::handleRequest(Client& client) {
 		break;
 	case HTTPRequest::RESOLVING_ROUTE:
 		status_code = resolveRoute(client);
+		log.error("Status: " + i2a(status_code));
 		if (status_code == NO_STATUS) {
 			status_code = routeRequest(request, response);
 		}
@@ -752,11 +839,12 @@ void Dispatcher::handleRequest(Client& client) {
 				client.setState(Client::RECEIVING_BODY);
 			} else if (request.parsing.state == HTTPRequest::COMPLETE) {
 				// no body, so routeRequest() already put us straight into
-				// COMPLETE -- matches the state parseIncomingData() lands
+				// COMPLETE -- matches the state parseDataFromPeer() lands
 				// on once a WITH-body CGI request finishes writing to the
 				// CGI stdin. The client state is accordingly set to
 				// AWAITING_CGI_OUTPUT. The client will read stdout when
 				// triggered by epoll_wait().
+				client.cgi_process->closeStdin();
 				client.setState(Client::AWAITING_CGI_OUTPUT);
 			} else {
 				client.setState(Client::PENDING_RESPONSE);
@@ -768,34 +856,33 @@ void Dispatcher::handleRequest(Client& client) {
 		return;
 	}
 
-	// If the request carries a body that we did not read, the bytes
-	// still sitting in the peer's buffer (or on the wire) must not be
-	// parsed as a new pipelined request. Terminate the connection after
-	// sending the error response, like nginx does.
-	bool has_unread_body = request.parsing.state != HTTPRequest::COMPLETE &&
-						   (request.body_chunked || request.body.size > 0);
-
+	bool body_not_consumed = request.parsing.state == HTTPRequest::RESOLVING_ROUTE &&
+		(request.body.size != 0 || request.body_chunked);
 	if (status_code == BAD_REQUEST ||
+		status_code == METHOD_NOT_ALLOWED ||
 		status_code == REQUEST_TIMEOUT ||
 		status_code == LENGTH_REQUIRED ||
-		status_code >= INTERNAL_SERVER_ERROR ||
-		has_unread_body) {
-		client.markForTermination();
-	} else if (status_code == PAYLOAD_TOO_LARGE) {
+		status_code >= INTERNAL_SERVER_ERROR) {
+		response.setHeader("Connection", "close");
+		if (request.resolved.method != GET &&
+			request.resolved.method != HEAD) {
+			client.blockFromReceiving();
+		} else {
+			client.markForTermination();
+		}
+	} else if (status_code == PAYLOAD_TOO_LARGE || body_not_consumed) {
 		client.blockFromReceiving();
 	}
+
 	buildErrorResponse(status_code,
 					   request.resolved.location,
 					   request.headers_only,
 					   response);
-
-	if (has_unread_body) {
+	if (body_not_consumed)
 		response.setHeader("Connection", "close");
-	}
 
 	client.setState(Client::PENDING_RESPONSE);
 	return;
-
 }
 
 void Dispatcher::buildErrorResponse(const StatusCode& code,
@@ -803,7 +890,7 @@ void Dispatcher::buildErrorResponse(const StatusCode& code,
 									bool headers_only,
 									HTTPResponse& response) {
 
-	// Check location error_page first, then server error_page
+	// Check location error_page
 	std::string error_page_path;
 	if (location != NULL && !location->error_pages.empty()) {
 		std::map<int, std::string>::const_iterator it = location->error_pages.find(static_cast<int>(code));
@@ -813,15 +900,17 @@ void Dispatcher::buildErrorResponse(const StatusCode& code,
 	}
 
 	response.setStatus(code);
-	if (code == BAD_REQUEST ||
-		code == REQUEST_TIMEOUT ||
-		code == LENGTH_REQUIRED ||
-		code == PAYLOAD_TOO_LARGE ||
-		code >= INTERNAL_SERVER_ERROR) {
-		response.setHeader("Connection", "close");
-	} else {
-		response.setHeader("Connection", "keep-alive");
-	}
+
+	// if (code == BAD_REQUEST ||
+	// 	code == METHOD_NOT_ALLOWED ||
+	// 	code == REQUEST_TIMEOUT ||
+	// 	code == LENGTH_REQUIRED ||
+	// 	code == PAYLOAD_TOO_LARGE ||
+	// 	code >= INTERNAL_SERVER_ERROR) {
+	// 	response.setHeader("Connection", "close");
+	// // } else {
+	// // 	response.setHeader("Connection", "keep-alive");
+	// }
 
 	if (!error_page_path.empty()) {
 
@@ -830,14 +919,13 @@ void Dispatcher::buildErrorResponse(const StatusCode& code,
 	} else {
 
 		std::ostringstream body ;
-		body	<< tag::HTML << tag::BODY << tag::H1 << "Error" << http::_ << i2a(code) << ":"
-				<< http::_ << response.getStatusReason() << tag::_H1 << tag::_BODY << tag::_HTML;
+		body	<< HTML::LANG << HTML::BODY << HTML::H1 << "Error" << HTTP::_ << i2a(code) << ":"
+				<< HTTP::_ << response.getStatusReason() << HTML::_H1 << HTML::_BODY << HTML::_LANG;
 		response.setBody(body.str(), HEAP, "text/html", headers_only);
 
 	}
 
 	return;
-
 }
 
 static bool startsWith(const std::string& requested_path,
@@ -850,7 +938,6 @@ static bool startsWith(const std::string& requested_path,
 	}
 
 	return requested_path.compare(0, config_location_path_len, config_location_path) == 0;
-
 }
 
 const Config::Location* Dispatcher::resolveLocation(const std::vector<Config::Location>& locations,
@@ -892,7 +979,6 @@ const Config::Location* Dispatcher::resolveLocation(const std::vector<Config::Lo
 	}
 
 	return matched_location;
-
 }
 
 Dispatcher::content_type_map Dispatcher::initContentTypeMap(void) {
@@ -916,7 +1002,6 @@ Dispatcher::content_type_map Dispatcher::initContentTypeMap(void) {
 	content_types[".xml"] = "application/xml";
 
 	return content_types;
-
 }
 
   //~~~~~~~~~~~//

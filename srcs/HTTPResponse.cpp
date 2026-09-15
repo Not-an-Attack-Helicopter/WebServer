@@ -25,9 +25,7 @@
 /*	@brief Constructor	*/
 HTTPResponse::HTTPResponse(void)
 	:	_status_code(OK),
-		_status_reason(_getDefaultReason(OK)),
-		_body_size(0),
-		_temporary(false) {
+		_status_reason(_getDefaultReason(OK)) {
 	log.debug("HTTPResponse Constructor called");
 	_headers.clear();
 	_body.clear();
@@ -103,6 +101,7 @@ void HTTPResponse::setBody(const std::string& str,
 			log.error("set body: unable to open file");
 			_body_sink = NONE;
 			_body_size = 0;
+			break;
 		}
 		file.seekg(0, std::ios::end);
 		_body_size = static_cast<std::size_t>(file.tellg());
@@ -131,22 +130,12 @@ std::size_t HTTPResponse::getBodySize(void) const {
 	return _body_size;
 }
 
-void HTTPResponse::setTemporary(void) {
-	_temporary = true;
-}
-
-bool HTTPResponse::isTemporary(void) const {
-	return _temporary;
-}
-
 void HTTPResponse::reset(void) {
 	_status_code = OK;
 	_status_reason = _getDefaultReason(OK);
 	_headers.clear();
 	_body.clear();
 	_body_sink = NONE;
-	_body_size = 0;
-	_temporary = false;
 	return;
 }
 

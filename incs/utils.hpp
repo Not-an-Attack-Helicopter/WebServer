@@ -3,7 +3,7 @@
 /*                                                        :::      ::::::::   */
 /*   utils.hpp                                          :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: sholz + bstorck <marvin@42.fr>             +#+  +:+       +#+        */
+/*   By: sholz, bstorck <marvin@42.fr>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/30 18:39:31 by sholz             #+#    #+#             */
 /*   Updated: 2026/06/30 18:39:32 by bstorck          ###   ########.fr       */
@@ -19,11 +19,11 @@
 // #include <cstddef>
 #include <sys/epoll.h>
 
-static const short TEMPORARY_SUFFIX_BYTE_WIDTH = 5;
-static const short SUFFIX_BYTE_WIDTH = 7;
+static const unsigned short TEMPORARY_SUFFIX_BIT_WIDTH = 40;
+static const unsigned short SUFFIX_BIT_WIDTH = 56;
 
 // DEBUG BEGIN
-static const short STOP = -2;
+// static const short STOP = -2;
 void			warnHighEventLoad(int nfds, int max_capacity);
 void			dumpEvents(int nfds, epoll_event* events);
 void			dumpClientConfig(const Client* client);
@@ -36,7 +36,7 @@ int				stringToInt(const std::string& str);
 
 std::string		trim(const std::string& str);
 std::string		unquote(const std::string& str);
-std::string		randomHexString(std::size_t width);
+std::string		randomHexString(unsigned short bit_width);
 
 bool			isRegularFile(const std::string& path);
 bool			isDirectory(const std::string& path);
@@ -44,8 +44,7 @@ bool			isDirectory(const std::string& path);
 void			createFile(HTTPRequest& request);
 void			promoteFile(HTTPRequest& request);
 
-ssize_t			fetchNbuff(int fd, Buffer& buffer);
-ssize_t			buffNflush(std::istream& stream, Buffer& b, int fd, bool is_pipe = false);
+// ssize_t			buffNflush(std::istream& stream, Buffer& b, int fd, bool is_pipe = false);
 
 void			dumpConfigs(const std::vector<Config::Socket>& config);
 

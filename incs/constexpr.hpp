@@ -13,7 +13,7 @@
 #ifndef CONSTEXPR_HPP
 #define CONSTEXPR_HPP
 
-namespace http {
+namespace HTTP {
 
 	static const char _ = ' ';
 	static const char CR = '\r';
@@ -26,10 +26,10 @@ namespace http {
 
 }
 
-namespace tag {
+namespace HTML {
 
 	static const char DOC[] = "<!DOCTYPE html>";
-	static const char HTML[] = "<html lang=\"en\">";
+	static const char LANG[] = "<html lang=\"en\">";
 	static const char HEAD[] = "<head>";
 	static const char TITLE[] = "<title>";
 	static const char BODY[] = "<body>";
@@ -40,7 +40,7 @@ namespace tag {
 	static const char HREF[] = "href=\"";
 	static const char BR[] = "<br>";
 	static const char TAB[] = "<span style=\"display:inline-block; width: 4em;\"></span>";
-	static const char _HTML[] = "</html>";
+	static const char _LANG[] = "</html>";
 	static const char _HEAD[] = "</head>";
 	static const char _TITLE[] = "</title>";
 	static const char _BODY[] = "</body>";
@@ -52,7 +52,7 @@ namespace tag {
 
 }
 
-namespace define {
+namespace TAG {
 
 	static const char META[] = "<meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">";
 	static const char FAVICON[] = "<link rel=\"icon\" type=\"image/x-icon\" href=\"/images/icons/favicon.ico\"><link rel=\"icon\" type=\"image/png\" sizes=\"32x32\" href=\"/images/icons/favicon-32x32.png\"><link rel=\"icon\" type=\"image/png\" sizes=\"16x16\" href=\"/images/icons/favicon-16x16.png\"><link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/images/icons/apple-touch-icon.png\"><link rel=\"manifest\" href=\"/images/icons/site.webmanifest\">";
@@ -60,7 +60,7 @@ namespace define {
 
 }
 
-namespace button {
+namespace BUTTON {
 
 	static const char DELETE_[] = "<button class=\"delete\" data-url=\"";
 	static const char _DELETE[] = "\">Delete</button>";
