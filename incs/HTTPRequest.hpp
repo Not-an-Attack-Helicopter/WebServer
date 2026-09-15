@@ -82,7 +82,6 @@ public:
 		std::size_t										blank_line_size;
 		std::size_t										bytes_read_count;
 		std::size_t										bytes_written_count;
-		std::size_t										payload_read_count;
 		std::size_t										headers_size;
 		std::size_t										body_size;
 		std::size_t										chunk_size;
@@ -99,7 +98,6 @@ public:
 				blank_line_size(0),
 				bytes_read_count(0),
 				bytes_written_count(0),
-				payload_read_count(0),
 				headers_size(0),
 				body_size(0),
 				chunk_size(0),

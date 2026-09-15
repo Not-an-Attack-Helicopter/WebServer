@@ -45,6 +45,7 @@ bool RequestParser::buffer(Buffer& buffer, CGIProcess* cgi_process, HTTPRequest&
 	case HTTPRequest::ERROR: state = "error"; break;
 	}
 	log.error("State:\t\t" + state + " (" + i2a(request.parsing.state) + ")");
+	// log.error(request.body_chunked  ?  "chunked transfer-encoding" : "body size: " + i2a(request.body.size));
 
 	switch (request.parsing.state) {
 
@@ -123,8 +124,8 @@ static inline Method matchMethod(const std::string& method) {
 
 bool RequestParser::_extractTokens(const Buffer& buffer, HTTPRequest& request) {
 
+	// log.notice("Request:\n-------\n" + buffer.str() + "\n-------\n");
 	// Transform to stream
-	log.notice("Request:\n-------\n" + buffer.str() + "\n-------\n");
 	std::stringstream ss;
 	buffer.sstream(ss, 0, request.parsing.line_end_pos);
 	if (ss.fail()) {
@@ -272,7 +273,7 @@ bool RequestParser::_parseRequestLine(const Buffer& buffer, HTTPRequest& request
 	// No line feed detected (Data only): wait for more data
 	} else if (request.parsing.line_end_pos == std::string::npos) {
 
-		request.parsing.bytes_read_count = std::string::npos;
+		request.parsing.bytes_read_count = 0;
 		return false;
 
 	// Maximum request line length exceeded
@@ -412,6 +413,7 @@ bool RequestParser::_parseHeaders(const Buffer& buffer, HTTPRequest& request) {
 			if (request.parsing.chunk_state == HTTPRequest::READING_TRAILERS) {
 
 				request.parsing.chunk_state = HTTPRequest::END_OF_CHUNKS;
+				log.error("end of chunks reached");
 
 			} else {
 
@@ -454,7 +456,7 @@ bool RequestParser::_parseHeaders(const Buffer& buffer, HTTPRequest& request) {
 	} else if (request.parsing.line_end_pos == std::string::npos) {
 
 		log.debug("waiting for more data...");
-		request.parsing.bytes_read_count = std::string::npos;
+		request.parsing.bytes_read_count = 0;
 		return false;
 
 	// Maximum header line length exceeded
@@ -494,7 +496,6 @@ bool RequestParser::_parseChunks(Buffer& buffer, CGIProcess* cgi_process, HTTPRe
 
 	HTTPRequest::ParsingContext& p = request.parsing;
 	p.bytes_read_count = 0;
-	p.payload_read_count = 0;
 
 	switch (p.chunk_state) {
 
@@ -565,7 +566,6 @@ bool RequestParser::_parseChunks(Buffer& buffer, CGIProcess* cgi_process, HTTPRe
 		bool complete = _parseBody(buffer, cgi_process, request);
 
 		std::size_t consumed = p.bytes_read_count;
-		p.payload_read_count = consumed;
 
 		/*
 		* Restore the real raw-buffer boundaries.

@@ -18,7 +18,7 @@
 #include <cstddef>
 #include <sys/types.h>
 
-static const std::size_t BUFFER_SIZE = 4 * 1024;
+static const std::size_t BUFFER_SIZE = 256 * 1024;
 
 struct Buffer {
 
