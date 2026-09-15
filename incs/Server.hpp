@@ -52,11 +52,11 @@ private:
 
 	bool									_setNonblockFlag(int fd);
 	bool									_setRDWRInterest(int fd);
-	bool									_dropWriteInterest(int fd);
+	bool									_disableSocketIO(int fd);
 	bool									_setPollInterest(int fd, bool is_pipe = false);
 	bool									_setRDONLYInterest(int fd, bool is_pipe = false);
 	bool									_setWRONLYInterest(int fd, bool is_pipe = false);
-	bool									_prepareScriptPipeEnd(int fd, bool is_read_end = false);
+	bool									_prepareScriptPipeEnd(int fd, bool is_write_end = false);
 
 	void									_acceptConnectRequest(int fd, ListeningSocket socket);
 
@@ -86,8 +86,6 @@ private:
 
 	std::map<int, ListeningSocket>			_sockets;
 	std::map<int, Client*>					_clients;
-	// std::map<Client*, int>					_reverse;
-	// std::map<int, Client*>					_pipes;
 	std::map<int, int>						_scripts;
 
 	epoll_event								_events[MAX_EPOLL_EVENTS];

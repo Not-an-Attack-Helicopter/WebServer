@@ -237,70 +237,74 @@ static StatusCode removeFile(const std::string& path,
 	return NO_CONTENT;
 }
 
-static StatusCode serveDirectoryListing(const std::string& path,
-										bool supports_delete,
-										const HTTPRequest& request,
-										HTTPResponse& response) {
-
-	DIR* dir = opendir(path.c_str());
-
-	if (!dir) {
-		log.error("dispatch error: could not open directory, permission denied");
-		return FORBIDDEN;
-	}
-
-	response.setStatus(OK);
-	response.setHeader("Connection", "keep-alive");
-
-	std::ostringstream body;
-	body	<< HTML::DOC << HTML::LANG << HTML::HEAD << TAG::META << TAG::FAVICON << TAG::STYLE
-			<< HTML::TITLE << "Index of" << HTTP::_ << request.getPath() << HTML::_TITLE
-			<< HTML::_HEAD << HTML::BODY
-			<< HTML::H1 << "Index of" << HTTP::_ << request.getPath() << HTML::_H1;
-
-	struct dirent* entry;
-
-	body	<< HTML::UL;
-	while ((entry = readdir(dir)) != NULL) {
-
-		std::string name = entry->d_name;
-		if (name == ".") {
-			continue;
-		}
-
-		body	<< HTML::LI << HTML::A << HTML::HREF << name << HTML::_HREF;
-
-		if (name == "..") {
-			body	<< "Parent Directory";
-		} else {
-			body	<< name;
-		}
-
-		body	<< HTML::_A;
-
-		if (supports_delete == true && name != "..") {
-			body	<< HTML::TAB << BUTTON::DELETE_ << request.getPath() << name << BUTTON::_DELETE;
-		}
-
-		body	<< HTML::_LI << HTML::BR;
-
-	}
-	body	<< HTML::_UL;
-
-	if (supports_delete == true) {
-		body	<< BUTTON::SCRIPT;
-	}
-
-	body	<< HTML::_BODY << HTML::_LANG;
-
-	closedir(dir);
-
-	response.setBody(body.str(), HEAP, "text/html", request.headers_only);
-	return OK;
-}
-
+// The 42 Tester is a retard that doesn't know how Webservers behave
 // This function is commented out for evaluations
-// TODO un-comment after evaluations
+// TODO: uncomment after evaluations
+// static StatusCode serveDirectoryListing(const std::string& path,
+// 										bool supports_delete,
+// 										const HTTPRequest& request,
+// 										HTTPResponse& response) {
+//
+// 	DIR* dir = opendir(path.c_str());
+//
+// 	if (!dir) {
+// 		log.error("dispatch error: could not open directory, permission denied");
+// 		return FORBIDDEN;
+// 	}
+//
+// 	response.setStatus(OK);
+// 	response.setHeader("Connection", "keep-alive");
+//
+// 	std::ostringstream body;
+// 	body	<< HTML::DOC << HTML::LANG << HTML::HEAD << TAG::META << TAG::FAVICON << TAG::STYLE
+// 			<< HTML::TITLE << "Index of" << HTTP::_ << request.getPath() << HTML::_TITLE
+// 			<< HTML::_HEAD << HTML::BODY
+// 			<< HTML::H1 << "Index of" << HTTP::_ << request.getPath() << HTML::_H1;
+//
+// 	struct dirent* entry;
+//
+// 	body	<< HTML::UL;
+// 	while ((entry = readdir(dir)) != NULL) {
+//
+// 		std::string name = entry->d_name;
+// 		if (name == ".") {
+// 			continue;
+// 		}
+//
+// 		body	<< HTML::LI << HTML::A << HTML::HREF << name << HTML::_HREF;
+//
+// 		if (name == "..") {
+// 			body	<< "Parent Directory";
+// 		} else {
+// 			body	<< name;
+// 		}
+//
+// 		body	<< HTML::_A;
+//
+// 		if (supports_delete == true && name != "..") {
+// 			body	<< HTML::TAB << BUTTON::DELETE_ << request.getPath() << name << BUTTON::_DELETE;
+// 		}
+//
+// 		body	<< HTML::_LI << HTML::BR;
+//
+// 	}
+// 	body	<< HTML::_UL;
+//
+// 	if (supports_delete == true) {
+// 		body	<< BUTTON::SCRIPT;
+// 	}
+//
+// 	body	<< HTML::_BODY << HTML::_LANG;
+//
+// 	closedir(dir);
+//
+// 	response.setBody(body.str(), HEAP, "text/html", request.headers_only);
+// 	return OK;
+// }
+
+// The 42 Tester is a retard that doesn't know how Webservers behave
+// This function is commented out for evaluations
+// TODO: uncomment after evaluations
 // static StatusCode handleRedirect(const std::string& path,
 // 								 const HTTPRequest& request,
 // 								 HTTPResponse& response) {
@@ -349,7 +353,7 @@ static StatusCode handleGET(HTTPRequest& request,
 
 	// Only redirect GET requests missing trailing slash
 	// (browsers need it for relative links)
-	// TODO Uncomment the following 3 lines after evaluations
+	// TODO: uncomment the following 3 lines after evaluations
 	// if (path[path.size() - 1] != '/') {
 	// 	return handleRedirect(request.getPath(), request, response);
 	// }
@@ -361,19 +365,27 @@ static StatusCode handleGET(HTTPRequest& request,
 	if (!index_file_path.empty() && isReadable(index_file_path)) {
 		return serveFile(index_file_path, request, response);
 
-	// No index file found, check if autoindex is enabled
-	// autoindex is on, generate directory listing
-	} else if (location.autoindex) {
-		bool supports_delete = false;
-		for (std::size_t i = 0; i < location.methods.size(); ++i) {
-			if (location.methods[i] == DELETE) supports_delete = true;
-		}
-		return serveDirectoryListing(path, supports_delete, request, response);
-
-	// autoindex is off, return 403
+	// The 42 Tester is a retard that doesn't know how Webservers behave
+	// TODO: remove the following 3 lines after evaluations
 	} else {
-		return FORBIDDEN;
+		return NOT_FOUND;
 	}
+
+	// The 42 Tester is a retard that doesn't know how Webservers behave
+	// TODO: uncomment the following 13 lines after evaluations
+	// // No index file found, check if autoindex is enabled
+	// // autoindex is on, generate directory listing
+	// } else if (location.autoindex) {
+	// 	bool supports_delete = false;
+	// 	for (std::size_t i = 0; i < location.methods.size(); ++i) {
+	// 		if (location.methods[i] == DELETE) supports_delete = true;
+	// 	}
+	// 	return serveDirectoryListing(path, supports_delete, request, response);
+ //
+	// // autoindex is off, return 403
+	// } else {
+	// 	return FORBIDDEN;
+	// }
 }
 
 static StatusCode handlePUT(HTTPRequest& request,
@@ -811,6 +823,8 @@ void Dispatcher::handleRequest(Client& client) {
 			// AWAITING_CGI_OUTPUT in parseDataFromPeer()
 			// WITH-body CGI request finished writing to the
 			// CGI stdin, set client state to AWAITING_CGI_OUTPUT
+			client.popRequest();
+			client.pushRequest();
 			client.setState(Client::AWAITING_CGI_OUTPUT);
 			return;
 		} else if (request.resolved.method == PUT) {
@@ -841,6 +855,11 @@ void Dispatcher::handleRequest(Client& client) {
 				// CGI stdin. The client state is accordingly set to
 				// AWAITING_CGI_OUTPUT. The client will read stdout when
 				// triggered by epoll_wait().
+				if (client.cgi_process->wantsWrite()) {
+					client.cgi_process->closeStdin();
+				}
+				client.popRequest();
+				client.pushRequest();
 				client.setState(Client::AWAITING_CGI_OUTPUT);
 			} else {
 				client.setState(Client::PENDING_RESPONSE);

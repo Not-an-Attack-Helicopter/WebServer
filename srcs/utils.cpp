@@ -140,6 +140,9 @@ void dumpRequest(const HTTPRequest* request) {
 	const std::string* content_length = request->getHeader("content-length");
 	if (content_length != NULL)
 		log.debug("Content-Length:\t" + *content_length);
+	const std::string* transfer_encoding = request->getHeader("transfer-encoding");
+	if (transfer_encoding != NULL)
+		log.debug("Transfer-Encoding:\t" + *transfer_encoding);
 	const std::string* cookie = request->getHeader("cookie");
 	if (cookie != NULL)
 		log.debug("Cookie:\t\t\t\t" + *cookie);

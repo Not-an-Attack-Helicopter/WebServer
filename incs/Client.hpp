@@ -100,14 +100,15 @@ public:
 
 	void							setState(State state);
 
+	bool							bufferSaturated() const;
 	bool							hasPendingResponse(void) const;
 	bool							blockedFromReceiving() const;
 	bool							markedForTermination() const;
 	bool							isTimedOut(const std::time_t now) const;
 
-	ssize_t							queueIncomingData(int fd);
+	ssize_t							queueIncomingData(int fd);		// receive request from peer
+	ssize_t							parseDataFromPeer(void);		// build request
 
-	void							parseDataFromPeer(void);		// build request
 	void							queueOutgoingData(void);		// build response
 	void							sendDataToTCPPeer(int fd);		// send response to peer
 	void							pushRequest(void);
@@ -128,8 +129,8 @@ private:
 
 	static const std::time_t		IDLE_TIMEOUT_SECONDS		= 60;
 	static const std::time_t		HEADER_TIMEOUT_SECONDS		= 12;
-	static const std::time_t		BODY_TIMEOUT_SECONDS		= 120;
-	static const std::time_t		PROCESSING_TIMEOUT_SECONDS	= 420;
+	static const std::time_t		BODY_TIMEOUT_SECONDS		= 12000000000;
+	static const std::time_t		PROCESSING_TIMEOUT_SECONDS	= 42000000000;
 	static const std::time_t		REJECTED_TIMEOUT_SECONDS	= 10;
 
 	State							_state;

@@ -158,6 +158,10 @@ void Client::setState(State state) {
 	_state = state;
 }
 
+bool Client::bufferSaturated() const {
+	return _instream.range() == _instream.data.size();
+}
+
 bool Client::hasPendingResponse(void) const {
 	// return !_response_queue.empty();
 	return _response != NULL;
@@ -219,6 +223,10 @@ bool Client::isTimedOut(const std::time_t now) const {
 
 ssize_t Client::queueIncomingData(int fd) {
 
+	log.error("bytes in buffer: " + i2a(_instream.range()));
+	log.error("buffer capacity: " + i2a(_instream.data.size()));
+	log.error("free bytes: " + i2a(_instream.data.size() - _instream.range()));
+
 	if (_request->parsing.state == HTTPRequest::READING_BODY &&
 		_instream.data.size() == BUFFER_SIZE &&
 		_request->body.size > BUFFER_SIZE) {
@@ -229,19 +237,24 @@ ssize_t Client::queueIncomingData(int fd) {
 	ssize_t bytes_received = _instream.fetchData(fd);
 	if (bytes_received > 0) _last_event = std::time(NULL);
 	log.debug("client_" + i2a(fd) + ": bytes received: " + i2a(bytes_received));
+	// if (_state == RECEIVING_BODY) {
+	// 	log.notice(_instream.str());
+	// }
 	return bytes_received;
 }
 
-void Client::parseDataFromPeer(void) {
+ssize_t Client::parseDataFromPeer(void) {
 
 	if (blockedFromReceiving()) {
 		log.notice("\"consuming\" bytes in buffer:\n-------");
 		log.notice(_instream.str());
 		log.notice("-------");
+		std::size_t bytes_consumed = _instream.range();
 		_instream.reset();
-		return;
+		return bytes_consumed;
 	}
 
+	std::size_t bytes_consumed = 0;
 	HTTPRequest& request = *_request;
 
 	while (_instream.mark < _instream.end) {
@@ -251,11 +264,11 @@ void Client::parseDataFromPeer(void) {
 			break;
 		}
 
-		std::size_t bytes_read = request.parsing.bytes_read_count;
-		if (bytes_read == 0 || bytes_read == std::string::npos) {
-			return;
+		bytes_consumed = request.parsing.bytes_read_count;
+		if (bytes_consumed == 0) {
+			return 0;
 		} else {
-			_instream.mark += bytes_read;
+			_instream.mark += bytes_consumed;
 			_last_event = std::time(NULL);
 		}
 
@@ -285,7 +298,7 @@ void Client::parseDataFromPeer(void) {
 		}
 
 		if (request.parsing.state == HTTPRequest::READING_BODY) {
-			request.parsing.body_size += bytes_read;
+			request.parsing.body_size += bytes_consumed;
 
 			if (request.body_chunked &&
 				request.parsing.body_size > request.resolved.location->client_max_body_size) {
@@ -298,6 +311,10 @@ void Client::parseDataFromPeer(void) {
 				(request.parsing.multipart_state == HTTPRequest::END_OF_PARTS) ||
 				(request.parsing.body_size == request.body.size && !request.body_chunked)) {
 					request.parsing.state = HTTPRequest::COMPLETE;
+			}
+
+			if (request.requires_CGI) {
+				break;
 			}
 		}
 
@@ -328,18 +345,18 @@ void Client::parseDataFromPeer(void) {
 	switch (request.parsing.state) {
 
 		case HTTPRequest::READING_REQUEST_LINE:
-			setState(Client::RECEIVING_HEADERS);
+			setState(RECEIVING_HEADERS);
 			break;
 		case HTTPRequest::READING_HEADERS:
-			setState(Client::RECEIVING_HEADERS);
+			setState(RECEIVING_HEADERS);
 			break;
 		case HTTPRequest::READING_BODY:
-			setState(Client::RECEIVING_BODY);
+			setState(RECEIVING_BODY);
 			break;
 		case HTTPRequest::RESOLVING_ROUTE:
 			log.info("All HTTP request headers received");
 			dumpRequest(&request);
-			setState(Client::RETRIEVING_SESSION);
+			setState(RETRIEVING_SESSION);
 			if (_instream.data.size() != BUFFER_SIZE) {
 				_instream.data.resize(BUFFER_SIZE);
 			}
@@ -352,7 +369,7 @@ void Client::parseDataFromPeer(void) {
 			// if (request.requires_CGI == true) {
 			// 	setState(Client::AWAITING_CGI_OUTPUT);
 			// } else {}
-			setState(Client::PREPARING_RESPONSE);
+			setState(PREPARING_RESPONSE);
 			if (_instream.data.size() != BUFFER_SIZE) {
 				_instream.data.resize(BUFFER_SIZE);
 			}
@@ -361,7 +378,7 @@ void Client::parseDataFromPeer(void) {
 		case HTTPRequest::ERROR:
 			log.warn("HTTP request parser returned error");
 			dumpRequest(&request);
-			setState(Client::PREPARING_RESPONSE);
+			setState(PREPARING_RESPONSE);
 			if (_instream.data.size() != BUFFER_SIZE) {
 				_instream.data.resize(BUFFER_SIZE);
 			}
@@ -369,7 +386,7 @@ void Client::parseDataFromPeer(void) {
 			break;
 	}
 
-	return;
+	return bytes_consumed;
 }
 
 void Client::queueOutgoingData(void) {

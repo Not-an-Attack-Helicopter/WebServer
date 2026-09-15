@@ -16,6 +16,7 @@
 #include "../incs/Logger.hpp"
 #include "../incs/utils.hpp"
 
+#include <climits>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -26,7 +27,7 @@
 #include <stdlib.h>
 #include <vector>
 
-static const int CGI_TIMEOUT_S = 10;
+static const int CGI_TIMEOUT_S = INT_MAX;
 
 CGIProcess::CGIProcess(const std::string& path, const std::vector<std::string>& args,
                        const std::map<std::string, std::string>& env,

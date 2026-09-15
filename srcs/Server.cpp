@@ -84,7 +84,7 @@ bool Server::_setRDWRInterest(int fd) {
 	return true;
 }
 
-bool Server::_dropWriteInterest(int fd) {
+bool Server::_disableSocketIO(int fd) {
 
 	epoll_event e;
 	e.events = EPOLLRDHUP;
@@ -159,7 +159,7 @@ bool Server::_setWRONLYInterest(int fd, bool is_pipe) {
 	return true;
 }
 
-bool Server::_prepareScriptPipeEnd(int fd, bool is_read_end) {
+bool Server::_prepareScriptPipeEnd(int fd, bool is_write_end) {
 
 	log.debug("setting poll interest for " + i2a(fd));
 	if (!_setPollInterest(fd, true)) {
@@ -171,15 +171,15 @@ bool Server::_prepareScriptPipeEnd(int fd, bool is_read_end) {
 		log.error("epoll_ctl: " + std::string(strerror(errno)));
 		return false;
 	}
-	if (is_read_end) {
+	if (is_write_end) {
 		log.debug("setting read only interest for " + i2a(fd));
-		if (!_setRDONLYInterest(fd, true)) {
+		if (!_setWRONLYInterest(fd, true)) {
 			log.error("epoll_ctl: " + std::string(strerror(errno)));
 			return false;
 		}
 	} else {
 		log.debug("setting write only interest for " + i2a(fd));
-		if (!_setWRONLYInterest(fd, true)) {
+		if (!_setRDONLYInterest(fd, true)) {
 			log.error("epoll_ctl: " + std::string(strerror(errno)));
 			return false;
 		}
@@ -439,128 +439,133 @@ void Server::_handleSocketReadEvent(std::map<int, Client*>::iterator client_it) 
 
 	int client_fd = client_it->first;
 	Client& client = *client_it->second;
-	ssize_t bytes_received = client.queueIncomingData(client_fd);
 
-	if (bytes_received < 0) {
+	if (!client.bufferSaturated()) {
 
-		log.warn("recv: " + std::string(strerror(errno)));
-		_cleanUpClient(client_it);
-		return;
+		ssize_t bytes_received = client.queueIncomingData(client_fd);
+		// if (!_disableSocketIO(client_fd)) {
+		// 	_cleanUpClient(client_it);
+		// }
 
-	} else if (bytes_received == 0) {
-		log.info("Connection closed by client fd_" + i2a(client_fd));
-		_cleanUpClient(client_it);
-		return;
+		if (bytes_received < 0) {
 
-	} else {
+			log.warn("recv: " + std::string(strerror(errno)));
+			_cleanUpClient(client_it);
+			return;
 
-		client.parseDataFromPeer();
-
-		if (client.getState() == Client::RETRIEVING_SESSION) {
-			session_manager.retrieveSession(client);
+		} else if (bytes_received == 0) {
+			log.info("Connection closed by client fd_" + i2a(client_fd));
+			_cleanUpClient(client_it);
+			return;
 		}
+	}
 
-		if (client.getState() == Client::DISPATCHING) {
-			log.error("client fd_" + i2a(client_fd) + " state: DISPATCHING");
-			dispatcher.handleRequest(client);
-		}
+	if (client.getState() == Client::IDLE ||
+		client.getState() == Client::RECEIVING_HEADERS) {
+		std::size_t bytes_consumed = client.parseDataFromPeer();
+		log.debug("client_" + i2a(client_fd) + ": bytes consumed: " + i2a(bytes_consumed));
+		if (!bytes_consumed) return;
 
-		// TEST
-		// register pipe fd and add it to _scripts
-		if (client.cgi_process != NULL) {
+		// if (!capacity_left) {
+		// 	if (!_disableSocketIO(client_fd)) {
+		// 		_cleanUpClient(client_it);
+		// 	}
+		// } else {
+		// 	if (!_setRDONLYInterest(client_fd)) {
+		// 		_cleanUpClient(client_it);
+		// 	}
+		// }
+	}
 
-			if (client.getState() == Client::RECEIVING_BODY && client.cgi_process->wantsWrite()) {
+	if (client.getState() == Client::RETRIEVING_SESSION) {
+		session_manager.retrieveSession(client);
+	}
 
-				int std_in = client.cgi_process->stdinFd();
-				// _pipes[std_in] = &client;
+	if (client.getState() == Client::DISPATCHING) {
+		log.error("client fd_" + i2a(client_fd) + " state: DISPATCHING");
+		dispatcher.handleRequest(client);
+	}
+
+	// TEST register pipe end and add it to _scripts
+	if (client.cgi_process != NULL) {
+
+		if (client.getState() == Client::RECEIVING_BODY && client.cgi_process->wantsWrite()) {
+
+			int std_in = client.cgi_process->stdinFd();
+			if (_scripts.find(std_in) == _scripts.end()) {
 				_scripts[std_in] = client_fd;
-				if (!_prepareScriptPipeEnd(std_in)) {
-					// dispatcher.buildErrorResponse(INTERNAL_SERVER_ERROR,
-					// 							client.getCurrentRequest().resolved.location,
-					// 							client.getCurrentRequest().headers_only,
-					// 							client.getCurrentResponse());
-					// client.setState(Client::PENDING_RESPONSE);
-					// log.debug("client_" + i2a(fd) + ": state set to PENDING_RESPONSE");
-					// client.popRequest();
-					// if (!_setWRONLYInterest(fd)) {
-					// 	_cleanUpClient(it);
-					// 	return false;
-					// }
-					// client.markForTermination();
-					// return true;
+				if (!_prepareScriptPipeEnd(std_in, true)) {
 					std::map<int, int>::iterator it = _scripts.find(std_in);
 					if (it != _scripts.end()) {
 						_handlePipeError(it);
 					}
 				}
-				// _pipes[std_in] = &client;
-				// Returning here as we have to wait for pipe readyness to start writing to std_in.
-				// _handlePipeWriteEvent() takes it from here
-				return;
 			}
+			// Returning here as we have to wait for pipe readyness to start writing to std_in.
+			// _handlePipeWriteEvent() takes it from here
+			return;
+		}
 
-			if (client.getState() == Client::AWAITING_CGI_OUTPUT && client.cgi_process->wantsRead()) {
+		if (client.getState() == Client::AWAITING_CGI_OUTPUT && client.cgi_process->wantsRead()) {
 
-				client.popRequest();
-				client.pushRequest();
-
-				log.error("DING!");
-				int std_out = client.cgi_process->stdoutFd();
-				// _pipes[std_out] = &client;
+			log.error("DING!");
+			int std_out = client.cgi_process->stdoutFd();
+			if (_scripts.find(std_out) == _scripts.end()) {
 				_scripts[std_out] = client_fd;
-				if (!_prepareScriptPipeEnd(std_out, true)) {
-					// dispatcher.buildErrorResponse(INTERNAL_SERVER_ERROR,
-					// 							  client.getCurrentRequest().resolved.location,
-					// 							  client.getCurrentRequest().headers_only,
-					// 							  client.getCurrentResponse());
-					// client.setState(Client::PENDING_RESPONSE);
-					// log.debug("client_" + i2a(fd) + ": state set to PENDING_RESPONSE");
-					// client.popRequest();
-					// if (!_setWRONLYInterest(fd)) {
-					// 	_cleanUpClient(it);
-					// 	return false;
-					// }
-					// client.markForTermination();
-					// return true;
+				if (!_prepareScriptPipeEnd(std_out)) {
 					std::map<int, int>::iterator it = _scripts.find(std_out);
 					if (it != _scripts.end()) {
 						_handlePipeError(it);
 					}
 				}
-				// _pipes[std_out] = &client;
-				// _setWRONLYInterest(fd);
-				return;
 			}
+			// Returning here as we have to wait for pipe readyness to start reading from std_out.
+			// _handlePipeReadEvent() takes it from here
+			return;
 		}
-
-		if (client.getState() == Client::RECEIVING_BODY) {
-			log.error("client fd_" + i2a(client_fd) + " state: RECEIVING_BODY");
-			client.parseDataFromPeer();
-		}
-
-		if (client.getState() == Client::PREPARING_RESPONSE) {
-			log.error("client fd_" + i2a(client_fd) + " state: PREPARING_RESPONSE");
-			dispatcher.handleRequest(client);
-		}
-
-		if (client.getState() == Client::PENDING_RESPONSE) {
-			log.error("client fd_" + i2a(client_fd) + " state: PENDING_RESPONSE");
-			client.popRequest();
-			client.pushRequest();
-
-			if (client.blockedFromReceiving()) {
-				if (!_setWRONLYInterest(client_fd)) {
-					_cleanUpClient(client_it);
-				}
-			} else {
-				if (!_setRDWRInterest(client_fd)) {
-					_cleanUpClient(client_it);
-				}
-			}
-		}
-		return;
 	}
+
+	if (client.getState() == Client::RECEIVING_BODY) {
+		log.error("client fd_" + i2a(client_fd) + " state: RECEIVING_BODY");
+		std::size_t bytes_consumed = client.parseDataFromPeer();
+		log.debug("client_" + i2a(client_fd) + ": bytes consumed: " + i2a(bytes_consumed));
+		if (!bytes_consumed) return;
+
+		// if (!capacity_left) {
+		// 	if (!_disableSocketIO(client_fd)) {
+		// 		_cleanUpClient(client_it);
+		// 	}
+		// } else {
+		// 	if (!_setRDONLYInterest(client_fd)) {
+		// 		_cleanUpClient(client_it);
+		// 	}
+		// }
+	}
+
+	if (client.getState() == Client::PREPARING_RESPONSE) {
+		log.error("client fd_" + i2a(client_fd) + " state: PREPARING_RESPONSE");
+		dispatcher.handleRequest(client);
+	}
+
+	if (client.getState() == Client::PENDING_RESPONSE) {
+		log.error("client fd_" + i2a(client_fd) + " state: PENDING_RESPONSE");
+		client.popRequest();
+		client.pushRequest();
+
+		if (client.blockedFromReceiving()) {
+			if (!_setWRONLYInterest(client_fd)) {
+				_cleanUpClient(client_it);
+			}
+		} else {
+			if (!_setRDWRInterest(client_fd)) {
+				_cleanUpClient(client_it);
+			}
+		}
+	}
+
+	return;
 }
+
 
 void Server::_handleSocketWriteEvent(std::map<int, Client*>::iterator it) {
 
@@ -577,10 +582,10 @@ void Server::_handleSocketWriteEvent(std::map<int, Client*>::iterator it) {
 
 	if (client.getState() == Client::AWAITING_CGI_OUTPUT) return;
 
-	if (client.getState() == Client::CONCLUDED ||
-		client.getState() == Client::REJECTED) {
-		return;
-	}
+	// if (client.getState() == Client::CONCLUDED ||
+	// 	client.getState() == Client::REJECTED) {
+	// 	return;
+	// }
 
 	if (client.getState() == Client::PENDING_RESPONSE) {
 		client.queueOutgoingData();
@@ -604,7 +609,7 @@ void Server::_handleSocketWriteEvent(std::map<int, Client*>::iterator it) {
 		_cleanUpClient(it);
 		break;
 	case Client::REJECTED:
-		if (!_dropWriteInterest(fd)) {
+		if (!_disableSocketIO(fd)) {
 			_cleanUpClient(it);
 		}
 		break;
@@ -674,67 +679,64 @@ void Server::_handlePipeWriteEvent(std::map<int, int>::iterator script_it) {
 	// 	client.setState(Client::PREPARING_RESPONSE);
 	// }
 
-	Client* client = NULL;
+	// Client* client = NULL;
 	int client_fd = script_it->second;
 	std::map<int, Client*>::iterator client_it = _clients.find(client_fd);
-	if (client_it != _clients.end()) {
-		client = client_it->second;
+	if (client_it == _clients.end()) {
+		return;
 	}
-	if (client == NULL) return;
+	Client& client = *client_it->second;
 
-	client->parseDataFromPeer();
+	// if (client_it != _clients.end()) {
+	// 	client = client_it->second;
+	// }
+	// if (client == NULL) return;
 
-	if (client->getState() == Client::PREPARING_RESPONSE) {
+	std::size_t bytes_consumed = client.parseDataFromPeer();
+	log.debug("client_" + i2a(client_fd) + ": bytes consumed: " + i2a(bytes_consumed));
+	if (!bytes_consumed) return;
+
+	// if (!capacity_left) {
+	// 	if (!_disableSocketIO(client_fd)) {
+	// 		_cleanUpClient(client_it);
+	// 	}
+	// } else {
+	// 	if (!_setRDONLYInterest(client_fd)) {
+	// 		_cleanUpClient(client_it);
+	// 	}
+	// }
+
+	// if (bytes_consumed == 0) {
+	// 	if (!_disableSocketIO(client_fd)) {
+	// 		_cleanUpClient(client_it);
+	// 	}
+	// } else {
+	// 	if (!_setRDONLYInterest(client_fd)) {
+	// 		_cleanUpClient(client_it);
+	// 	}
+	// }
+
+	if (client.getState() == Client::PREPARING_RESPONSE) {
 		_cleanUpScriptPipeEnd(script_it);
 		// TODO decide:
 		// calling dispatcher wouldn't be needed if _state
 		// was set to AWAITING_CGI_OUTPUT at end of
-		// parseDataFromPeer()
-		dispatcher.handleRequest(*client);
+		dispatcher.handleRequest(client);
 	}
 
-	if (client->getState() == Client::AWAITING_CGI_OUTPUT && client->cgi_process->wantsRead()) {
-
-		client->popRequest();
-		client->pushRequest();
+	if (client.getState() == Client::AWAITING_CGI_OUTPUT && client.cgi_process->wantsRead()) {
 
 		log.error("DONG!");
-		int std_out = client->cgi_process->stdoutFd();
-		// _pipes[std_out] = client;
-		_scripts[std_out] = client_fd;
-		if (!_prepareScriptPipeEnd(std_out, true)) {
-			// if (_epfd != -1) {
-			// 	log.debug("Removing fd " + i2a(it->first) + " (script pipe end) from epoll instance");
-			// 	if (epoll_ctl(_epfd, EPOLL_CTL_DEL, it->first, NULL) == -1) {
-			// 		log.warn("Error during cleanup: epoll_ctl: " + std::string(strerror(errno)));
-			// 	}
-			// }
-			// if (it->first != -1) {
-			// 	log.debug("Closing fd " + i2a(it->first) + " (script pipe end)");
-			// 	if (close(it->first) == -1) {
-			// 		log.warn("Error during cleanup: close: " + std::string(strerror(errno)));
-			// 	}
-			// }
-			// dispatcher.buildErrorResponse(INTERNAL_SERVER_ERROR,
-			// 							  client.getCurrentRequest().resolved.location,
-			// 							  client.getCurrentRequest().headers_only,
-			// 							  client.getCurrentResponse());
-			// client.setState(Client::PENDING_RESPONSE);
-			// log.debug("client_" + i2a(client_fd) + ": state set to PENDING_RESPONSE");
-			// client.popRequest();
-			// if (!_setWRONLYInterest(client_fd)) {
-			// 	_cleanUpClient(it);
-			// 	return;
-			// }
-			// client.markForTermination();
-			// return;
-			std::map<int, int>::iterator it = _scripts.find(std_out);
-			if (it != _scripts.end()) {
-				_handlePipeError(it);
+		int std_out = client.cgi_process->stdoutFd();
+		if (_scripts.find(std_out) == _scripts.end()) {
+			_scripts[std_out] = client_fd;
+			if (!_prepareScriptPipeEnd(std_out)) {
+				std::map<int, int>::iterator it = _scripts.find(std_out);
+				if (it != _scripts.end()) {
+					_handlePipeError(it);
+				}
 			}
 		}
-		// _pipes[std_out] = &client;
-		// _setWRONLYInterest(client_fd);
 	}
 
 	return;
@@ -750,14 +752,14 @@ void Server::_handlePipeReadEvent(std::map<int, int>::iterator script_it) {
 	// }
 	// Client& client = *script_it->second;
 
-	Client* client = NULL;
+	// Client* client = NULL;
 	int std_out = script_it->first;
 	int client_fd = script_it->second;
 	std::map<int, Client*>::iterator client_it = _clients.find(client_fd);
-	if (client_it != _clients.end()) {
-		client = client_it->second;
+	if (client_it == _clients.end()) {
+		return;
 	}
-	if (client == NULL) return;
+	Client& client = *client_it->second;
 
 	// if (client.getState() != Client::AWAITING_CGI_OUTPUT) {
 	// 	return;
@@ -769,7 +771,8 @@ void Server::_handlePipeReadEvent(std::map<int, int>::iterator script_it) {
 	// 	client.setState(Client::PENDING_RESPONSE);
 	// }
 
-	ssize_t bytes_read = client->cgi_process->queueIncomingData(std_out);
+	ssize_t bytes_read = client.cgi_process->queueIncomingData(std_out);
+	log.debug("script" + i2a(std_out) + ": bytes read: " + i2a(bytes_read));
 
 	if (bytes_read < 0) {
 
@@ -794,10 +797,10 @@ void Server::_handlePipeReadEvent(std::map<int, int>::iterator script_it) {
 
 		log.info("Script delivered full response via fd_" + i2a(std_out));
 		_cleanUpScriptPipeEnd(script_it);
-		client->cgi_process->buildResponse(client->getCurrentResponse(),
-										   client->getCurrentRequest().headers_only);
-		client->cgi_process->tryReap();
-		client->setState(Client::PENDING_RESPONSE);
+		client.cgi_process->buildResponse(client.getCurrentResponse(),
+										   client.getCurrentRequest().headers_only);
+		client.cgi_process->tryReap();
+		client.setState(Client::PENDING_RESPONSE);
 		if (!_setWRONLYInterest(client_fd)) {
 			std::map<int, Client*>::iterator client_it = _clients.find(client_fd);
 			if (client_it != _clients.end()) {
@@ -810,11 +813,11 @@ void Server::_handlePipeReadEvent(std::map<int, int>::iterator script_it) {
 	} else {
 
 		// log.error("some bytes read from pipe");
-		client->updateTimeStamp();
+		client.updateTimeStamp();
 		// TEST have CGIProcess consume the data in the buffer
 		try {
 			// log.error("consuming bytes from pipe");
-			client->cgi_process->consumeAvailableOutput();
+			client.cgi_process->consumeAvailableOutput();
 		} catch (std::exception& e) {
 			log.warn("read: " + std::string(e.what()));
 			// _cleanUpScriptPipeEnd(it);
