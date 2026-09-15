@@ -686,6 +686,7 @@ void Server::_handlePipeWriteEvent(std::map<int, int>::iterator script_it) {
 
 	if (client->getState() == Client::PREPARING_RESPONSE) {
 		_cleanUpScriptPipeEnd(script_it);
+		// TODO decide:
 		// calling dispatcher wouldn't be needed if _state
 		// was set to AWAITING_CGI_OUTPUT at end of
 		// parseDataFromPeer()

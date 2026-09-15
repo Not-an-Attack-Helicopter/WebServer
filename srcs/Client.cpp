@@ -218,6 +218,14 @@ bool Client::isTimedOut(const std::time_t now) const {
 }
 
 ssize_t Client::queueIncomingData(int fd) {
+
+	if (_request->parsing.state == HTTPRequest::READING_BODY &&
+		_instream.data.size() == BUFFER_SIZE &&
+		_request->body.size > BUFFER_SIZE) {
+		std::size_t buffer_size = _adjustBufferSize(_request->body.size);
+		_instream.data.resize(buffer_size);
+	}
+
 	ssize_t bytes_received = _instream.fetchData(fd);
 	if (bytes_received > 0) _last_event = std::time(NULL);
 	log.debug("client_" + i2a(fd) + ": bytes received: " + i2a(bytes_received));
@@ -235,12 +243,6 @@ void Client::parseDataFromPeer(void) {
 	}
 
 	HTTPRequest& request = *_request;
-
-	if (request.parsing.state == HTTPRequest::READING_BODY &&
-		_instream.data.size() == BUFFER_SIZE) {
-		std::size_t buffer_size = _adjustBufferSize(request.body.size);
-		_instream.data.resize(buffer_size);
-	}
 
 	while (_instream.mark < _instream.end) {
 
@@ -344,6 +346,7 @@ void Client::parseDataFromPeer(void) {
 			break;
 		case HTTPRequest::COMPLETE:
 			log.info("Full HTTP request body received");
+			// TODO decide:
 			// We could set client state to AWAITING_CGI_OUTPUT
 			// here, instead of having the dispatcher do it
 			// if (request.requires_CGI == true) {
@@ -664,12 +667,11 @@ Client& Client::operator = (const Client& other) {
 }
 
 std::size_t Client::_adjustBufferSize(std::size_t payload_size) {
-	if (payload_size < std::size_t(5) * 1024) return 8 * 1024;
-	else if (payload_size < std::size_t(50) * 1024) return 16 * 1024;
-	else if (payload_size < std::size_t(500) * 1024) return 32 * 1024;
-	else if (payload_size < std::size_t(5) * 1024 * 1024) return 64 * 1024;
-	else if (payload_size < std::size_t(50) * 1024 * 1024) return 128 * 1024;
-	else if (payload_size < std::size_t(500) * 1024 * 1024) return 192 * 1024;
+	if (payload_size < std::size_t(8) * 1024) return 8 * 1024;
+	else if (payload_size < std::size_t(32) * 1024) return 16 * 1024;
+	else if (payload_size < std::size_t(128) * 1024) return 32 * 1024;
+	else if (payload_size < std::size_t(512) * 1024) return 64 * 1024;
+	else if (payload_size < std::size_t(2) * 1024 * 1024) return 128 * 1024;
 	else return 256 * 1024;
 }
 

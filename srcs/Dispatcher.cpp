@@ -806,10 +806,11 @@ void Dispatcher::handleRequest(Client& client) {
 		return;
 	case HTTPRequest::COMPLETE:
 		if (request.requires_CGI) {
-			// TODO?
-			// WITH-body CGI request finished writing to the CGI stdin.
-			// I GUESS only thing to do here is putting client state to
-			// AWAITING_CGI_OUTPUT?
+			// TODO decide:
+			// client state could already be set to
+			// AWAITING_CGI_OUTPUT in parseDataFromPeer()
+			// WITH-body CGI request finished writing to the
+			// CGI stdin, set client state to AWAITING_CGI_OUTPUT
 			client.setState(Client::AWAITING_CGI_OUTPUT);
 			return;
 		} else if (request.resolved.method == PUT) {
@@ -835,7 +836,7 @@ void Dispatcher::handleRequest(Client& client) {
 				client.setState(Client::RECEIVING_BODY);
 			} else if (request.parsing.state == HTTPRequest::COMPLETE) {
 				// no body, so routeRequest() already put us straight into
-				// COMPLETE -- matches the state parseIncomingData() lands
+				// COMPLETE -- matches the state parseDataFromPeer() lands
 				// on once a WITH-body CGI request finishes writing to the
 				// CGI stdin. The client state is accordingly set to
 				// AWAITING_CGI_OUTPUT. The client will read stdout when
