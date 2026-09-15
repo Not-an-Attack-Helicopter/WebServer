@@ -237,10 +237,6 @@ static StatusCode removeFile(const std::string& path,
 	return NO_CONTENT;
 }
 
-// static StatusCode prepareCGI(HTTPRequest& request, HTTPResponse& response) {
-// 	return NO_STATUS;
-// }
-
 static StatusCode serveDirectoryListing(const std::string& path,
 										bool supports_delete,
 										const HTTPRequest& request,
@@ -303,27 +299,25 @@ static StatusCode serveDirectoryListing(const std::string& path,
 	return OK;
 }
 
-static StatusCode handleRedirect(const std::string& path,
-								 const HTTPRequest& request,
-								 HTTPResponse& response) {
-
-	// The 42 Tester is a retard that doesn't know how Webservers behave
-	// TODO: remove the following line after evaluations
-	return NOT_FOUND;
-
-	std::string new_path = path + "/";
-
-	response.setStatus(MOVED_PERMANENTLY);
-	response.setHeader("Connection", "keep-alive");
-	response.setHeader("Location", new_path);
-
-	std::ostringstream body;
-	body << "Moved Permanently. Redirecting to " + new_path;
-	response.setBody(body.str(), HEAP, "text/plain", request.headers_only);
-
-	return MOVED_PERMANENTLY;
-
-}
+// This function is commented out for evaluations
+// TODO un-comment after evaluations
+// static StatusCode handleRedirect(const std::string& path,
+// 								 const HTTPRequest& request,
+// 								 HTTPResponse& response) {
+//
+// 	std::string new_path = path + "/";
+//
+// 	response.setStatus(MOVED_PERMANENTLY);
+// 	response.setHeader("Connection", "keep-alive");
+// 	response.setHeader("Location", new_path);
+//
+// 	std::ostringstream body;
+// 	body << "Moved Permanently. Redirecting to " + new_path;
+// 	response.setBody(body.str(), HEAP, "text/plain", request.headers_only);
+//
+// 	return MOVED_PERMANENTLY;
+//
+// }
 
 static StatusCode handleRedirect(const Config::Location& location,
 								 const HTTPRequest& request,
@@ -340,17 +334,25 @@ static StatusCode handleRedirect(const Config::Location& location,
 	return MOVED_PERMANENTLY;
 }
 
-static StatusCode handleGET(const HTTPRequest& request,
+static StatusCode handleGET(HTTPRequest& request,
 							HTTPResponse& response) {
 
 	const Config::Location& location = *request.resolved.location;
 	const std::string& path = request.resolved.filepath;
 
+	// The 42 Tester is a retard that doesn't know how Webservers behave
+	// TODO: remove the following 4 lines after evaluations
+	if (path[path.size() - 1] != '/') {
+		request.resolved.filepath.append("/");
+		return handleGET(request, response);
+	}
+
 	// Only redirect GET requests missing trailing slash
 	// (browsers need it for relative links)
-	if (path[path.size() - 1] != '/') {
-		return handleRedirect(request.getPath(), request, response);
-	}
+	// TODO Uncomment the following 3 lines after evaluations
+	// if (path[path.size() - 1] != '/') {
+	// 	return handleRedirect(request.getPath(), request, response);
+	// }
 
 	// Check if index file present
 	std::string index_file_path = findIndexFile(location, path);
@@ -373,10 +375,6 @@ static StatusCode handleGET(const HTTPRequest& request,
 		return FORBIDDEN;
 	}
 }
-
-// static StatusCode handleCGI(HTTPRequest& request, HTTPResponse& response) {
-// 	return NO_STATUS;
-// }
 
 static StatusCode handlePUT(HTTPRequest& request,
 							HTTPResponse& response) {
