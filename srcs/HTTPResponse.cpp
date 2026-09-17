@@ -45,10 +45,8 @@ unsigned int HTTPResponse::getStatusCode(void) const {
 }
 
 void HTTPResponse::setStatus(StatusCode code) {
-	// log.error("status set: " + i2a(code));
 	_status_code = code;
 	_status_reason = _getDefaultReason(code);
-	// log.error(_status_reason);
 	return;
 }
 

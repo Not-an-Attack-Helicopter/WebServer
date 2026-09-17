@@ -75,7 +75,7 @@ void SessionManager::retrieveSession(Client& client) {
 		}
 	}
 
-	response.setHeader("Custom-Header1", "no session found");
+	// response.setHeader("Custom-Header1", "no session found");
 	Session* session = new Session();
 	// request.setSession(*session);
 	do {

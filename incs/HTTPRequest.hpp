@@ -80,12 +80,12 @@ public:
 		std::size_t										line_end_pos;
 		std::size_t										line_end_size;
 		std::size_t										blank_line_size;
-		std::size_t										bytes_read_count;
-		std::size_t										bytes_written_count;
+		std::size_t										bytes_read;
+		std::size_t										bytes_written;
 		std::size_t										headers_size;
 		std::size_t										body_size;
-		std::size_t										chunk_size;
-		std::size_t										chunk_read;
+		std::size_t										chunk_total_size;
+		std::size_t										chunk_bytes_read;
 
 		ParsingContext(void)
 			:	state(READING_REQUEST_LINE),
@@ -96,12 +96,12 @@ public:
 				line_end_pos(0),
 				line_end_size(0),
 				blank_line_size(0),
-				bytes_read_count(0),
-				bytes_written_count(0),
+				bytes_read(0),
+				bytes_written(0),
 				headers_size(0),
 				body_size(0),
-				chunk_size(0),
-				chunk_read(0) {}
+				chunk_total_size(0),
+				chunk_bytes_read(0) {}
 
 	};
 

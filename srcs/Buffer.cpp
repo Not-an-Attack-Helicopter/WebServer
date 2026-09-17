@@ -49,7 +49,7 @@ void Buffer::reset(void) {
 }
 
 void Buffer::compact(void) {
-	// log.error("buffer is compacted");
+	// log.debug("buffer is compacted");
 	std::memmove(&data[0], &data[begin], range());
 	mark -= begin;
 	end -= begin;

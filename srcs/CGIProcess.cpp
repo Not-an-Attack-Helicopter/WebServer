@@ -16,7 +16,6 @@
 #include "../incs/Logger.hpp"
 #include "../incs/utils.hpp"
 
-#include <climits>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -27,7 +26,7 @@
 #include <stdlib.h>
 #include <vector>
 
-static const int CGI_TIMEOUT_S = INT_MAX;
+static const int CGI_TIMEOUT_S = 420;
 
 CGIProcess::CGIProcess(const std::string& path, const std::vector<std::string>& args,
                        const std::map<std::string, std::string>& env,
@@ -47,17 +46,23 @@ CGIProcess::CGIProcess(const std::string& path, const std::vector<std::string>& 
 
 	if (pipe(_in_pipe) == -1)
 		return;
-	log.error("_in_pipe read end: " + i2a(_in_pipe[0]));
-	log.error("_in_pipe write end: " + i2a(_in_pipe[1]));
+	log.debug("IN pipe read end: " + i2a(_in_pipe[0]));
+	log.debug("IN pipe write end: " + i2a(_in_pipe[1]));
 	if (pipe(_out_pipe) == -1) {
 		close(_in_pipe[0]); close(_in_pipe[1]);
 		_in_pipe[0] = -1; _in_pipe[1] = -1;
 		return;
 	}
-	log.error("_out_pipe read end: " + i2a(_out_pipe[0]));
-	log.error("_out_pipe write end: " + i2a(_out_pipe[1]));
+	log.debug("OUT pipe read end: " + i2a(_out_pipe[0]));
+	log.debug("OUT pipe write end: " + i2a(_out_pipe[1]));
 
 	_pipes_open = true;
+
+	 _instream.data.resize(16*1024);
+	 log.info("script" + i2a(_in_pipe[1]) + ": changed buffer size to: " + i2a(16*1024));
+	 _outstream.data.resize(16*1024);
+	 log.info("script" + i2a(_out_pipe[0]) + ": changed buffer size to: " + i2a(16*1024));
+
 }
 
 bool CGIProcess::spawn() {
@@ -249,7 +254,10 @@ ssize_t CGIProcess::queueIncomingData(int fd) {
 	// }
  //
  //    return got;
-    return _outstream.fetchData(fd, true);
+
+    ssize_t bytes_read = _outstream.fetchData(fd, true);
+    log.debug("script_" + i2a(fd) + ": bytes read: " + i2a(bytes_read));
+    return bytes_read;
 
 }
 
@@ -380,7 +388,7 @@ bool CGIProcess::_consumeHeaderLine() {
 // parseRequestLine()/parseHeaders(), just for cgi output
 void CGIProcess::consumeAvailableOutput() {
 
-	// log.error(_outstream.str());
+	// log.notice(_outstream.str());
 	while (!_headers_done && _outstream.mark < _outstream.end) {
 
 		bool has_consumed_line;

@@ -40,7 +40,8 @@ class Config {
 
 public:
 
-	static const std::size_t					SERVER_MAX_BODY_SIZE = std::size_t(16)*1024*1024*1024; // 16 GiB
+	// static const std::size_t					SERVER_MAX_BODY_SIZE = std::size_t(16)*1024*1024*1024; // 16 GiB
+	static const std::size_t					SERVER_MAX_BODY_SIZE = std::size_t(10)*1024*1024;
 
 	struct Location {
 		std::string								path;					// Location path (e.g., "/api", "/cgi-bin")

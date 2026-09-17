@@ -105,7 +105,7 @@ int main(int argc, char** argv) {
 
 		sockets_count = configs.size();
 		if (sockets_count == 0) {
-			log.error("no configuration provided");
+			log.error("empty configuration provided");
 			return 1;
 		}
 

@@ -191,7 +191,7 @@ static std::string extractDirectiveValue(const std::string& line) {
 static void extractDomainNames(const std::string& header, Config::Domain& dom) {
 
 	if (header.empty()) {
-		throw std::runtime_error("config error: domain directive requires at least one name");
+		throw std::runtime_error("config validation: domain directive requires at least one name");
 	}
 
 	std::size_t first_pos = header.find(' ');
@@ -208,23 +208,23 @@ static void extractDomainNames(const std::string& header, Config::Domain& dom) {
 	while (iss >> name) {
 
 		if (name.empty()) {
-			throw std::runtime_error("config error: empty domain name");
+			throw std::runtime_error("config validation: empty domain name");
 		}
 
 		if (name.size() > 253) {
-			oss << "config error: domain name too long (RFC 1035): "
+			oss << "config validation: domain name too long (RFC 1035): "
 				<< name.substr(0, 12) << "..." << std::endl;
 			throw std::runtime_error(oss.str());
 		}
 
 		if (name.size() > 1 && (name[0] == '/' || name[0] == '.')) {
-			oss << "config error: domain name must not start with '/' or '.': "
+			oss << "config validation: domain name must not start with '/' or '.': "
 				<< name << std::endl;
 			throw std::runtime_error(oss.str());
 		}
 
 		if (name.size() > 1 && (name[name.size() - 1] == '/' || name[name.size() - 1] == '.')) {
-			oss << "config error: domain name must not end with '/' or '.': "
+			oss << "config validation: domain name must not end with '/' or '.': "
 				<< name << std::endl;
 			throw std::runtime_error(oss.str());
 		}
@@ -237,9 +237,9 @@ static void extractDomainNames(const std::string& header, Config::Domain& dom) {
 
 			std::size_t label_len = next - dot_pos;
 			if (label_len == 0) {
-				throw std::runtime_error("config error: domain name contains \"..\"");
+				throw std::runtime_error("config validation: domain name contains \"..\"");
 			} else if (label_len > 63) {
-				oss << "config error: each dot-separated label must be under 64 chars long"
+				oss << "config validation: each dot-separated label must be under 64 chars long"
 					<< "(RFC 1035)" << std::endl;
 				throw std::runtime_error(oss.str());
 			}
@@ -247,11 +247,11 @@ static void extractDomainNames(const std::string& header, Config::Domain& dom) {
 			// Check characters and hyphens
 			for (std::size_t i = dot_pos; i < next; ++i) {
 				if (!isalnum(static_cast<unsigned char>(name[i])) && name[i] != '-') {
-					oss << "config error: domain name allowed characters: [a-zA-Z0-9.-]";
+					oss << "config validation: domain name allowed characters: [a-zA-Z0-9.-]";
 					throw std::runtime_error(oss.str());
 				}
 				if ((i == dot_pos || i == next - 1) && name[i] == '-') {
-					oss << "config error: domain name: no leading/trailing hyphens"
+					oss << "config validation: domain name: no leading/trailing hyphens"
 						<< std::endl;
 					throw std::runtime_error(oss.str());
 				}
@@ -280,17 +280,17 @@ static void extractLocationPath(const std::string& header, Config::Location& loc
 	std::ostringstream oss;
 
 	if (loc.path.empty()) {
-		throw std::runtime_error("config error: location directive requires a value");
+		throw std::runtime_error("config validation: location directive requires a value");
 	}
 
 	if (loc.path.size() > 1 && loc.path[0] != '/') {
-		oss << "config error: location path must start with '/': "
+		oss << "config validation: location path must start with '/': "
 			<< loc.path << std::endl;
 		throw std::runtime_error(oss.str());
 	}
 
 	if (loc.path.size() > 1 && loc.path[loc.path.size() - 1] == '/') {
-		oss << "config error: location path must not end with '/': "
+		oss << "config validation: location path must not end with '/': "
 			<< loc.path << std::endl;
 		throw std::runtime_error(oss.str());
 	}
@@ -329,7 +329,7 @@ ConfigLoader& ConfigLoader::instance(void) {
 void ConfigLoader::loadConfig(const std::string& config_file) {
 
 	if(!isConfigFile(config_file)) {
-		throw std::runtime_error("config error: invalid file extension: " + config_file);
+		throw std::runtime_error("config validation: invalid file extension: " + config_file);
 	}
 
 	std::ifstream file(config_file.c_str());
@@ -358,16 +358,16 @@ void ConfigLoader::loadConfig(const std::string& config_file) {
 			found_endpoint = true;
 
 		} else if (trimmed == "socket") {
-			throw std::runtime_error("config error: 'socket' directive requires '{'");
+			throw std::runtime_error("config validation: 'socket' directive requires '{'");
 
 		} else {
-			throw std::runtime_error("config error: unexpected directive outside socket block: " + trimmed);
+			throw std::runtime_error("config validation: unexpected directive outside socket block: " + trimmed);
 		}
 
 	}
 
 	if (!found_endpoint) {
-		throw std::runtime_error("config error: config file must contain at least one socket block");
+		throw std::runtime_error("config validation: config file must contain at least one socket block");
 	}
 
 	file.close();
@@ -472,10 +472,10 @@ void ConfigLoader::_parseLocationBlock(std::ifstream& config_file_stream,
 		// End of block
 		if (trimmed == "}") {
 
-			// Block is complete — now finalize and validate
+			// Block is complete - now finalize and validate
 			// Check for alias
 			if (!loc.alias.empty() && !loc.root.empty()) {
-				throw std::runtime_error("config error: \"alias\" and \"root\" directives are incompatible");
+				throw std::runtime_error("config validation: \"alias\" and \"root\" directives are incompatible");
 			}
 			// Check for location root: if empty, substitute domain root
 			if (loc.alias.empty() && loc.root.empty()) {
@@ -501,10 +501,10 @@ void ConfigLoader::_parseLocationBlock(std::ifstream& config_file_stream,
 				++err_it;
 			}
 
-			// If client body treshold too high, set to global maximum
-			if (loc.client_max_body_size > Config::SERVER_MAX_BODY_SIZE) {
-				loc.client_max_body_size = Config::SERVER_MAX_BODY_SIZE;
-			}
+			// // If client body treshold too high, set to global maximum
+			// if (loc.client_max_body_size > Config::SERVER_MAX_BODY_SIZE) {
+			// 	loc.client_max_body_size = Config::SERVER_MAX_BODY_SIZE;
+			// }
 
 			// If CGI scripts allowed, add catch-all extension ".cgi"
 			if (!loc.interpreters.empty()) {
@@ -515,7 +515,7 @@ void ConfigLoader::_parseLocationBlock(std::ifstream& config_file_stream,
 
 			// Check for duplicate paths
 			if (isDuplicateLocation(dom.locations, loc.path)) {
-				throw std::runtime_error("config error: duplicate location path '" + loc.path + "'");
+				throw std::runtime_error("config validation: duplicate location path '" + loc.path + "'");
 			}
 			dom.locations.push_back(loc);
 			return;
@@ -528,14 +528,14 @@ void ConfigLoader::_parseLocationBlock(std::ifstream& config_file_stream,
 		if (handlers.find(key) != handlers.end()) {
 			(this->*handlers.at(key))(val, loc);
 		} else {
-			throw std::runtime_error("config error: unknown directive in location block: " + key);
+			throw std::runtime_error("config validation: unknown directive in location block: " + key);
 		}
 
 	}
 
 	// If we exit the loop without finding }, throw
 	// If we get here, the location block was never closed
-	throw std::runtime_error("config error: unclosed location block '" + loc.path + "' (missing '}')");
+	throw std::runtime_error("config validation: unclosed location block '" + loc.path + "' (missing '}')");
 
 	return;
 
@@ -562,10 +562,10 @@ void ConfigLoader::_parseDomainBlock(std::ifstream& config_file_stream,
 		// End of block
 		if (trimmed == "}") {
 
-			// Block is complete — now finalize and validate
+			// Block is complete - now finalize and validate
 			// Check for domain root
 			if (dom.root.empty()) {
-				throw std::runtime_error("config error: missing root directive");
+				throw std::runtime_error("config validation: missing root directive");
 			}
 			const std::string path = dom.root + "/";
 
@@ -578,15 +578,15 @@ void ConfigLoader::_parseDomainBlock(std::ifstream& config_file_stream,
 				++err_it;
 			}
 
-			// If client body treshold too high, set to global maximum
-			if (dom.client_max_body_size > Config::SERVER_MAX_BODY_SIZE) {
-				dom.client_max_body_size = Config::SERVER_MAX_BODY_SIZE;
-			}
+			// // If client body treshold too high, set to global maximum
+			// if (dom.client_max_body_size > Config::SERVER_MAX_BODY_SIZE) {
+			// 	dom.client_max_body_size = Config::SERVER_MAX_BODY_SIZE;
+			// }
 
 			// Check for duplicate domain names
 			for (std::size_t i = 0; i < dom.names.size(); ++i) {
 				if (isDuplicateDomain(soc.domains, dom.names[i])) {
-					throw std::runtime_error("config error: duplicate domain name '" + dom.names[i] + "'");
+					throw std::runtime_error("config validation: duplicate domain name '" + dom.names[i] + "'");
 				}
 			}
 			soc.domains.push_back(dom);
@@ -608,7 +608,7 @@ void ConfigLoader::_parseDomainBlock(std::ifstream& config_file_stream,
 			_parseLocationBlock(config_file_stream, dom, loc);
 			continue;
 		} else {
-			throw std::runtime_error("config error: unknown directive in server block: " + key);
+			throw std::runtime_error("config validation: unknown directive in server block: " + key);
 		}
 
 	}
@@ -620,7 +620,7 @@ void ConfigLoader::_parseDomainBlock(std::ifstream& config_file_stream,
 		oss << "'" << dom.names[i] << "'";
 	}
 	oss << std::endl;
-	throw std::runtime_error("config error: unclosed domain block <" + oss.str() + "> (missing '}')");
+	throw std::runtime_error("config validation: unclosed domain block <" + oss.str() + "> (missing '}')");
 
 	return;
 
@@ -645,20 +645,20 @@ void ConfigLoader::_parseSocketBlock(std::ifstream& config_file_stream) {
 		// End of block
 		if (trimmed == "}") {
 
-			// Block is complete — now finalize and validate
+			// Block is complete - now finalize and validate
 			// Check host address
 			if (soc.address.empty()) {
-				throw std::runtime_error("config error: no host address set");
+				throw std::runtime_error("config validation: no host address set");
 			}
 
-			// If client body treshold too high, set to global maximum
-			if (soc.client_max_body_size > Config::SERVER_MAX_BODY_SIZE) {
-				soc.client_max_body_size = Config::SERVER_MAX_BODY_SIZE;
-			}
+			// // If client body treshold too high, set to global maximum
+			// if (soc.client_max_body_size > Config::SERVER_MAX_BODY_SIZE) {
+			// 	soc.client_max_body_size = Config::SERVER_MAX_BODY_SIZE;
+			// }
 
 			// Check for duplicate sockets
 			if (isDuplicateSocket(configs.get(), soc.address, soc.port)) {
-				throw std::runtime_error("config error: duplicate socket " + soc.address + ":" + i2a(soc.port));
+				throw std::runtime_error("config validation: duplicate socket " + soc.address + ":" + i2a(soc.port));
 			}
 
 			configs.pushConfig(soc);
@@ -679,14 +679,14 @@ void ConfigLoader::_parseSocketBlock(std::ifstream& config_file_stream) {
 			_parseDomainBlock(config_file_stream, soc, dom);
 			continue;
 		} else {
-			throw std::runtime_error("config error: unknown directive in socket block: " + key);
+			throw std::runtime_error("config validation: unknown directive in socket block: " + key);
 		}
 
 	}
 
 	// If we exit the loop without finding }, throw
 	// If we get here, the socket block was never closed
-	throw std::runtime_error("config error: unclosed socket block " + soc.address + ":" + i2a(soc.port) + " (missing '}')");
+	throw std::runtime_error("config validation: unclosed socket block " + soc.address + ":" + i2a(soc.port) + " (missing '}')");
 	return;
 
 }
@@ -694,19 +694,19 @@ void ConfigLoader::_parseSocketBlock(std::ifstream& config_file_stream) {
 void ConfigLoader::_handleAlias(const std::string& val, Config::Location& loc) {
 
 	if (val.empty()) {
-		throw std::runtime_error("config error: alias directive requires a value");
+		throw std::runtime_error("config validation: alias directive requires a value");
 	}
 
 	if (val[0] != '/') {
-		throw std::runtime_error("config error: alias value must start with '/': " + val);
+		throw std::runtime_error("config validation: alias value must start with '/': " + val);
 	}
 
 	if (val[val.size() - 1] == '/') {
-		throw std::runtime_error("config error: alias value must not end with '/': " + val);
+		throw std::runtime_error("config validation: alias value must not end with '/': " + val);
 	}
 
 	if (mkdir(val.c_str(), 0755) == -1 && errno != EEXIST) {
-		throw std::runtime_error("config error: no write access (alias directory): " + val);
+		throw std::runtime_error("config validation: no write access (alias directory): " + val);
 	}
 
 	loc.alias = val;
@@ -718,15 +718,15 @@ void ConfigLoader::_handleAlias(const std::string& val, Config::Location& loc) {
 void ConfigLoader::_handleRedirect(const std::string& val, Config::Location& loc) {
 
 	if (val.empty()) {
-		throw std::runtime_error("config error: redirect directive requires a value");
+		throw std::runtime_error("config validation: redirect directive requires a value");
 	}
 
 	if (val[0] != '/') {
-		throw std::runtime_error("config error: redirect value must start with '/': " + val);
+		throw std::runtime_error("config validation: redirect value must start with '/': " + val);
 	}
 
 	if (val[val.size() - 1] != '/') {
-		throw std::runtime_error("config error: redirect value must end with '/': " + val);
+		throw std::runtime_error("config validation: redirect value must end with '/': " + val);
 	}
 
 	loc.redirect = val;
@@ -744,7 +744,7 @@ void ConfigLoader::_handleAllowedMethods(const std::string& val, Config::Locatio
 
 		const Method method = extractMethod(token);
 		if (method >= METHOD_COUNT) {
-			throw std::runtime_error("config error: invalid HTTP method: " + token);
+			throw std::runtime_error("config validation: invalid HTTP method: " + token);
 		}
 		loc.methods.push_back(method);
 	}
@@ -756,7 +756,7 @@ void ConfigLoader::_handleAllowedMethods(const std::string& val, Config::Locatio
 void ConfigLoader::_handleAutoindex(const std::string& val, Config::Location& loc) {
 
 	if (val != "on" && val != "off") {
-		throw std::runtime_error("config error: autoindex must be 'on' or 'off', got: " + val);
+		throw std::runtime_error("config validation: autoindex must be 'on' or 'off', got: " + val);
 	}
 
 	loc.autoindex = (val == "on");
@@ -768,21 +768,21 @@ void ConfigLoader::_handleAutoindex(const std::string& val, Config::Location& lo
 void ConfigLoader::_handleUploadDirectory(const std::string& val, Config::Location& loc) {
 
 	if (val.empty()) {
-		throw std::runtime_error("config error: upload_dir directive requires a value");
+		throw std::runtime_error("config validation: upload_dir directive requires a value");
 	}
 
 	if (val[0] != '/') {
-		throw std::runtime_error("config error: upload directory path must start with '/': " + val);
+		throw std::runtime_error("config validation: upload directory path must start with '/': " + val);
 	}
 
 	if (val[val.size() - 1] == '/') {
-		throw std::runtime_error("config error: upload directory path must not end with '/': " + val);
+		throw std::runtime_error("config validation: upload directory path must not end with '/': " + val);
 	}
 
 	std::string path = loc.alias;
 	if (!loc.root.empty()) path = loc.root + loc.path;
 	if (((mkdir((path + val).c_str(), 0755) != 0) && (errno != EEXIST))) {
-		throw std::runtime_error("config error: no write access (upload directory): " + val);
+		throw std::runtime_error("config validation: no write access (upload directory): " + val);
 	}
 
 	loc.upload_dir = val;
@@ -794,7 +794,7 @@ void ConfigLoader::_handleUploadDirectory(const std::string& val, Config::Locati
 void ConfigLoader::_handleInterpreter(const std::string& val, Config::Location& loc) {
 
 	if (val.empty()) {
-		throw std::runtime_error("config error: interpreter directive requires extension and path");
+		throw std::runtime_error("config validation: interpreter directive requires extension and path");
 	}
 
 	std::istringstream iss(val);
@@ -802,28 +802,28 @@ void ConfigLoader::_handleInterpreter(const std::string& val, Config::Location& 
 	std::string path;
 
 	if (!(iss >> ext >> path)) {
-		throw std::runtime_error("config error: interpreter requires both extension and path");
+		throw std::runtime_error("config validation: interpreter requires both extension and path");
 	}
 
 	if (!isSupportedCGIExtension(ext)) {
-		throw std::runtime_error("config error: unsupported CGI extension: " + ext);
+		throw std::runtime_error("config validation: unsupported CGI extension: " + ext);
 	}
 
 	if (path[0] != '/') {
-		throw std::runtime_error("config error: interpreter path must start with '/': " + path);
+		throw std::runtime_error("config validation: interpreter path must start with '/': " + path);
 	}
 
 	if (path[path.size() - 1] == '/') {
-		throw std::runtime_error("config error: interpreter path must not end with '/': " + path);
+		throw std::runtime_error("config validation: interpreter path must not end with '/': " + path);
 	}
 
 	if (!isExecutable(path)) {
-		throw std::runtime_error("config error: interpreter path not executable: " + path);
+		throw std::runtime_error("config validation: interpreter path not executable: " + path);
 	}
 
 	if (loc.interpreters.count(ext) > 0) {
-		throw std::runtime_error("config error: CGI extension '" + ext
-									+ "' already mapped in location '" + loc.path + "'");
+		throw std::runtime_error("config validation: CGI extension '" + ext +
+								 "' already mapped in location '" + loc.path + "'");
 	}
 
 	loc.interpreters[ext] = path;
@@ -835,7 +835,7 @@ void ConfigLoader::_handleInterpreter(const std::string& val, Config::Location& 
 void ConfigLoader::_handleListen(const std::string& val, Config::Socket& config) {
 
 	if (!isValidPort(val)) {
-		throw std::runtime_error("config error: invalid port value: " + val);
+		throw std::runtime_error("config validation: invalid port value: " + val);
 	}
 
 	config.port = stringToUnsignedShort(val);
@@ -847,7 +847,7 @@ void ConfigLoader::_handleListen(const std::string& val, Config::Socket& config)
 void ConfigLoader::_handleHost(const std::string& val, Config::Socket& config) {
 
 	if (!isValidIPAddress(val)) {
-		throw std::runtime_error("config error: invalid host IP: " + val);
+		throw std::runtime_error("config validation: invalid host IP: " + val);
 	}
 
 	config.address = val;
@@ -873,10 +873,10 @@ void ConfigLoader::_validateRedirectChains(void) {
 				redirects.push_back(redirect);
 				while (!loc->redirect.empty()) {
 					if (redirect == loc->redirect) {
-						throw std::runtime_error("config error: self-redirect at '" + loc->path + "'");
+						throw std::runtime_error("config validation: self-redirect at '" + loc->path + "'");
 					}
 					if (std::find(redirects.begin(), redirects.end(), loc->redirect) != redirects.end()) {
-						oss << "config error: circular redirect detected at '" << loc->redirect << "'\nredirect chain:\n";
+						oss << "config validation: circular redirect detected at '" << loc->redirect << "'\nredirect chain:\n";
 						for (std::size_t i = 0; i < redirects.size(); ++i) {
 							oss << redirects[i] << "\n";
 						}
@@ -885,7 +885,7 @@ void ConfigLoader::_validateRedirectChains(void) {
 					}
 					++redirection_count;
 					if (redirection_count > MAX_REDIRECTS) {
-						oss << "config error: too many consecutive redirects\nredirect chain:\n";
+						oss << "config validation: too many consecutive redirects\nredirect chain:\n";
 						for (std::size_t i = 0; i < redirects.size(); ++i) {
 							oss << redirects[i] << "\n";
 						}
@@ -896,7 +896,7 @@ void ConfigLoader::_validateRedirectChains(void) {
 					redirects.push_back(loc->redirect);
 					loc = const_cast<Config::Location*>(Dispatcher::resolveLocation(dom_it->locations, loc->redirect));
 					if (loc == NULL) {
-						log.error("config error: no matching location");
+						log.error("config validation: no matching location");
 						return;
 					}
 				}

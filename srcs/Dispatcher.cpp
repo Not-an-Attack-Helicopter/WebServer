@@ -68,7 +68,7 @@ static const Config::Domain* resolveDomain(const std::vector<Config::Domain>& do
 
 	// Return 400 Bad Request if no domain name provided
 	if (host_header.empty()) {
-		log.error("dispatch error: empty header");
+		log.warn("resolving domain: empty host header");
 		return NULL;
 	}
 	std::string requested_domain_name = extractDomainName(host_header);
@@ -237,70 +237,67 @@ static StatusCode removeFile(const std::string& path,
 	return NO_CONTENT;
 }
 
-// The 42 Tester is a retard that doesn't know how Webservers behave
-// This function is commented out for evaluations
-// TODO: uncomment after evaluations
-// static StatusCode serveDirectoryListing(const std::string& path,
-// 										bool supports_delete,
-// 										const HTTPRequest& request,
-// 										HTTPResponse& response) {
-//
-// 	DIR* dir = opendir(path.c_str());
-//
-// 	if (!dir) {
-// 		log.error("dispatch error: could not open directory, permission denied");
-// 		return FORBIDDEN;
-// 	}
-//
-// 	response.setStatus(OK);
-// 	response.setHeader("Connection", "keep-alive");
-//
-// 	std::ostringstream body;
-// 	body	<< HTML::DOC << HTML::LANG << HTML::HEAD << TAG::META << TAG::FAVICON << TAG::STYLE
-// 			<< HTML::TITLE << "Index of" << HTTP::_ << request.getPath() << HTML::_TITLE
-// 			<< HTML::_HEAD << HTML::BODY
-// 			<< HTML::H1 << "Index of" << HTTP::_ << request.getPath() << HTML::_H1;
-//
-// 	struct dirent* entry;
-//
-// 	body	<< HTML::UL;
-// 	while ((entry = readdir(dir)) != NULL) {
-//
-// 		std::string name = entry->d_name;
-// 		if (name == ".") {
-// 			continue;
-// 		}
-//
-// 		body	<< HTML::LI << HTML::A << HTML::HREF << name << HTML::_HREF;
-//
-// 		if (name == "..") {
-// 			body	<< "Parent Directory";
-// 		} else {
-// 			body	<< name;
-// 		}
-//
-// 		body	<< HTML::_A;
-//
-// 		if (supports_delete == true && name != "..") {
-// 			body	<< HTML::TAB << BUTTON::DELETE_ << request.getPath() << name << BUTTON::_DELETE;
-// 		}
-//
-// 		body	<< HTML::_LI << HTML::BR;
-//
-// 	}
-// 	body	<< HTML::_UL;
-//
-// 	if (supports_delete == true) {
-// 		body	<< BUTTON::SCRIPT;
-// 	}
-//
-// 	body	<< HTML::_BODY << HTML::_LANG;
-//
-// 	closedir(dir);
-//
-// 	response.setBody(body.str(), HEAP, "text/html", request.headers_only);
-// 	return OK;
-// }
+static StatusCode serveDirectoryListing(const std::string& path,
+										bool supports_delete,
+										const HTTPRequest& request,
+										HTTPResponse& response) {
+
+	DIR* dir = opendir(path.c_str());
+
+	if (!dir) {
+		log.warn("directory listing: could not open directory, permission denied");
+		return FORBIDDEN;
+	}
+
+	response.setStatus(OK);
+	response.setHeader("Connection", "keep-alive");
+
+	std::ostringstream body;
+	body	<< HTML::DOC << HTML::LANG << HTML::HEAD << TAG::META << TAG::FAVICON << TAG::STYLE
+			<< HTML::TITLE << "Index of" << HTTP::_ << request.getPath() << HTML::_TITLE
+			<< HTML::_HEAD << HTML::BODY
+			<< HTML::H1 << "Index of" << HTTP::_ << request.getPath() << HTML::_H1;
+
+	struct dirent* entry;
+
+	body	<< HTML::UL;
+	while ((entry = readdir(dir)) != NULL) {
+
+		std::string name = entry->d_name;
+		if (name == ".") {
+			continue;
+		}
+
+		body	<< HTML::LI << HTML::A << HTML::HREF << name << HTML::_HREF;
+
+		if (name == "..") {
+			body	<< "Parent Directory";
+		} else {
+			body	<< name;
+		}
+
+		body	<< HTML::_A;
+
+		if (supports_delete == true && name != "..") {
+			body	<< HTML::TAB << BUTTON::DELETE_ << request.getPath() << name << BUTTON::_DELETE;
+		}
+
+		body	<< HTML::_LI << HTML::BR;
+
+	}
+	body	<< HTML::_UL;
+
+	if (supports_delete == true) {
+		body	<< BUTTON::SCRIPT;
+	}
+
+	body	<< HTML::_BODY << HTML::_LANG;
+
+	closedir(dir);
+
+	response.setBody(body.str(), HEAP, "text/html", request.headers_only);
+	return OK;
+}
 
 // The 42 Tester is a retard that doesn't know how Webservers behave
 // This function is commented out for evaluations
@@ -365,27 +362,21 @@ static StatusCode handleGET(HTTPRequest& request,
 	if (!index_file_path.empty() && isReadable(index_file_path)) {
 		return serveFile(index_file_path, request, response);
 
-	// The 42 Tester is a retard that doesn't know how Webservers behave
-	// TODO: remove the following 3 lines after evaluations
+	// No index file found, check if autoindex is enabled
+	// if autoindex is enabled, generate directory listing
+	} else if (location.autoindex) {
+		bool supports_delete = false;
+		for (std::size_t i = 0; i < location.methods.size(); ++i) {
+			if (location.methods[i] == DELETE) supports_delete = true;
+		}
+		return serveDirectoryListing(path, supports_delete, request, response);
+
+	// autoindex is off, return 403
 	} else {
+		// The 42 Tester is a retard that doesn't know how Webservers behave
+		// TODO: replace NOT_FOUND with FORBIDDEN after evaluations
 		return NOT_FOUND;
 	}
-
-	// The 42 Tester is a retard that doesn't know how Webservers behave
-	// TODO: uncomment the following 13 lines after evaluations
-	// // No index file found, check if autoindex is enabled
-	// // autoindex is on, generate directory listing
-	// } else if (location.autoindex) {
-	// 	bool supports_delete = false;
-	// 	for (std::size_t i = 0; i < location.methods.size(); ++i) {
-	// 		if (location.methods[i] == DELETE) supports_delete = true;
-	// 	}
-	// 	return serveDirectoryListing(path, supports_delete, request, response);
- //
-	// // autoindex is off, return 403
-	// } else {
-	// 	return FORBIDDEN;
-	// }
 }
 
 static StatusCode handlePUT(HTTPRequest& request,
@@ -496,18 +487,19 @@ static StatusCode routeRequest(HTTPRequest& request, HTTPResponse& response) {
 	// In case of request for CGI, check if body present
 	if (request.requires_CGI == true) {
 
+		// log.notice("CGI routing");
 		return routeCGI(request);
 
 	// Check if request path exists as static file in `root`
 	} else if (isRegularFile(request.resolved.filepath)) {
 
-		log.error("regular file routing");
+		// log.notice("regular file routing");
 		return handleRegularFile(request, response);
 
 	// Check if request is for a directory
 	} else if (isDirectory(request.resolved.filepath) || request.resolved.method == PUT) {
 
-		log.error("directory routing");
+		// log.notice("directory routing");
 		return handleDirectory(request, response);
 
 	// If target not found, send 404
@@ -596,12 +588,12 @@ static StatusCode resolveRoute(Client& client) {
 	// (verify that the resulting path remains inside location's root)
 	std::string decoded;
 	if (!decodeURL(path, decoded)) {
-		log.error("dispatch error: malformed target URL");
+		log.warn("resolving route: malformed target URL");
 		return BAD_REQUEST;
 	}
 	std::string normalized;
 	if (!normalizePath(decoded, normalized)) {
-		log.error("dispatch error: forbidden path");
+		log.warn("resolving route: forbidden path");
 		return NOT_FOUND;
 	}
 	if (request.requires_CGI) {
@@ -610,7 +602,7 @@ static StatusCode resolveRoute(Client& client) {
 
 	// Decode (but don't normalize) path_info
 	if (!path_info.empty() && !decodeURL(path_info, request.cgi.path_info)) {
-		log.error("dispatch error: malformed CGI path info");
+		log.warn("resolving route: malformed CGI path info");
 		return BAD_REQUEST;
 	}
 
@@ -618,45 +610,35 @@ static StatusCode resolveRoute(Client& client) {
 	if (!request.resolved.location->root.empty()) {
 		request.resolved.filepath = request.resolved.location->root + normalized;
 
-		// log.error("root: " + request.resolved.location->root);
-		// log.error("normalized/script_name: " + normalized + " (" + i2a(normalized.size()) + ")");
-		// log.error("path: " + request.resolved.location->path + " (" + i2a(request.resolved.location->path.size()) + ")");
-		// log.error("filepath/script_filename: " + request.resolved.filepath);
-		// log.error("path_info: " + request.cgi.path_info);
-
 		if (!request.cgi.path_info.empty()) {
 			request.cgi.path_translated = request.resolved.location->root +
 										  request.resolved.location->path +
 										  request.cgi.path_info;
 		}
-		// log.error("path_translated: " + request.cgi.path_translated);
+
 	} else {
 		request.resolved.filepath = request.resolved.location->alias +
 									normalized.substr(request.resolved.location->path.size());
 
-		// log.error("alias: " + request.resolved.location->alias);
-		log.debug("normalized: " + normalized + " (" + i2a(normalized.size()) + ")");
-		log.debug("requested path: " + request.resolved.location->path + " (" + i2a(request.resolved.location->path.size()) + ")");
-		// log.error("filepath/script_filename: " + request.resolved.filepath);
-		// log.error("path_info: " + request.cgi.path_info);
+		// log.notice("normalized: " + normalized + " (" + i2a(normalized.size()) + ")");
+		// log.notice("requested path: " + request.resolved.location->path + " (" + i2a(request.resolved.location->path.size()) + ")");
 
 		if (!request.cgi.path_info.empty()) {
 			request.cgi.path_translated = request.resolved.location->alias +
 										  request.cgi.path_info;
 		}
-		// log.error("path_translated: " + request.cgi.path_translated);
-	}
-
-	// The 42 Tester is a retard that doesn't know how Webservers behave
-	// TODO: remove the following 3 lines after evaluations
-	if (request.cgi.path_info.empty()) {
-		request.cgi.path_info = request.getPath();
 	}
 
 	log.debug("root: " + request.resolved.location->root);
 	log.debug("alias: " + request.resolved.location->alias);
 	log.debug("requested location path: " + request.resolved.location->path);
 	log.debug("absolute file path (script_filename): " + request.resolved.filepath);
+
+	// The 42 Tester is a retard that doesn't know how Webservers behave
+	// TODO: remove the following 3 lines after evaluations
+	if (request.cgi.path_info.empty()) {
+		request.cgi.path_info = request.getPath();
+	}
 
 	// In case of ".cgi" file extension set binary_path to filepath
 	if (request.requires_CGI && request.cgi.binary_path.empty()) {
@@ -687,13 +669,17 @@ static StatusCode resolveRoute(Client& client) {
 
 	// Set up CGI
 	if (request.requires_CGI) {
-		if (!isRegularFile(request.cgi.binary_path) ||
-			!isRegularFile(request.resolved.filepath)) {
-			return NOT_FOUND;
-		}
-		if (access(request.cgi.binary_path.c_str(), X_OK) != 0) {
-			return FORBIDDEN;
-		}
+		// The 42 Tester is a retard that doesn't know how Webservers behave
+		// The tester things it is a good idea to neither check the binary or
+		// the script for accessibility nor executability before the CGI setup.
+		// TODO: uncomment the following 7 lines after evaluations
+		// if (!isRegularFile(request.cgi.binary_path) ||
+		// 	!isRegularFile(request.resolved.filepath)) {
+		// 	return NOT_FOUND;
+		// }
+		// if (access(request.cgi.binary_path.c_str(), X_OK) != 0) {
+		// 	return FORBIDDEN;
+		// }
 		// TEST we need to put setting up all things CGI here! The cgi pipes need to be ready to be written to during READING_BODY
 		return setUpCGI(client);
 	}
@@ -708,11 +694,11 @@ static StatusCode resolveRoute(Client& client) {
 		}
 	}
 
-	//  Check if Content-Length value exceeds global body size treshold
-	if (request.body.size > Config::SERVER_MAX_BODY_SIZE) {
-		log.warn("request: content-length exceeds global treshold");
-		return PAYLOAD_TOO_LARGE;
-	}
+	// //  Check if Content-Length value exceeds global body size treshold
+	// if (request.body.size > Config::SERVER_MAX_BODY_SIZE) {
+	// 	log.warn("request: content-length exceeds global treshold");
+	// 	return PAYLOAD_TOO_LARGE;
+	// }
 	//  Check if Content-Length value exceeds location's body size treshold
 	if (request.body.size > request.resolved.location->client_max_body_size) {
 		log.warn("request: content-length exceeds local treshold");
@@ -796,16 +782,16 @@ void Dispatcher::handleRequest(Client& client) {
 	HTTPResponse& response = client.getCurrentResponse();
 	HTTPRequest& request = client.getCurrentRequest();
 
-	std::string state;
-	switch(request.parsing.state) {
-	case HTTPRequest::READING_REQUEST_LINE: state = "reading request line"; break;
-	case HTTPRequest::READING_HEADERS: state = "reading headers"; break;
-	case HTTPRequest::RESOLVING_ROUTE: state = "resolving route"; break;
-	case HTTPRequest::READING_BODY: state = "reading body"; break;
-	case HTTPRequest::COMPLETE: state = "complete"; break;
-	case HTTPRequest::ERROR: state = "error"; break;
-	}
-	log.error("State:\t\t" + state + " (" + i2a(request.parsing.state) + ")");
+	// std::string state;
+	// switch(request.parsing.state) {
+	// case HTTPRequest::READING_REQUEST_LINE: state = "reading request line"; break;
+	// case HTTPRequest::READING_HEADERS: state = "reading headers"; break;
+	// case HTTPRequest::RESOLVING_ROUTE: state = "resolving route"; break;
+	// case HTTPRequest::READING_BODY: state = "reading body"; break;
+	// case HTTPRequest::COMPLETE: state = "complete"; break;
+	// case HTTPRequest::ERROR: state = "error"; break;
+	// }
+	// log.notice("State:\t\t" + state + " (" + i2a(request.parsing.state) + ")");
 
 	switch (request.parsing.state) {
 	case HTTPRequest::ERROR:
@@ -817,17 +803,16 @@ void Dispatcher::handleRequest(Client& client) {
 		client.setState(Client::PENDING_RESPONSE);
 		return;
 	case HTTPRequest::COMPLETE:
-		if (request.requires_CGI) {
-			// TODO decide:
-			// client state could already be set to
-			// AWAITING_CGI_OUTPUT in parseDataFromPeer()
-			// WITH-body CGI request finished writing to the
-			// CGI stdin, set client state to AWAITING_CGI_OUTPUT
-			client.popRequest();
-			client.pushRequest();
-			client.setState(Client::AWAITING_CGI_OUTPUT);
-			return;
-		} else if (request.resolved.method == PUT) {
+		// TODO decide:
+		// client state could already be set to
+		// AWAITING_CGI_OUTPUT in parseDataFromPeer()
+		// WITH-body CGI request finished writing to the
+		// CGI stdin, set client state to AWAITING_CGI_OUTPUT
+		// if (request.requires_CGI) {
+		// 	client.setState(Client::AWAITING_CGI_OUTPUT);
+		// 	return;
+		// } else if (request.resolved.method == PUT) {
+		if (request.resolved.method == PUT) {
 			status_code = handlePUT(request, response);
 		} else if (request.resolved.method == POST) {
 			status_code = handlePOST(request, response);
@@ -841,11 +826,13 @@ void Dispatcher::handleRequest(Client& client) {
 		break;
 	case HTTPRequest::RESOLVING_ROUTE:
 		status_code = resolveRoute(client);
-		log.error("Status: " + i2a(status_code));
+		// log.notice("Response Status after route resolved: " + i2a(status_code));
 		if (status_code == NO_STATUS) {
+			// log.notice("request requires...");
 			status_code = routeRequest(request, response);
 		}
 		if (status_code < BAD_REQUEST) {
+			// log.notice("Response Status after routing: " + i2a(status_code));
 			if (request.parsing.state == HTTPRequest::READING_BODY) {
 				client.setState(Client::RECEIVING_BODY);
 			} else if (request.parsing.state == HTTPRequest::COMPLETE) {

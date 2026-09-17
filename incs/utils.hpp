@@ -37,6 +37,7 @@ int				stringToInt(const std::string& str);
 std::string		trim(const std::string& str);
 std::string		unquote(const std::string& str);
 std::string		randomHexString(unsigned short bit_width);
+std::string		extractExtension(const std::string& filename);
 
 bool			isRegularFile(const std::string& path);
 bool			isDirectory(const std::string& path);

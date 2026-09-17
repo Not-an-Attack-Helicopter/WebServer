@@ -35,8 +35,8 @@ void Logger::setLevel(const std::string& input) {
 		*i = std::toupper(*i);
 	if (name == "DEBUG") _log_level = LEVEL_DEBUG;
 	else if (name == "INFO") _log_level = LEVEL_INFO;
-	else if (name == "WARNING") _log_level = LEVEL_WARNING;
 	else if (name == "WARN") _log_level = LEVEL_WARNING;
+	else if (name == "WARNING") _log_level = LEVEL_WARNING;
 	else if (name == "ERROR") _log_level = LEVEL_ERROR;
 	else if (name == "OFF") _log_level = LEVEL_OFF;
 	return;

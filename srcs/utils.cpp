@@ -171,7 +171,6 @@ unsigned short stringToUnsignedShort(const std::string& str) {
 	}
 
 	return static_cast<unsigned short>(tmp);
-
 }
 
 std::size_t stringToSize(const std::string& str) {
@@ -196,7 +195,6 @@ std::size_t stringToSize(const std::string& str) {
 	}
 
 	return static_cast<std::size_t>(tmp);
-
 }
 
 int stringToInt(const std::string& str) {
@@ -265,29 +263,41 @@ std::string randomHexString(unsigned short bit_width) {
 	}
 	catch (std::exception& e) {
 		delete [] bytes;
-		log.error("hexgen: " + std::string(e.what()) + ". Falling back to std::rand");
+		log.error("hexgen: " + std::string(e.what()) + ", falling back to std::rand");
 		std::string unique_id;
 		while (unique_id.empty() || unique_id.size() < static_cast<std::size_t>(bit_width / 8) * 2) {
 			unique_id += i2a(std::rand());
 		}
+
 		return unique_id;
 	}
+}
+
+std::string extractExtension(const std::string& filename) {
+
+	std::size_t slash_pos = filename.find_last_of("/\\");
+	std::size_t from_pos = (slash_pos == std::string::npos) ? 0 : slash_pos + 1;
+	std::size_t dot_pos = filename.find('.', from_pos);
+
+	if (dot_pos == std::string::npos) return "";
+
+	return filename.substr(dot_pos);
 }
 
 bool isRegularFile(const std::string& path) {
 
 	struct stat sb;
 	if (stat(path.c_str(), &sb) != 0) return false;
-	return S_ISREG(sb.st_mode);
 
+	return S_ISREG(sb.st_mode);
 }
 
 bool isDirectory(const std::string& path) {
 
 	struct stat sb;
 	if (stat(path.c_str(), &sb) != 0) return false;
-	return S_ISDIR(sb.st_mode);
 
+	return S_ISDIR(sb.st_mode);
 }
 
 void createFile(HTTPRequest& request) {
@@ -316,7 +326,7 @@ void createFile(HTTPRequest& request) {
 			suffix = oss.str();
 		}
 		std::string unique_id = i2a(timestamp) + "-" + suffix;
-		std::string file_path = directory + location.upload_dir + "/.upload_" + unique_id + ".part";
+		std::string file_path = directory + location.upload_dir + "/upload_" + unique_id + ".part";
 		file_descriptor = open(file_path.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0600);
 		if (file_descriptor < 0) {
 			throw std::runtime_error("file creation failed:" + std::string(strerror(errno)));
@@ -335,19 +345,6 @@ void createFile(HTTPRequest& request) {
 
 	request.parsing.state = HTTPRequest::READING_BODY;
 	return;
-
-}
-
-static std::string extraxtExtension(const std::string& filename) {
-
-	std::size_t slash_pos = filename.find_last_of("/\\");
-	std::size_t from_pos = (slash_pos == std::string::npos) ? 0 : slash_pos + 1;
-	std::size_t dot_pos = filename.find('.', from_pos);
-
-	if (dot_pos == std::string::npos) return "";
-
-	return filename.substr(dot_pos);
-
 }
 
 void promoteFile(HTTPRequest& request) {
@@ -357,11 +354,11 @@ void promoteFile(HTTPRequest& request) {
 	if (request.is_multipart) {
 		close(request.body.parts.back().file);
 		old_path = request.body.parts.back().path;
-		extension = extraxtExtension(request.body.parts.back().filename);
+		extension = extractExtension(request.body.parts.back().filename);
 	} else {
 		close(request.body.file);
 		old_path = request.body.path;
-		extension = extraxtExtension(request.body.filename);
+		extension = extractExtension(request.body.filename);
 	}
 
 	std::string suffix;
@@ -387,7 +384,7 @@ void promoteFile(HTTPRequest& request) {
 	log.debug("new path: " + new_path);
 
 	if (std::rename(old_path.c_str(), new_path.c_str()) != 0) {
-		log.warn("dispatch error: " + std::string(strerror(errno)));
+		log.warn("renaming file: " + std::string(strerror(errno)));
 		return;
 	}
 
@@ -398,7 +395,6 @@ void promoteFile(HTTPRequest& request) {
 	}
 
 	return;
-
 }
 
 void dumpConfigs(const std::vector<Config::Socket>& sockets) {
@@ -467,7 +463,11 @@ void dumpConfigs(const std::vector<Config::Socket>& sockets) {
 				std::cout << "\t\t\tinterpreters: {\n";
 				for (std::map<std::string, std::string>::const_iterator it = sockets[i].domains[j].locations[k].interpreters.begin();
 					 it != sockets[i].domains[j].locations[k].interpreters.end(); ++it) {
-					std::cout << "\t\t\t\t" + it->first + " " + it->second << ";\n";
+					std::cout << "\t\t\t\t" + it->first;
+					if (!it->second.empty()) {
+						std::cout << " " + it->second << ";";
+					}
+					std::cout << "\n";
 				}
 				std::cout << "\t\t\t};\n";
 				std::cout << "\t\t}\n";
@@ -475,6 +475,7 @@ void dumpConfigs(const std::vector<Config::Socket>& sockets) {
 			std::cout << "\t}\n";
 		}
 		std::cout << "}\n";
+		std::cout << std::endl;
 	}
 	return;
 }
@@ -497,7 +498,6 @@ static char tolowerASCII(char c) {
 	}
 
 	return static_cast<char>(uc);
-
 }
 
 std::string tolowerASCII(const std::string& s) {
@@ -511,7 +511,6 @@ std::string tolowerASCII(const std::string& s) {
 	}
 
 	return result;
-
 }
 
 int hexDigitValue(char c) {
@@ -519,8 +518,8 @@ int hexDigitValue(char c) {
 	if (c >= '0' && c <= '9') return c - '0';
 	if (c >= 'A' && c <= 'F') return c - 'A' + 10;
 	if (c >= 'a' && c <= 'f') return c - 'a' + 10;
-	return -1;
 
+	return -1;
 }
 
 /*
@@ -560,7 +559,6 @@ bool isTChar(char c) {
 	default:
 		return false;
 	}
-
 }
 
 bool isHexDigit(char c) {

@@ -113,6 +113,7 @@ public:
 	void							sendDataToTCPPeer(int fd);		// send response to peer
 	void							pushRequest(void);
 	void							pushResponse(void);
+	void							popProcess(void);
 	void							popRequest(void);
 	void							popResponse(void);
 	void							blockFromReceiving(void);
@@ -129,8 +130,8 @@ private:
 
 	static const std::time_t		IDLE_TIMEOUT_SECONDS		= 60;
 	static const std::time_t		HEADER_TIMEOUT_SECONDS		= 12;
-	static const std::time_t		BODY_TIMEOUT_SECONDS		= 12000000000;
-	static const std::time_t		PROCESSING_TIMEOUT_SECONDS	= 42000000000;
+	static const std::time_t		BODY_TIMEOUT_SECONDS		= 120;
+	static const std::time_t		PROCESSING_TIMEOUT_SECONDS	= 420;
 	static const std::time_t		REJECTED_TIMEOUT_SECONDS	= 10;
 
 	State							_state;

@@ -25,6 +25,31 @@
 #include <arpa/inet.h>
 #include <cstddef>
 
+static void deletePartialUpload(const HTTPRequest& request) {
+
+	if (!request.body.path.empty()) {
+		if (extractExtension(request.body.path) == ".part") {
+			if (std::remove(request.body.path.c_str()) != 0) {
+				log.error("unable to delete: " + request.body.path);
+			}
+			log.info("Deleted " + request.body.path);
+		}
+	}
+
+	for (std::size_t i = 0; i < request.body.parts.size(); ++i) {
+		if (!request.body.parts[i].path.empty()) {
+			if (extractExtension(request.body.parts[i].path) == ".part") {
+				if (std::remove(request.body.parts[i].path.c_str()) != 0) {
+					log.error("unable to delete: " + request.body.parts[i].path);
+				}
+				log.info("Deleted " + request.body.parts[i].path);
+			}
+		}
+	}
+
+	return;
+}
+
   //~~~~~~~~~~//
  /*  Public  */
 //~~~~~~~~~~//
@@ -64,30 +89,7 @@ Client::~Client(void) {
 
 	log.debug("Client Destructor called");
 
-	if (_state == Client::RECEIVING_BODY) {
-		std::string path;
-		const HTTPRequest& request = *_request;
-		if (!request.body.path.empty()) {
-			path = request.body.path;
-			log.error("path: " + path);
-			if (std::remove(path.c_str()) != 0) {
-				log.error("error on deleting file");
-			}
-			log.info("Deleted " + path);
-		}
-		for (std::size_t i = 0; i < request.body.parts.size(); ++i) {
-			log.error(i2a(i) + " - DING!");
-			if (!request.body.parts[i].path.empty()) {
-				path = request.body.parts[i].path;
-				log.error("path: " + path);
-				if (std::remove(path.c_str()) != 0) {
-					log.error("error on deleting file");
-				}
-				log.info("Deleted " + path);
-			}
-		}
-	}
-
+	deletePartialUpload(*_request);
 	delete cgi_process;
 	// while (!_request_queue.empty()) popRequest();
 	// _request_queue.clear();
@@ -223,15 +225,24 @@ bool Client::isTimedOut(const std::time_t now) const {
 
 ssize_t Client::queueIncomingData(int fd) {
 
-	log.error("bytes in buffer: " + i2a(_instream.range()));
-	log.error("buffer capacity: " + i2a(_instream.data.size()));
-	log.error("free bytes: " + i2a(_instream.data.size() - _instream.range()));
+	// log.notice("bytes in buffer: " + i2a(_instream.range()));
+	// log.notice("buffer capacity: " + i2a(_instream.data.size()));
+	// log.notice("free bytes: " + i2a(_instream.data.size() - _instream.range()));
 
-	if (_request->parsing.state == HTTPRequest::READING_BODY &&
-		_instream.data.size() == BUFFER_SIZE &&
-		_request->body.size > BUFFER_SIZE) {
-		std::size_t buffer_size = _adjustBufferSize(_request->body.size);
-		_instream.data.resize(buffer_size);
+	if (_request->parsing.state == HTTPRequest::READING_BODY) {
+
+		std::size_t buffer_size = BUFFER_SIZE;
+		if (_instream.data.size() == BUFFER_SIZE && _request->body.size > BUFFER_SIZE) {
+			buffer_size = _adjustBufferSize(_request->body.size);
+		}
+		if (_request->body_chunked) {
+			buffer_size = _adjustBufferSize(_request->parsing.chunk_total_size);
+		}
+		if (_instream.data.size() != buffer_size) {
+			_instream.data.resize(buffer_size);
+			log.info("client_" + i2a(fd) + ": changed buffer size to: " + i2a(buffer_size));
+		}
+
 	}
 
 	ssize_t bytes_received = _instream.fetchData(fd);
@@ -246,9 +257,9 @@ ssize_t Client::queueIncomingData(int fd) {
 ssize_t Client::parseDataFromPeer(void) {
 
 	if (blockedFromReceiving()) {
-		log.notice("\"consuming\" bytes in buffer:\n-------");
-		log.notice(_instream.str());
-		log.notice("-------");
+		// log.notice("\"consuming\" bytes in buffer:\n-------");
+		// log.notice(_instream.str());
+		// log.notice("-------");
 		std::size_t bytes_consumed = _instream.range();
 		_instream.reset();
 		return bytes_consumed;
@@ -257,6 +268,8 @@ ssize_t Client::parseDataFromPeer(void) {
 	std::size_t bytes_consumed = 0;
 	HTTPRequest& request = *_request;
 
+	// log.notice("previous body size: " + i2a(request.parsing.body_size));
+
 	while (_instream.mark < _instream.end) {
 
 		bool has_consumed_line = parse.buffer(_instream, cgi_process, request);
@@ -264,7 +277,7 @@ ssize_t Client::parseDataFromPeer(void) {
 			break;
 		}
 
-		bytes_consumed = request.parsing.bytes_read_count;
+		bytes_consumed = request.parsing.bytes_read;
 		if (bytes_consumed == 0) {
 			return 0;
 		} else {
@@ -285,7 +298,7 @@ ssize_t Client::parseDataFromPeer(void) {
 			if (_instream.begin > 0) {
 				_instream.compact();
 			} else {
-				log.error("parse error: buffer overflow");
+				log.error("buffer overflow while parsing request");
 				request.parsing.error_cause = INTERNAL_SERVER_ERROR;
 				request.parsing.state = HTTPRequest::ERROR;
 				break;
@@ -298,10 +311,14 @@ ssize_t Client::parseDataFromPeer(void) {
 		}
 
 		if (request.parsing.state == HTTPRequest::READING_BODY) {
-			request.parsing.body_size += bytes_consumed;
+
+			// log.notice("bytes written: " + i2a(request.parsing.bytes_written));
+			// log.notice("bytes written: " + i2a(bytes_consumed));
+			// log.notice("current body size: " + i2a(request.parsing.body_size));
 
 			if (request.body_chunked &&
 				request.parsing.body_size > request.resolved.location->client_max_body_size) {
+				// log.notice(i2a(request.parsing.body_size) + " > " + i2a(request.resolved.location->client_max_body_size));
 				request.parsing.error_cause = PAYLOAD_TOO_LARGE;
 				request.parsing.state = HTTPRequest::ERROR;
 				break;
@@ -309,12 +326,8 @@ ssize_t Client::parseDataFromPeer(void) {
 
 			if ((request.parsing.chunk_state == HTTPRequest::END_OF_CHUNKS) ||
 				(request.parsing.multipart_state == HTTPRequest::END_OF_PARTS) ||
-				(request.parsing.body_size == request.body.size && !request.body_chunked)) {
-					request.parsing.state = HTTPRequest::COMPLETE;
-			}
-
-			if (request.requires_CGI) {
-				break;
+				(!request.body_chunked && request.parsing.body_size == request.body.size)) {
+				request.parsing.state = HTTPRequest::COMPLETE;
 			}
 		}
 
@@ -323,14 +336,14 @@ ssize_t Client::parseDataFromPeer(void) {
 			if (!request.body_chunked) {
 
 				if (request.parsing.body_size < request.body.size) {
-					log.error("parse error: received body shorter than advertised size");
+					log.warn("received body falls short of advertised size");
 					request.parsing.state = HTTPRequest::ERROR;
 					request.parsing.error_cause = BAD_REQUEST;
 					break;
 				}
 
 				if (request.parsing.body_size > request.body.size) {
-					log.error("parse error: received body exceeded advertised size");
+					log.warn("received body exceeded advertised size");
 					request.parsing.state = HTTPRequest::ERROR;
 					request.parsing.error_cause = BAD_REQUEST;
 					break;
@@ -338,6 +351,10 @@ ssize_t Client::parseDataFromPeer(void) {
 			}
 
 			if (!request.requires_CGI) promoteFile(request);
+			break;
+		}
+
+		if (request.requires_CGI) {
 			break;
 		}
 	}
@@ -366,10 +383,12 @@ ssize_t Client::parseDataFromPeer(void) {
 			// TODO decide:
 			// We could set client state to AWAITING_CGI_OUTPUT
 			// here, instead of having the dispatcher do it
-			// if (request.requires_CGI == true) {
-			// 	setState(Client::AWAITING_CGI_OUTPUT);
-			// } else {}
-			setState(PREPARING_RESPONSE);
+			if (request.requires_CGI == true) {
+				setState(AWAITING_CGI_OUTPUT);
+			} else {
+				setState(PREPARING_RESPONSE);
+			}
+			// setState(PREPARING_RESPONSE);
 			if (_instream.data.size() != BUFFER_SIZE) {
 				_instream.data.resize(BUFFER_SIZE);
 			}
@@ -379,6 +398,7 @@ ssize_t Client::parseDataFromPeer(void) {
 			log.warn("HTTP request parser returned error");
 			dumpRequest(&request);
 			setState(PREPARING_RESPONSE);
+			deletePartialUpload(*_request);
 			if (_instream.data.size() != BUFFER_SIZE) {
 				_instream.data.resize(BUFFER_SIZE);
 			}
@@ -426,12 +446,14 @@ void Client::queueOutgoingData(void) {
 		break;
 	}
 
-	log.notice("Response:\n-------");
-	log.notice(_pending_response.headers.str());
-	if (!_pending_response.body.temp.str().empty()) {
-		log.notice(_pending_response.body.temp.str());
-	}
-	log.notice("-------");
+	// if (_response->getStatusCode() != 200) {
+	// 	log.notice("Response:\n---------");
+	// 	log.notice(_pending_response.headers.str());
+	// 	if (!_pending_response.body.temp.str().empty()) {
+	// 		log.notice(_pending_response.body.temp.str());
+	// 	}
+	// 	log.notice("---------");
+	// }
 	_state = SENDING_HEADERS;
 	return;
 }
@@ -449,7 +471,7 @@ static inline ssize_t buffNflush(std::istream& stream, Buffer& b, int fd) {
 	ssize_t n = b.flushData(fd);
 	if (n < 0) return n;
 
-	// Everything has been sent/written; reset indices
+	// Everything has been sent; reset indices
 	if (b.begin == b.end) {
 		b.reset();
 
@@ -475,14 +497,19 @@ void Client::sendDataToTCPPeer(int fd) {
 
 	case SENDING_HEADERS:
 
-		log.info("client_" + i2a(fd) + " sending response headers");
+		log.info("client_" + i2a(fd) + ": sending response headers");
 
 		data = &_pending_response.headers;
 		break;
 
 	case SENDING_BODY:
 
-		log.info("client_" + i2a(fd) + " sending response body");
+		log.info("client_" + i2a(fd) + ": sending response body");
+
+		if (_outstream.data.size() == BUFFER_SIZE) {
+			std::size_t buffer_size = _adjustBufferSize(_pending_response.body.size);
+			_outstream.data.resize(buffer_size);
+		}
 
 		switch (_pending_response.body.sink) {
 
@@ -492,11 +519,6 @@ void Client::sendDataToTCPPeer(int fd) {
 			break;
 
 		case DISK:
-
-			if (_outstream.data.size() == BUFFER_SIZE) {
-				std::size_t buffer_size = _adjustBufferSize(_pending_response.body.size);
-				_outstream.data.resize(buffer_size);
-			}
 
 			data = &_pending_response.body.file;
 			break;
@@ -588,6 +610,14 @@ void Client::pushResponse(void) {
 	// HTTPResponse* response = new HTTPResponse;
 	// _response_queue.push_back(response);
 	_response = new HTTPResponse;
+
+	return;
+}
+
+// Delete CGI process object
+void Client::popProcess(void) {
+	delete cgi_process;
+	cgi_process = NULL;
 
 	return;
 }
