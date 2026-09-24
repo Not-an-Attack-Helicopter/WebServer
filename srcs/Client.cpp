@@ -55,7 +55,7 @@ static void deletePartialUpload(const HTTPRequest& request) {
 //~~~~~~~~~~//
 
 /*	@brief Constructor	*/
-Client::Client(const sockaddr_in socket, const Config::Socket* config)
+Client::Client(const sockaddr_in& socket, const Config::Socket* config)
 	:	cgi_process(NULL),
 		_state(IDLE),
 		_blocked_from_receiving(false),
@@ -90,7 +90,11 @@ Client::~Client(void) {
 	log.debug("Client Destructor called");
 
 	deletePartialUpload(*_request);
-	delete cgi_process;
+	if (cgi_process != NULL) {
+		cgi_process->forceKill();
+		delete cgi_process;
+		cgi_process = NULL;
+	}
 	// while (!_request_queue.empty()) popRequest();
 	// _request_queue.clear();
 	// while (!_response_queue.empty()) popResponse();
@@ -238,7 +242,7 @@ ssize_t Client::queueIncomingData(int fd) {
 		if (_request->body_chunked) {
 			buffer_size = _adjustBufferSize(_request->parsing.chunk_total_size);
 		}
-		if (_instream.data.size() != buffer_size) {
+		if (_instream.data.size() < buffer_size) {
 			_instream.data.resize(buffer_size);
 			log.info("client_" + i2a(fd) + ": changed buffer size to: " + i2a(buffer_size));
 		}
@@ -247,7 +251,7 @@ ssize_t Client::queueIncomingData(int fd) {
 
 	ssize_t bytes_received = _instream.fetchData(fd);
 	if (bytes_received > 0) _last_event = std::time(NULL);
-	log.debug("client_" + i2a(fd) + ": bytes received: " + i2a(bytes_received));
+	log.debug("client_" + i2a(fd) + ":\tbytes received:\t" + i2a(bytes_received));
 	// if (_state == RECEIVING_BODY) {
 	// 	log.notice(_instream.str());
 	// }
@@ -312,13 +316,16 @@ ssize_t Client::parseDataFromPeer(void) {
 
 		if (request.parsing.state == HTTPRequest::READING_BODY) {
 
-			// log.notice("bytes written: " + i2a(request.parsing.bytes_written));
-			// log.notice("bytes written: " + i2a(bytes_consumed));
+			// log.notice("bytes written:\t" + i2a(request.parsing.bytes_written));
+			// log.notice("bytes written:\t" + i2a(bytes_consumed));
 			// log.notice("current body size: " + i2a(request.parsing.body_size));
 
 			if (request.body_chunked &&
 				request.parsing.body_size > request.resolved.location->client_max_body_size) {
-				// log.notice(i2a(request.parsing.body_size) + " > " + i2a(request.resolved.location->client_max_body_size));
+				log.warn("received body exceeds permitted threshold\n\tsize of received body:\t[" +
+						 i2a(request.parsing.body_size) + "] byte(s)\n\tmaximum allowed size:\t[" +
+						 i2a(request.resolved.location->client_max_body_size) + "] byte(s)\n\tthreshold exceeded by " +
+						 i2a(request.parsing.body_size - request.resolved.location->client_max_body_size) + " byte(s)");
 				request.parsing.error_cause = PAYLOAD_TOO_LARGE;
 				request.parsing.state = HTTPRequest::ERROR;
 				break;
@@ -343,7 +350,7 @@ ssize_t Client::parseDataFromPeer(void) {
 				}
 
 				if (request.parsing.body_size > request.body.size) {
-					log.warn("received body exceeded advertised size");
+					log.warn("received body exceeds advertised size");
 					request.parsing.state = HTTPRequest::ERROR;
 					request.parsing.error_cause = BAD_REQUEST;
 					break;
@@ -555,7 +562,7 @@ void Client::sendDataToTCPPeer(int fd) {
 
 	} else {
 
-		log.debug("client_" + i2a(fd) + ": bytes sent: " + i2a(bytes_sent));
+		log.debug("client_" + i2a(fd) + ":\tbytes sent:\t" + i2a(bytes_sent));
 		_last_event = std::time(NULL);
 
 	}
@@ -617,7 +624,9 @@ void Client::pushResponse(void) {
 // Delete CGI process object
 void Client::popProcess(void) {
 	delete cgi_process;
+	log.error("popProcess: " + i2a(&cgi_process) + ":" + i2a(cgi_process));
 	cgi_process = NULL;
+	log.error("popProcess: " + i2a(&cgi_process) + ":" + i2a(cgi_process));
 
 	return;
 }

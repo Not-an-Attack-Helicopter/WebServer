@@ -11,6 +11,7 @@
 /* ************************************************************************** */
 
 #include "../incs/utils.hpp"
+#include "../incs/Server.hpp"
 #include "../incs/Logger.hpp"
 #include "../incs/templates.hpp"
 #include "../incs/HTTPRequest.hpp"
@@ -26,30 +27,31 @@
 #include <cstdio>
 
 // DEBUG BEGIN
-void warnHighEventLoad(int nfds, int max_capacity) {
-	int utilization = (nfds * 100) / max_capacity;
+void warnHighEventLoad(int n, int max_capacity) {
+	int utilization = (n * 100) / max_capacity;
 	if (utilization >= 95) {
 		log.warn("Event array (over) 95 percent full ("
-			+ i2a(nfds) + "/" + i2a(max_capacity) + ")");
+			+ i2a(n) + "/" + i2a(max_capacity) + ")");
 	}
 	else if (utilization >= 85) {
 		log.warn("Event array (over) 85 percent full ("
-			+ i2a(nfds) + "/" + i2a(max_capacity) + ")");
+			+ i2a(n) + "/" + i2a(max_capacity) + ")");
 	}
 	else if (utilization >= 70) {
 		log.warn("Event array (over) 70 percent full ("
-			+ i2a(nfds) + "/" + i2a(max_capacity) + ")");
+			+ i2a(n) + "/" + i2a(max_capacity) + ")");
 	}
 	else if (utilization >= 50) {
 		log.warn("Event array (over) 50 percent full ("
-			+ i2a(nfds) + "/" + i2a(max_capacity) + ")");
+			+ i2a(n) + "/" + i2a(max_capacity) + ")");
 	}
 }
 
-void dumpEvents(int nfds, epoll_event* events) {
-	log.debug("Total events: " + i2a(nfds));
-	for (int i = 0; i < nfds; i++) {
-		int fd = events[i].data.fd;
+void dumpEvents(int n, epoll_event* events) {
+	log.debug("Total events: " + i2a(n));
+	for (int i = 0; i < n; i++) {
+		IPC* ipc = static_cast<IPC*>(events[i].data.ptr);
+		int fd = ipc->fd;
 		log.debug("\tEvent " + i2a(i + 1) + " (fd_" + i2a(fd) + "):");
 		if (events[i].events & EPOLLIN)		log.debug("\t\t\tEPOLLIN");
 		if (events[i].events & EPOLLOUT)	log.debug("\t\t\tEPOLLOUT");
@@ -127,19 +129,19 @@ void dumpRequest(const HTTPRequest* request) {
 		log.debug("Accept:\t\t\t\t" + *accept);
 	const std::string* accept_encoding = request->getHeader("accept-encoding");
 	if (accept_encoding != NULL)
-		log.debug("Accept-Encoding:\t" + *accept_encoding);
+		log.debug("Accept-Encoding:\t\t" + *accept_encoding);
 	const std::string* connection = request->getHeader("connection");
 	if (connection != NULL)
-		log.debug("Connection:\t\t" + *connection);
+		log.debug("Connection:\t\t\t" + *connection);
 	const std::string* type = request->getHeader("content-type");
 	if (type != NULL)
-		log.debug("Content-Type:\t\t" + *type);
+		log.debug("Content-Type:\t\t\t" + *type);
 	const std::string* disposition = request->getHeader("content-disposition");
 	if (disposition != NULL)
 		log.debug("Content-Disposition:\t" + *disposition);
 	const std::string* content_length = request->getHeader("content-length");
 	if (content_length != NULL)
-		log.debug("Content-Length:\t" + *content_length);
+		log.debug("Content-Length:\t\t\t" + *content_length);
 	const std::string* transfer_encoding = request->getHeader("transfer-encoding");
 	if (transfer_encoding != NULL)
 		log.debug("Transfer-Encoding:\t" + *transfer_encoding);

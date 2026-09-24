@@ -44,8 +44,9 @@ bool RequestParser::buffer(Buffer& buffer, CGIProcess* cgi_process, HTTPRequest&
 	case HTTPRequest::COMPLETE: state = "complete"; break;
 	case HTTPRequest::ERROR: state = "error"; break;
 	}
-	// log.notice("State:\t\t" + state + " (" + i2a(request.parsing.state) + ")");
-	// log.notice(request.body_chunked  ?  "chunked transfer-encoding" : "body size: " + i2a(request.body.size));
+	log.notice("State:\t\t" + state + " (" + i2a(request.parsing.state) + ")");
+	log.notice(request.body_chunked ? "chunked transfer-encoding" : "body size: " + i2a(request.body.size));
+	log.notice(request.is_multipart ? "is multipart" : "singe body");
 
 	switch (request.parsing.state) {
 
@@ -670,12 +671,14 @@ bool RequestParser::_parseBody(const Buffer& buffer, CGIProcess* cgi_process, HT
 
 	if (request.is_multipart && !request.requires_CGI) {
 
+		log.error("FILE UPLOAD!");
 		/*
 		* Multipart Body (NOT requiring CGI):
 		*/
 		ssize_t boundary_pos;
 		const std::string& boundary = request.body.boundary;
 
+		log.error("multipart state: " + i2a(p.multipart_state));
 		switch (p.multipart_state) {
 
 		case HTTPRequest::PREAMBLE:
@@ -720,6 +723,9 @@ bool RequestParser::_parseBody(const Buffer& buffer, CGIProcess* cgi_process, HT
 
 			boundary_pos = buffer.find(boundary);
 
+			log.error("boundary:" + boundary);
+			// log.notice(buffer.str());
+			log.error("boundary_pos: " + i2a(boundary_pos));
 			if (boundary_pos == -1) {
 
 				/*
@@ -730,11 +736,17 @@ bool RequestParser::_parseBody(const Buffer& buffer, CGIProcess* cgi_process, HT
 				*/
 				std::size_t keep = boundary.size() - 1;
 				std::size_t size = buffer.range();
+
+				log.error("boundary size: " + i2a(keep));
+				log.error("buffer range: " + i2a(size));
+				if (size <= keep) log.error("SIZE MATTERS!");
 				if (size <= keep) return false;
 
 				std::size_t n = size - keep;
+				log.error("wants to write: " + i2a(n));
 				ssize_t bytes_consumed = write(request.body.parts.back().file,
 											   &buffer.data[buffer.begin], n);
+				log.error("bytes consumed: " + i2a(bytes_consumed));
 				if (bytes_consumed < 0) {
 					log.error("write: " + std::string(strerror(errno)));
 					p.error_cause = INTERNAL_SERVER_ERROR;
@@ -763,7 +775,8 @@ bool RequestParser::_parseBody(const Buffer& buffer, CGIProcess* cgi_process, HT
 				* Everything before the boundary is definitely part data.
 				*/
 				ssize_t bytes_consumed = write(request.body.parts.back().file,
-											  &buffer.data[buffer.begin], boundary_pos);
+											   &buffer.data[buffer.begin], boundary_pos);
+				log.error("file_fd: " + i2a(request.body.parts.back().file));
 				if (bytes_consumed < 0) {
 					log.error("write: " + std::string(strerror(errno)));
 					p.error_cause = INTERNAL_SERVER_ERROR;
@@ -906,7 +919,7 @@ bool RequestParser::_parseBody(const Buffer& buffer, CGIProcess* cgi_process, HT
 		if (n == 0) return true;
 
 		ssize_t bytes_consumed = write(cgi_process->stdinFd(), &buffer.data[buffer.begin], n);
-		log.debug("script_" + i2a(cgi_process->stdinFd()) + ": bytes written: " + i2a(bytes_consumed));
+		log.debug("script_" + i2a(cgi_process->stdinFd()) + ":\tbytes written:\t" + i2a(bytes_consumed));
 		if (bytes_consumed < 0) {
 			log.error("write: " + std::string(strerror(errno)));
 			p.error_cause = INTERNAL_SERVER_ERROR;
@@ -975,7 +988,7 @@ bool RequestParser::_parseBody(const Buffer& buffer, CGIProcess* cgi_process, HT
 		case DISK:
 			// log.notice("written to file: ");
 			// log.notice(buffer.str());
-			// log.notice("bytes written: " + i2a(buffer.range()));
+			// log.notice("bytes written:\t" + i2a(buffer.range()));
 			bytes_consumed = write(request.body.file, &buffer.data[buffer.begin], n);
 			if (bytes_consumed < 0) {
 				log.error("write: " + std::string(strerror(errno)));

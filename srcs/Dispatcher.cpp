@@ -216,7 +216,7 @@ static StatusCode serveFile(const std::string& path,
 	std::string content_type = matchContentType(path);
 
 	response.setStatus(OK);
-	response.setHeader("Connection", "keep-alive");
+	// response.setHeader("Connection", "keep-alive");
 
 	response.setBody(path, DISK, content_type, request.headers_only);
 
@@ -232,7 +232,7 @@ static StatusCode removeFile(const std::string& path,
 	log.info("Deleted " + path);
 
 	response.setStatus(NO_CONTENT);
-	response.setHeader("Connection", "keep-alive");
+	// response.setHeader("Connection", "keep-alive");
 
 	return NO_CONTENT;
 }
@@ -250,7 +250,7 @@ static StatusCode serveDirectoryListing(const std::string& path,
 	}
 
 	response.setStatus(OK);
-	response.setHeader("Connection", "keep-alive");
+	// response.setHeader("Connection", "keep-alive");
 
 	std::ostringstream body;
 	body	<< HTML::DOC << HTML::LANG << HTML::HEAD << TAG::META << TAG::FAVICON << TAG::STYLE
@@ -382,7 +382,7 @@ static StatusCode handleGET(HTTPRequest& request,
 static StatusCode handlePUT(HTTPRequest& request,
 							HTTPResponse& response) {
 
-	response.setHeader("Connection", "keep-alive");
+	// response.setHeader("Connection", "keep-alive");
 	response.setBody("Uploaded\n", HEAP, "text/plain", request.headers_only);
 
 	if (request.created_file) {
@@ -398,7 +398,7 @@ static StatusCode handlePOST(const HTTPRequest& request,
 							 HTTPResponse& response) {
 
 	response.setStatus(CREATED);
-	response.setHeader("Connection", "keep-alive");
+	// response.setHeader("Connection", "keep-alive");
 
 	response.setBody("Uploaded\n", HEAP, "text/plain", request.headers_only);
 
@@ -518,6 +518,7 @@ static StatusCode resolveRoute(Client& client) {
 	const std::string& host = *request.getHeader("host");
 
 	// Check HTTP version
+	response.setHeader("Connection", "keep-alive");
 	const std::string* connection = request.getHeader("connection");
 	if (version == HTTP::V_1_1) {
 		if (connection != NULL && *connection == "close") {
@@ -525,7 +526,7 @@ static StatusCode resolveRoute(Client& client) {
 			client.markForTermination();
 		}
 	} else if (version ==  HTTP::V_1_0) {
-		if (connection != NULL && *connection == "keep-alive") {
+		if (connection != NULL && *connection != "keep-alive") {
 			response.setHeader("Connection", "close");
 			client.markForTermination();
 		}
@@ -842,11 +843,12 @@ void Dispatcher::handleRequest(Client& client) {
 				// CGI stdin. The client state is accordingly set to
 				// AWAITING_CGI_OUTPUT. The client will read stdout when
 				// triggered by epoll_wait().
-				if (client.cgi_process->wantsWrite()) {
-					client.cgi_process->closeStdin();
-				}
-				client.popRequest();
-				client.pushRequest();
+				// if (client.cgi_process->wantsWrite()) {
+				// 	// close(client_ipc->peer->cgi_process->stdinFd());
+				// 	client.cgi_process->closeStdin();
+				// }
+				// client.popRequest();
+				// client.pushRequest();
 				client.setState(Client::AWAITING_CGI_OUTPUT);
 			} else {
 				client.setState(Client::PENDING_RESPONSE);

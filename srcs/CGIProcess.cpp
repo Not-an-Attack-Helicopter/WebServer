@@ -28,10 +28,10 @@
 
 static const int CGI_TIMEOUT_S = 420;
 
-CGIProcess::CGIProcess(const std::string& path, const std::vector<std::string>& args,
-                       const std::map<std::string, std::string>& env,
+CGIProcess::CGIProcess(const std::string& path, const std::vector<std::string>& argv,
+                       const std::vector<std::string> & envp,
                        const std::string& working_dir)
-	: _path(path), _args(args), _env(env), _working_dir(working_dir),
+	: _path(path), _argv(argv), _envp(envp), _working_dir(working_dir),
 	_pipes_open(false),
 	_pid(-1), _stdin_fd(-1), _stdout_fd(-1),
 	_reaped(false), _exit_code(-1), _deadline(0),
@@ -41,14 +41,27 @@ CGIProcess::CGIProcess(const std::string& path, const std::vector<std::string>& 
 	// _line_ending(NONE), _line_end_size(0) {
 	_line_end_size(0), _line_ending("") {
 
+	_argv_ptrs.reserve(_argv.size() + 1);
+	for (size_t i = 0; i < _argv.size(); ++i)
+		_argv_ptrs.push_back(const_cast<char*>(_argv[i].c_str()));
+	_argv_ptrs.push_back(NULL);
+
+	_envp_ptrs.reserve(_envp.size() + 1);
+	for (size_t i = 0; i < _envp.size(); ++i)
+		_envp_ptrs.push_back(const_cast<char*>(_envp[i].c_str()));
+	_envp_ptrs.push_back(NULL);
+
 	_in_pipe[0] = -1; _in_pipe[1] = -1;
 	_out_pipe[0] = -1; _out_pipe[1] = -1;
 
-	if (pipe(_in_pipe) == -1)
+	if (pipe(_in_pipe) == -1) {
+		log.error("cgi: pipe failed for stdin");
 		return;
+	}
 	log.debug("IN pipe read end: " + i2a(_in_pipe[0]));
 	log.debug("IN pipe write end: " + i2a(_in_pipe[1]));
 	if (pipe(_out_pipe) == -1) {
+		log.error("cgi: pipe failed for stdout");
 		close(_in_pipe[0]); close(_in_pipe[1]);
 		_in_pipe[0] = -1; _in_pipe[1] = -1;
 		return;
@@ -59,9 +72,9 @@ CGIProcess::CGIProcess(const std::string& path, const std::vector<std::string>& 
 	_pipes_open = true;
 
 	 _instream.data.resize(16*1024);
-	 log.info("script" + i2a(_in_pipe[1]) + ": changed buffer size to: " + i2a(16*1024));
+	 log.info("script" + i2a(_in_pipe[1]) + ": changed buffer size to: 16384");
 	 _outstream.data.resize(16*1024);
-	 log.info("script" + i2a(_out_pipe[0]) + ": changed buffer size to: " + i2a(16*1024));
+	 log.info("script" + i2a(_out_pipe[0]) + ": changed buffer size to: 16384");
 
 }
 
@@ -72,6 +85,8 @@ bool CGIProcess::spawn() {
 
 	pid_t pid = fork();
 	if (pid == -1) {
+
+		log.error("cgi: fork failed for " + _path);
 		close(_in_pipe[0]); close(_in_pipe[1]);
 		close(_out_pipe[0]); close(_out_pipe[1]);
 		_in_pipe[0] = -1; _in_pipe[1] = -1;
@@ -81,6 +96,9 @@ bool CGIProcess::spawn() {
 	}
 
 	if (pid == 0) {
+
+
+		signal(SIGPIPE, SIG_DFL);
 		close(_in_pipe[1]);
 		close(_out_pipe[0]);
 		if (dup2(_in_pipe[0], STDIN_FILENO) == -1) _exit(CGI_EXIT_SETUP_FAILED);
@@ -90,26 +108,7 @@ bool CGIProcess::spawn() {
 			if (chdir(_working_dir.c_str()) != 0) _exit(CGI_EXIT_SETUP_FAILED);
 		}
 
-		std::vector<char*> argv;
-		if (_args.empty()) {
-			argv.push_back(const_cast<char*>(_path.c_str()));
-		} else {
-			for (size_t i = 0; i < _args.size(); ++i)
-				argv.push_back(const_cast<char*>(_args[i].c_str()));
-		}
-		argv.push_back(NULL);
-
-		std::vector<std::string> env_strings;
-		env_strings.reserve(_env.size());
-		for (std::map<std::string, std::string>::const_iterator it = _env.begin(); it != _env.end(); ++it)
-			env_strings.push_back(it->first + "=" + it->second);
-		std::vector<char*> envp;
-		envp.reserve(env_strings.size() + 1);
-		for (size_t i = 0; i < env_strings.size(); ++i)
-			envp.push_back(const_cast<char*>(env_strings[i].c_str()));
-		envp.push_back(NULL);
-
-		if (execve(_path.c_str(), &argv[0], &envp[0]) == -1) {
+		if (execve(_path.c_str(), &_argv_ptrs[0], &_envp_ptrs[0]) == -1) {
 			if (errno == ENOENT)
 				_exit(CGI_EXIT_BIN_NOT_FOUND);
 			_exit(CGI_EXIT_EXEC_FAILED);
@@ -160,23 +159,26 @@ CGIProcess::~CGIProcess() {
 
 bool  CGIProcess::valid()     const { return _pipes_open; }
 pid_t CGIProcess::pid()       const { return _pid; }
-int   CGIProcess::stdinFd()         { return _stdin_fd; }
+int   CGIProcess::stdinFd()   const { return _stdin_fd; }
 int   CGIProcess::stdoutFd()  const { return _stdout_fd; }
 
 void CGIProcess::closeStdin() {
 	if (_stdin_fd != -1) {
-		close(_stdin_fd);
+		if (close(_stdin_fd)) {
+			log.warn("Error during cleanup: close: " + std::string(strerror(errno)));
+		}
 		_stdin_fd = -1;
 	}
 }
 
 void CGIProcess::closeStdout() {
 	if (_stdout_fd != -1) {
-		close(_stdout_fd);
+		if (close(_stdout_fd) == -1) {
+			log.warn("Error during cleanup: close: " + std::string(strerror(errno)));
+		}
 		_stdout_fd = -1;
 	}
 }
-
 
 // fd always equals stdoutFd(); readStdout() does the actual fetch, parses
 // whatever's complete, and detects COMPLETE/ERROR
@@ -256,7 +258,7 @@ ssize_t CGIProcess::queueIncomingData(int fd) {
  //    return got;
 
     ssize_t bytes_read = _outstream.fetchData(fd, true);
-    log.debug("script_" + i2a(fd) + ": bytes read: " + i2a(bytes_read));
+    log.debug("script_" + i2a(fd) + ":\tbytes read:\t" + i2a(bytes_read));
     return bytes_read;
 
 }
@@ -312,8 +314,10 @@ bool CGIProcess::_consumeHeaderLine() {
 	// 	line_end_pos = _outstream.find(http::LF);
 	// }
 	if (_line_ending.empty()) {
+		// First line: discover the line ending
 		line_end_pos = _findHeaderLineEnd();
 	} else {
+		// Subsequent lines: use cached line ending
 		line_end_pos = _outstream.find(_line_ending);
 	}
 
@@ -368,16 +372,19 @@ bool CGIProcess::_consumeHeaderLine() {
 		std::string key = _outstream.substr(0, colon_pos);
 		std::string value = _outstream.substr(value_first, value_last);
 
-		if (equalCI(key, "Status")) {
+		if (!isIgnored(key)) {
+			_headers[key] = value;
+		} else if (equalCI(key, "Status")) {
 			int code = std::atoi(value.c_str());
 			if (code >= 100 && code <= 599) {
 				_status = static_cast<StatusCode>(code);
 				_has_status = true;
 			}
+		} else if (equalCI(key, "Content-Type")) {
+			_content_type = value;
+		} else if (equalCI(key, "Location")) {
+			_has_location = true;
 		}
-		if (equalCI(key, "Content-Type")) _content_type = value;
-		if (equalCI(key, "Location")) _has_location = true;
-		if (!isIgnored(key)) _headers[key] = value;
 
 		_outstream.mark = _outstream.begin + line_end_pos + _line_end_size;
 		return true;
@@ -392,11 +399,7 @@ void CGIProcess::consumeAvailableOutput() {
 	while (!_headers_done && _outstream.mark < _outstream.end) {
 
 		bool has_consumed_line;
-		try {
-			has_consumed_line = _consumeHeaderLine();
-		} catch (std::exception& e) {
-			throw std::runtime_error(e.what());
-		}
+		has_consumed_line = _consumeHeaderLine();
 		// if (has_consumed_line == true) {
 		// 	_outstream.begin = _outstream.mark;
 		// }
@@ -419,7 +422,7 @@ void CGIProcess::consumeAvailableOutput() {
 			// free up what we already committed past
 			_outstream.compact();
 		} else {
-			throw std::runtime_error("read stdout: buffer overflow");
+			throw std::runtime_error("read stdout: buffer overflow - header line too long");
 		}
 	}
 

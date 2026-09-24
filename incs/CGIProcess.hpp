@@ -48,15 +48,15 @@ public:
 	// };
 
 	CGIProcess(const std::string& path,
-			const std::vector<std::string>& args,
-			const std::map<std::string, std::string>& env,
+			const std::vector<std::string>& argv,
+			const std::vector<std::string>& envp,
 			const std::string& working_dir = "");
 	~CGIProcess();
 
 	bool  valid() const; // false if pipe() failed
 	bool  spawn();        // fork()+execve()'s using the already-open pipes; false on failure
 	pid_t pid()   const;
-	int   stdinFd(); // -1 once the write end is closed
+	int   stdinFd()const; // -1 once the write end is closed
 	int   stdoutFd() const; // -1 once the read end is closed
 
 	// closes the fd and sets it to -1, same as handleWritable()/
@@ -112,8 +112,10 @@ private:
 
 	// stored for spawn() (next step), which forks+execve's using these
 	std::string							_path;
-	std::vector<std::string>			_args;
-	std::map<std::string, std::string>	_env;
+	std::vector<std::string>			_argv;
+	std::vector<std::string> 			_envp;
+	std::vector<char*>					_argv_ptrs;		// Pre-built argv for execve()
+	std::vector<char*>					_envp_ptrs;		// Pre-built envp for execve()
 	std::string							_working_dir;
 
 	// raw pipe ends opened by the constructor; consumed by spawn()

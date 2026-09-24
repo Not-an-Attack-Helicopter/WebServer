@@ -13,6 +13,9 @@
 #ifndef SERVER_HPP
 #define SERVER_HPP
 
+#include "Config.hpp"
+#include <cstring>
+#include <netinet/in.h>
 #define server Server::instance()
 
 #include "Client.hpp"
@@ -28,10 +31,47 @@ address family."
 // #define NFIND_CLIENT "Client not found."
 // #define NFIND_SCRIPT "CGI process not found."
 
-struct ListeningSocket {
+enum IPCType {
+
+	// UNINITIALIZED,
+	LISTEN_SOCKET,
+	CLIENT_SOCKET,
+	SCRIPT_STD_IO
+};
+
+// Universal struct for all kinds of file descriptors that
+// will have interests registered with the e_poll instance
+struct IPC {
+
+	IPCType									type;
+	int										fd;
+	IPC*									script_in;
+	IPC*									script_out;
+	IPC*									client_ipc;
+	Client*									peer;
 	sockaddr_in								addr;
 	const Config::Socket*					conf;
+
+	IPC(IPCType type)
+	:	type(type),
+		fd(0),
+		script_in(NULL),
+		script_out(NULL),
+		client_ipc(NULL),
+		peer(NULL),
+		conf(NULL) {
+		std::memset(&addr, 0, sizeof(addr));
+	}
 };
+
+// struct ListeningSocket {
+// 	sockaddr_in								addr;
+// 	const Config::Socket*					conf;
+//
+// 	ListeningSocket(void) : conf(NULL) {
+// 		std::memset(&addr, 0, sizeof(addr));
+// 	}
+// };
 
 class Server {
 
@@ -51,29 +91,30 @@ private:
 	Server& operator = (const Server& other);
 
 	bool									_setNonblockFlag(int fd);
-	bool									_setRDWRInterest(int fd);
-	bool									_disableSocketIO(int fd);
-	bool									_setPollInterest(int fd, bool is_pipe = false);
-	bool									_setRDONLYInterest(int fd, bool is_pipe = false);
-	bool									_setWRONLYInterest(int fd, bool is_pipe = false);
-	bool									_prepareScriptPipeEnd(int fd, bool is_write_end = false);
+	bool									_setRDWRInterest(int fd, void* ptr);
+	bool									_disableSocketIO(int fd, void* ptr);
+	bool									_setPollInterest(int fd, void* ptr, bool is_pipe = false);
+	bool									_setRDONLYInterest(int fd, void* ptr, bool is_pipe = false);
+	bool									_setWRONLYInterest(int fd, void* ptr, bool is_pipe = false);
+	bool									_prepareScriptPipeEnd(int fd, void* ptr, bool is_write_end = false);
 
-	void									_acceptConnectRequest(int fd, ListeningSocket socket);
+	void									_acceptConnectRequest(int listen_fd, const sockaddr_in& addr,
+																  const Config::Socket* conf);
 
-	void									_handleSocketError(std::map<int, Client*>::iterator it);
-	void									_handleSocketReadEvent(std::map<int, Client*>::iterator it);
-	void									_handleSocketWriteEvent(std::map<int, Client*>::iterator it);
-	void									_handlePipeError(std::map<int, int>::iterator it);
-	void									_handlePipeWriteEvent(std::map<int, int>::iterator it);
-	void									_handlePipeReadEvent(std::map<int, int>::iterator it);
+	void									_handleSocketError(IPC* client_ipc);
+	void									_handleSocketReadEvent(IPC* client_ipc);
+	void									_handleSocketWriteEvent(IPC* client_ipc);
+	void									_handlePipeError(IPC* script_ipc);
+	void									_handlePipeWriteEvent(IPC* script_ipc);
+	void									_handlePipeReadEvent(IPC* script_ipc);
 	// void									_handlePipeEOFEvent(std::map<int, Client*>::iterator it);
 
 	void									_reapStaleClients(const std::time_t now);
 
 	void									_cleanUpAllRessources(void);
-	void									_cleanUpScriptPipeEnd(std::map<int, int>::iterator it);
-	void									_cleanUpClient(std::map<int, Client*>::iterator it);
-	void									_cleanUpSocket(std::map<int, ListeningSocket>::iterator it);
+	void									_cleanUpPipeEnd(IPC* script_ipc);
+	void									_cleanUpClient(IPC* client_ipc);
+	void									_cleanUpSocket(IPC* socket_ipc);
 
 	static const unsigned short				MAX_EPOLL_EVENTS = 512; // 64 - 512
 	static const unsigned short				EPOLL_WAIT_TIMEOUT_MS = 293; // 100 - 5000 what about 293?
@@ -82,11 +123,11 @@ private:
 
 	int										_epfd;
 
-	// std::vector<sockaddr_in>				_addr;
+	std::vector<IPC*>						_ipcs;
 
-	std::map<int, ListeningSocket>			_sockets;
-	std::map<int, Client*>					_clients;
-	std::map<int, int>						_scripts;
+	// std::map<int, ListeningSocket>			_sockets;
+	// std::map<int, Client*>					_clients;
+	// std::map<int, int>						_scripts;
 
 	epoll_event								_events[MAX_EPOLL_EVENTS];
 

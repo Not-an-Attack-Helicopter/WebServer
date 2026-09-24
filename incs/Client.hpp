@@ -32,7 +32,7 @@ class Client {
 
 public:
 
-	Client(const sockaddr_in socket, const Config::Socket* config);
+	Client(const sockaddr_in& socket, const Config::Socket* config);
 	~Client(void);
 
 	enum State {
@@ -132,7 +132,7 @@ private:
 	static const std::time_t		HEADER_TIMEOUT_SECONDS		= 12;
 	static const std::time_t		BODY_TIMEOUT_SECONDS		= 120;
 	static const std::time_t		PROCESSING_TIMEOUT_SECONDS	= 420;
-	static const std::time_t		REJECTED_TIMEOUT_SECONDS	= 10;
+	static const std::time_t		REJECTED_TIMEOUT_SECONDS	= 12;
 
 	State							_state;
 
