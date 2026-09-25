@@ -91,9 +91,34 @@ Client::~Client(void) {
 
 	deletePartialUpload(*_request);
 	if (cgi_process != NULL) {
-		cgi_process->forceKill();
-		delete cgi_process;
-		cgi_process = NULL;
+		// if (cgi_process->tryReap() == false) {
+		// 	log.error("HE'S ALIVE!");
+		// 	cgi_process->forceKill();
+		// 	cgi_process->tryReap() ? log.error("HE'S DEAD") : log.error("HE'S STILL ALIVE!");
+		// } else {
+		// 	log.error("HE'S DEAD");
+		// }
+		log.error("MURDERING!");
+		log.error("BLOOD!");
+		log.error("SPLISH!");
+		log.error("SPLASH!");
+		log.error("GORE!");
+		bool is_dead = cgi_process->tryReap();
+		if (!is_dead) {
+			unsigned short count = 0;
+			do {
+				log.error("MURDERING!");
+				log.error("BLOOD!");
+				log.error("SPLISH!");
+				log.error("SPLASH!");
+				log.error("GORE!");
+				cgi_process->forceKill();
+				is_dead = cgi_process->tryReap();
+			} while (!is_dead && ++count < 11);
+		}
+		// delete cgi_process;
+		// cgi_process = NULL;
+		popProcess();
 	}
 	// while (!_request_queue.empty()) popRequest();
 	// _request_queue.clear();
@@ -624,9 +649,9 @@ void Client::pushResponse(void) {
 // Delete CGI process object
 void Client::popProcess(void) {
 	delete cgi_process;
-	log.error("popProcess: " + i2a(&cgi_process) + ":" + i2a(cgi_process));
+	// log.error("popProcess: " + i2a(&cgi_process) + ":" + i2a(cgi_process));
 	cgi_process = NULL;
-	log.error("popProcess: " + i2a(&cgi_process) + ":" + i2a(cgi_process));
+	// log.error("popProcess: " + i2a(&cgi_process) + ":" + i2a(cgi_process));
 
 	return;
 }

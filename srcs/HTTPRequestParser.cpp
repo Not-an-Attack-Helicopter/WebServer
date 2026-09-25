@@ -35,18 +35,19 @@ RequestParser& RequestParser::instance(void) {
 // Feed raw bytes; returns the current parse_state:
 bool RequestParser::buffer(Buffer& buffer, CGIProcess* cgi_process, HTTPRequest& request) {
 
-	std::string state;
-	switch(request.parsing.state) {
-	case HTTPRequest::READING_REQUEST_LINE: state = "reading request line"; break;
-	case HTTPRequest::READING_HEADERS: state = "reading headers"; break;
-	case HTTPRequest::RESOLVING_ROUTE: state = "resolving route"; break;
-	case HTTPRequest::READING_BODY: state = "reading body"; break;
-	case HTTPRequest::COMPLETE: state = "complete"; break;
-	case HTTPRequest::ERROR: state = "error"; break;
-	}
-	log.notice("State:\t\t" + state + " (" + i2a(request.parsing.state) + ")");
-	log.notice(request.body_chunked ? "chunked transfer-encoding" : "body size: " + i2a(request.body.size));
-	log.notice(request.is_multipart ? "is multipart" : "singe body");
+	// std::string state;
+	// switch(request.parsing.state) {
+	// case HTTPRequest::READING_REQUEST_LINE: state = "reading request line"; break;
+	// case HTTPRequest::READING_HEADERS: state = "reading headers"; break;
+	// case HTTPRequest::RESOLVING_ROUTE: state = "resolving route"; break;
+	// case HTTPRequest::READING_BODY: state = "reading body"; break;
+	// case HTTPRequest::COMPLETE: state = "complete"; break;
+	// case HTTPRequest::ERROR: state = "error"; break;
+	// }
+	// log.notice("State:\t\t" + state + " (" + i2a(request.parsing.state) + ")");
+	// log.notice(request.body_chunked ? "chunked transfer-encoding" : "body size: " + i2a(request.body.size));
+	// log.notice(request.is_multipart ? "is multipart" : "single body");
+	// log.notice(request.requires_CGI ? "requires CGI" : "no CGI required");
 
 	switch (request.parsing.state) {
 
@@ -671,14 +672,14 @@ bool RequestParser::_parseBody(const Buffer& buffer, CGIProcess* cgi_process, HT
 
 	if (request.is_multipart && !request.requires_CGI) {
 
-		log.error("FILE UPLOAD!");
+		// log.error("FILE UPLOAD!");
 		/*
 		* Multipart Body (NOT requiring CGI):
 		*/
 		ssize_t boundary_pos;
 		const std::string& boundary = request.body.boundary;
 
-		log.error("multipart state: " + i2a(p.multipart_state));
+		// log.error("multipart state: " + i2a(p.multipart_state));
 		switch (p.multipart_state) {
 
 		case HTTPRequest::PREAMBLE:
@@ -723,9 +724,9 @@ bool RequestParser::_parseBody(const Buffer& buffer, CGIProcess* cgi_process, HT
 
 			boundary_pos = buffer.find(boundary);
 
-			log.error("boundary:" + boundary);
+			// log.error("boundary:" + boundary);
 			// log.notice(buffer.str());
-			log.error("boundary_pos: " + i2a(boundary_pos));
+			// log.error("boundary_pos: " + i2a(boundary_pos));
 			if (boundary_pos == -1) {
 
 				/*
@@ -737,16 +738,17 @@ bool RequestParser::_parseBody(const Buffer& buffer, CGIProcess* cgi_process, HT
 				std::size_t keep = boundary.size() - 1;
 				std::size_t size = buffer.range();
 
-				log.error("boundary size: " + i2a(keep));
-				log.error("buffer range: " + i2a(size));
-				if (size <= keep) log.error("SIZE MATTERS!");
+				// log.error("boundary size: " + i2a(keep));
+				// log.error("buffer range: " + i2a(size));
+				// if (size <= keep) log.error("SIZE MATTERS!");
+
 				if (size <= keep) return false;
 
 				std::size_t n = size - keep;
-				log.error("wants to write: " + i2a(n));
+				// log.error("wants to write: " + i2a(n));
 				ssize_t bytes_consumed = write(request.body.parts.back().file,
 											   &buffer.data[buffer.begin], n);
-				log.error("bytes consumed: " + i2a(bytes_consumed));
+				// log.error("bytes consumed: " + i2a(bytes_consumed));
 				if (bytes_consumed < 0) {
 					log.error("write: " + std::string(strerror(errno)));
 					p.error_cause = INTERNAL_SERVER_ERROR;
@@ -776,7 +778,7 @@ bool RequestParser::_parseBody(const Buffer& buffer, CGIProcess* cgi_process, HT
 				*/
 				ssize_t bytes_consumed = write(request.body.parts.back().file,
 											   &buffer.data[buffer.begin], boundary_pos);
-				log.error("file_fd: " + i2a(request.body.parts.back().file));
+				// log.error("file_fd: " + i2a(request.body.parts.back().file));
 				if (bytes_consumed < 0) {
 					log.error("write: " + std::string(strerror(errno)));
 					p.error_cause = INTERNAL_SERVER_ERROR;
