@@ -452,7 +452,7 @@ ConfigLoader::socket_directive_handler_map ConfigLoader::_initSocketDirectiveHan
 }
 
 void ConfigLoader::_parseLocationBlock(std::ifstream& config_file_stream,
-								 Config::Domain& dom, Config::Location& loc) {
+									   Config::Domain& dom, Config::Location& loc) {
 
 	static const location_directive_handler_map handlers = _initLocationDirectiveHandlerMap();
 

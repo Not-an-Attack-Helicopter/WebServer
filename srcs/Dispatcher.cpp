@@ -205,8 +205,7 @@ static StatusCode serveFile(const std::string& path,
 	if (!isReadable(path)) {
 		return FORBIDDEN;
 	}
-	std::ifstream file;
-	file.open(path.c_str(), std::ios::binary);
+	std::ifstream file(path.c_str(), std::ios::binary);
 	if (!file.is_open()) {
 		return FORBIDDEN;
 	}

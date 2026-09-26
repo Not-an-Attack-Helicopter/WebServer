@@ -94,14 +94,14 @@ void HTTPResponse::setBody(const std::string& str,
 		_body_sink = HEAP;
 		break;
 	case DISK:
-		file.open(str.c_str(), std::ios::binary);
+		file.open(str.c_str(), std::ios::binary | std::ios::ate);
 		if (!file.is_open()) {
 			log.error("set body: unable to open file");
 			_body_sink = NONE;
 			_body_size = 0;
 			break;
 		}
-		file.seekg(0, std::ios::end);
+		// file.seekg(0, std::ios::end); // no longer needed since we open with std::ios::ate flag
 		_body_size = static_cast<std::size_t>(file.tellg());
 		file.close();
 		_body_sink = DISK;
