@@ -13,12 +13,12 @@
 #ifndef SESSION_MANAGER_HPP
 #define SESSION_MANAGER_HPP
 
+#define session_manager SessionManager::instance()
+
 #include "Session.hpp"
 #include "Client.hpp"
 #include <string>
 #include <map>
-
-#define session_manager SessionManager::instance()
 
 class SessionManager {
 

@@ -13,12 +13,12 @@
 #ifndef CONFIG_HPP
 #define CONFIG_HPP
 
+#define configs Config::instance()
+
 #include <netinet/in.h>
 #include <string>
 #include <vector>
 #include <map>
-
-#define configs Config::instance()
 
 enum Sink {
 	NONE,

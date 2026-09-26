@@ -13,6 +13,8 @@
 #ifndef HTTP_REQUEST_PARSER_HPP
 #define HTTP_REQUEST_PARSER_HPP
 
+#define parse RequestParser::instance()
+
 #include "HTTPRequest.hpp"
 #include "CGIProcess.hpp"
 // #include "Config.hpp"
@@ -20,8 +22,6 @@
 // #include <string>
 // #include <cstddef>
 // #include <sys/stat.h>
-
-#define parse RequestParser::instance()
 
 class RequestParser {
 

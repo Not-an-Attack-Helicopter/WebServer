@@ -13,6 +13,8 @@
 #ifndef CONFIG_LOADER_HPP
 #define CONFIG_LOADER_HPP
 
+#define load ConfigLoader::instance().loadConfig
+
 // #include "HTTPResponse.hpp"
 // #include "Config.hpp"
 #include "utils.hpp"
@@ -25,8 +27,6 @@
 // #include <cstddef>
 // #include <typeinfo>
 #include <sys/stat.h>
-
-#define load ConfigLoader::instance().loadConfig
 
 class ConfigLoader {
 

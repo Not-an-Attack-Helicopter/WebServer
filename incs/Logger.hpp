@@ -13,10 +13,10 @@
 #ifndef LOGGER_HPP
 #define LOGGER_HPP
 
-#include <string>
-
-// Logging shorthand — pragmatic exception to macro avoidance
+// Logging shorthand - pragmatic exception to macro avoidance
 #define log Logger::instance()
+
+#include <string>
 
 #define COLOR_DEBUG "\e[3;94m"
 #define COLOR_INFO "\e[93m"

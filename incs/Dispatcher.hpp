@@ -13,13 +13,13 @@
 #ifndef DISPATCHER_HPP
 #define DISPATCHER_HPP
 
+#define dispatcher Dispatcher::instance()
+
 // #include "HTTPResponse.hpp"
 // #include "HTTPRequest.hpp"
 // #include "Config.hpp"
 #include "Client.hpp"
 // #include "utils.hpp"
-
-#define dispatcher Dispatcher::instance()
 
 class Dispatcher {
 

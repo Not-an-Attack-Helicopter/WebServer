@@ -39,6 +39,7 @@ struct CGIResult {
 // non-blocking so the caller can drive I/O only on readiness. No internal
 // blocking wait anywhere in this class.
 class CGIProcess {
+
 public:
 
 	// enum LineEnding {
@@ -89,6 +90,7 @@ public:
 	void buildResponse(HTTPResponse& response, bool headers_only) const;
 
 private:
+
 	CGIProcess(const CGIProcess&);
 	CGIProcess& operator=(const CGIProcess&);
 

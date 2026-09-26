@@ -13,18 +13,17 @@
 #ifndef SERVER_HPP
 #define SERVER_HPP
 
-#include "Config.hpp"
-#include <cstring>
-#include <netinet/in.h>
 #define server Server::instance()
 
+#include "Config.hpp"
 #include "Client.hpp"
-// #include <netinet/in.h>
+#include <netinet/in.h>
 #include <sys/epoll.h>
 // #include <netdb.h>
 // #include <string>
 // #include <vector>
 // #include <map>
+#include <cstring>
 
 #define INVALID_ADDR "No valid address string was provided for the specified \
 address family."
