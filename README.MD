@@ -4,13 +4,11 @@
 
 ## Description
 
-Webserv is about creating an HTTP/1.1 server from scratch in C++98. The goal of the project is to understand what actually happens between a browser and a web server: how a connection is created, how HTTP requests are received and parsed, and how the server decides what response to send back.
+Webserv is about creating an HTTP/1.1 server from scratch in C++98. The project's objective is for us to implement and understand the main mechanisms behind a web server: what actually happens between a browser and a web server, how a connection is created, how HTTP requests are received and parsed, and how the server decides what response to send back. Neither Apache nor NGINX needs to be recreated entirely for this project.
 
 Our server can serve static files such as HTML pages, CSS, images and other resources, but also handle uploads, redirects, directory listing, custom error pages and CGI scripts. It can listen on multiple ports and host multiple domains depending on its configuration.
 
-One of the main constraints of the project is that the server needs to stay non-blocking. Instead of creating one thread or process for every client, Webserv uses `epoll()` to monitor sockets and CGI pipes and react only when they are ready to be read from or written to.
-
-The project isn't about recreating NGINX entirely, but about implementing and understanding the main mechanisms behind a web server ourselves.
+One of the main constraints of the project is that the server needs to stay non-blocking. Instead of creating one thread or process for every client, Webserv uses `epoll()` to monitor sockets and CGI pipes and reacts only when they are ready to be read from or written to.
 
 ## Instructions
 
@@ -57,6 +55,8 @@ The server also supports a few optional logging arguments:
 
 ```bash
 ./webserv -l DEBUG configs/default.conf
+./webserv --log-level debug configs/default.conf
+./webserv -q configs/default.conf
 ./webserv --quiet configs/default.conf
 ```
 
@@ -78,6 +78,8 @@ The configuration defines things such as:
 * CGI interpreters
 
 `configs/default.conf` contains a complete example of the available configuration.
+
+For virtual server hosting, the domains need to be added to your hostfile. All domains should resolve to localhost i.e. 127.0.0.1.
 
 For CGI locations, the interpreter path needs to exist on your machine. You can find it using commands such as:
 
@@ -120,7 +122,7 @@ epoll_wait()
 
 ### Client connections
 
-When a browser connects to Webserv, the server accepts the connection and creates a `Client` object for it.
+When a browser connects to one of the server's domains, the server accepts the connection and creates a `Client` object for it.
 
 The `Client` keeps track of everything related to that connection, including:
 
@@ -158,10 +160,10 @@ Client socket
 Receive bytes
      |
      v
-RequestParser
+Parse request
      |
      v
-HTTPRequest
+Build HTTPRequest object
      |
      v
 Match configuration
@@ -170,7 +172,7 @@ Match configuration
 Find requested resource
      |
      v
-Build HTTPResponse
+Build HTTPResponse object
      |
      v
 Send response through socket
@@ -206,7 +208,7 @@ setUpCGI() builds argv and envp from the request
 CGIProcess opens its pipes, then spawn()s (fork + execve)
      |
      v
-stdin/stdout pipes are registered with the same epoll() instance
+stdin/stdout pipes are registered with the single epoll() instance
      |
      v
 Request body is written to the pipe as it becomes writable
