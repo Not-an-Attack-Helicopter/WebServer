@@ -103,8 +103,8 @@ void HTTPResponse::setBody(const std::string& str,
 		}
 		// file.seekg(0, std::ios::end); // no longer needed since we open with std::ios::ate flag
 		_body_size = static_cast<std::size_t>(file.tellg());
-		file.close();
 		_body_sink = DISK;
+		file.close();
 		break;
 	case NONE:
 		log.warn("HTTP Response: body type undefined");

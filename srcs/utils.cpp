@@ -256,7 +256,6 @@ std::string randomHexString(unsigned short bit_width) {
 
 		std::string result;
 		result.reserve(static_cast<std::size_t>(bit_width / 8) * 2);
-
 		for (std::size_t i = 0; i < static_cast<std::size_t>(bit_width / 8); ++i) {
 			result += hex[bytes[i] >> 0x4];
 			result += hex[bytes[i] & 0x0f];

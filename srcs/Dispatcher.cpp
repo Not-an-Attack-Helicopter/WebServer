@@ -282,7 +282,6 @@ static StatusCode serveDirectoryListing(const std::string& path,
 		}
 
 		body	<< HTML::_LI << HTML::BR;
-
 	}
 	body	<< HTML::_UL;
 

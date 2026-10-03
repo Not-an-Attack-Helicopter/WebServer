@@ -16,14 +16,14 @@
 // Logging shorthand - pragmatic exception to macro avoidance
 #define log Logger::instance()
 
-#include <string>
-
 #define COLOR_DEBUG "\e[3;94m"
 #define COLOR_INFO "\e[93m"
 #define COLOR_WARNING "\e[33m"
 #define COLOR_ERROR "\e[31m"
 #define COLOR_NOTICE "\x1b[97m"
 #define COLOR_RESET "\e[0m"
+
+#include <string>
 
 class Logger {
 
