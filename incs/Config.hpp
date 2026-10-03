@@ -44,6 +44,7 @@ public:
 	static const std::size_t					SERVER_MAX_BODY_SIZE = std::size_t(10)*1024*1024;
 
 	struct Location {
+
 		std::string								path;					// Location path (e.g., "/api", "/cgi-bin")
 		std::string								root;					// Root directory for this location
 		std::string								alias;					// File system directory for this location
@@ -73,6 +74,7 @@ public:
 	};
 
 	struct Domain {
+
 		std::vector<std::string>				names;					// Hostnames/virtual hosts (e.g., "example.com")
 		std::string								root;					// Root directory for server
 		std::vector<std::string>				index_files;			// Default index file for server
