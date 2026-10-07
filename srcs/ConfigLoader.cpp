@@ -353,7 +353,11 @@ void ConfigLoader::loadConfig(const std::string& config_file) {
 		std::string stripped = stripInlineComment(trimmed);
 		trimmed = trim(stripped);
 
-		if (trimmed == "socket {") {
+		if (trimmed == "socket {}") {
+			found_endpoint = true;
+		}
+
+		else if (trimmed == "socket {") {
 			_parseSocketBlock(file);
 			found_endpoint = true;
 
@@ -646,9 +650,27 @@ void ConfigLoader::_parseSocketBlock(std::ifstream& config_file_stream) {
 		if (trimmed == "}") {
 
 			// Block is complete - now finalize and validate
+
+			// Check host address and listen port
+			if (soc.address.empty() && soc.port == 0) {
+				// throw std::runtime_error("config validation: no host address set");
+				log.warn("No host address and no listen port set. Falling back to localhost:8080");
+				soc.address = "127.0.0.1";
+				soc.port = 8080;
+			}
+
 			// Check host address
-			if (soc.address.empty()) {
-				throw std::runtime_error("config validation: no host address set");
+			else if (soc.address.empty()) {
+				// throw std::runtime_error("config validation: no host address set");
+				log.warn("No host address set. Falling back to localhost");
+				soc.address = "127.0.0.1";
+			}
+
+			// Check listen port
+			else if (soc.port == 0) {
+				// throw std::runtime_error("config validation: no host port set");
+				log.warn("No listen port set. Falling back to 8080");
+				soc.port = 8080;
 			}
 
 			// // If client body treshold too high, set to global maximum
@@ -872,25 +894,26 @@ void ConfigLoader::_validateRedirectChains(void) {
 				if (redirect != "/") redirect.append("/");
 				redirects.push_back(redirect);
 				while (!loc->redirect.empty()) {
-					if (redirect == loc->redirect) {
+					++redirection_count;
+					if ((redirection_count == 1) && (redirect == loc->redirect)) {
 						throw std::runtime_error("config validation: self-redirect at '" + loc->path + "'");
 					}
 					if (std::find(redirects.begin(), redirects.end(), loc->redirect) != redirects.end()) {
-						oss << "config validation: circular redirect detected at '" << loc->redirect << "'\nredirect chain:\n";
+						oss << "config validation: circular redirect detected at '" << loc->redirect << "'\n\tredirect chain:\n";
 						for (std::size_t i = 0; i < redirects.size(); ++i) {
-							oss << redirects[i] << "\n";
+							oss << "\t" << redirects[i] << "\n";
 						}
-						oss << loc->redirect << " (LOOP)" << std::endl;
+						oss << "\t" << loc->redirect << " (LOOP)" << std::endl;
 						throw std::runtime_error(oss.str());
 					}
-					++redirection_count;
 					if (redirection_count > MAX_REDIRECTS) {
-						oss << "config validation: too many consecutive redirects\nredirect chain:\n";
+						oss << "config validation: too many consecutive redirects\n\tredirect chain:\n";
 						for (std::size_t i = 0; i < redirects.size(); ++i) {
-							oss << redirects[i] << "\n";
+							oss << "\t" << redirects[i] << "\n";
 						}
-						oss << loc->redirect << "\n";
-						oss << i2a(redirects.size()) << "/" << i2a(MAX_REDIRECTS) << " hops" << std::endl;
+						oss << "\t" << loc->redirect << "\n";
+						oss << "\t--------\n";
+						oss << "\t" << i2a(redirects.size()) << "/" << i2a(MAX_REDIRECTS) << " hops" << std::endl;
 						throw std::runtime_error(oss.str());
 					}
 					redirects.push_back(loc->redirect);

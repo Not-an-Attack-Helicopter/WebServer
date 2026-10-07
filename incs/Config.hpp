@@ -101,7 +101,7 @@ public:
 		std::vector<Domain>						domains;				// Virtual hosts
 
 		Socket(void)
-			:	port(8080),
+			:	port(0),
 				address(""),
 				client_max_body_size(SERVER_MAX_BODY_SIZE) {
 			domains.clear();
