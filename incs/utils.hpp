@@ -13,8 +13,8 @@
 #ifndef UTILS_HPP
 #define UTILS_HPP
 
-// #include "HTTPRequest.hpp"
-#include "Client.hpp"
+#include "HTTPRequest.hpp"
+// #include "Client.hpp"
 // #include <string>
 // #include <cstddef>
 #include <sys/epoll.h>
@@ -26,7 +26,7 @@ static const unsigned short SUFFIX_BIT_WIDTH = 56;
 // static const short STOP = -2;
 void			warnHighEventLoad(int nfds, int max_capacity);
 void			dumpEvents(int nfds, epoll_event* events);
-void			dumpClientConfig(const Client* client);
+// void			dumpClientConfig(const Client* client);
 void			dumpRequest(const HTTPRequest* request);
 // DEBUG END
 

@@ -514,6 +514,7 @@ void ConfigLoader::_parseLocationBlock(std::ifstream& config_file_stream,
 			if (!loc.interpreters.empty()) {
 				loc.interpreters[".cgi"];
 				// Only needed for stupid 42 tester
+				// TODO remove after evaluations
 				loc.interpreters[".bla"];
 			}
 
@@ -605,14 +606,13 @@ void ConfigLoader::_parseDomainBlock(std::ifstream& config_file_stream,
 			(this->*handlers.at(key))(val, dom);
 		} else if (key == "location") {
 			Config::Location loc;
-			loc.autoindex = false;
 			// Read the location header line
 			extractLocationPath(trimmed, loc);
 			// Read the location block
 			_parseLocationBlock(config_file_stream, dom, loc);
 			continue;
 		} else {
-			throw std::runtime_error("config validation: unknown directive in server block: " + key);
+			throw std::runtime_error("config validation: unknown directive in domain block: " + key);
 		}
 
 	}
@@ -681,6 +681,20 @@ void ConfigLoader::_parseSocketBlock(std::ifstream& config_file_stream) {
 			// Check for duplicate sockets
 			if (isDuplicateSocket(configs.get(), soc.address, soc.port)) {
 				throw std::runtime_error("config validation: duplicate socket " + soc.address + ":" + i2a(soc.port));
+			}
+
+			if (soc.domains.empty()) {
+				throw std::runtime_error("config validation: no domain provided");
+			}
+
+			if (soc.domains[0].locations.empty()) {
+				// throw std::runtime_error("config validation: no location provided");
+				log.warn("No location provided. Falling back to /");
+				Config::Location loc;
+				loc.path = "/";
+				loc.root = soc.domains[0].root;
+				loc.methods.push_back(GET);
+				soc.domains[0].locations.push_back(loc);
 			}
 
 			configs.pushConfig(soc);

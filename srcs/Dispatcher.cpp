@@ -43,14 +43,17 @@ static bool isReadable(const std::string& path) {
 static std::string findIndexFile(const Config::Location& location,
 								 const std::string& path) {
 
+	std::string index_file_path;
 	for (std::size_t i = 0; i < location.index_files.size(); ++i) {
 
-		std::string index_file_path = path + location.index_files[i];
+		index_file_path = path + location.index_files[i];
 		return index_file_path;
 
 	}
 
-	return "";
+	// return "";
+	index_file_path = path + "index.html";
+	return index_file_path;
 }
 
 static std::string extractDomainName(const std::string& host_header) {
@@ -357,7 +360,7 @@ static StatusCode handleGET(HTTPRequest& request,
 	std::string index_file_path = findIndexFile(location, path);
 
 	// Return index file
-	if (!index_file_path.empty() && isReadable(index_file_path)) {
+	if (isReadable(index_file_path)) {
 		return serveFile(index_file_path, request, response);
 
 	// No index file found, check if autoindex is enabled

@@ -61,27 +61,27 @@ void dumpEvents(int n, epoll_event* events) {
 	}
 }
 
-void dumpClientConfig(const Client* client) {
-
-	const Config::Socket& soc = client->getConfig();
-	log.info(soc.address + " " + i2a(soc.port));
-	for (std::size_t i = 0; i < soc.domains.size(); ++i) {
-		for (std::size_t j = 0; j < soc.domains[i].names.size(); ++j) {
-			log.info(soc.domains[i].names[j]);
-		}
-		log.info(soc.domains[i].root);
-		for (std::size_t j = 0; j < soc.domains[i].index_files.size(); ++j) {
-			log.info(soc.domains[i].index_files[j]);
-		}
-		for (std::size_t j = 0; j < soc.domains[i].locations.size(); ++j) {
-			log.info(soc.domains[i].locations[j].path);
-			log.info(soc.domains[i].locations[j].root);
-			for (std::size_t k = 0; k < soc.domains[i].locations[j].index_files.size(); ++k) {
-				log.info(soc.domains[i].locations[j].index_files[k]);
-			}
-		}
-	}
-}
+// void dumpClientConfig(const Client* client) {
+//
+// 	const Config::Socket& soc = client->getConfig();
+// 	log.info(soc.address + " " + i2a(soc.port));
+// 	for (std::size_t i = 0; i < soc.domains.size(); ++i) {
+// 		for (std::size_t j = 0; j < soc.domains[i].names.size(); ++j) {
+// 			log.info(soc.domains[i].names[j]);
+// 		}
+// 		log.info(soc.domains[i].root);
+// 		for (std::size_t j = 0; j < soc.domains[i].index_files.size(); ++j) {
+// 			log.info(soc.domains[i].index_files[j]);
+// 		}
+// 		for (std::size_t j = 0; j < soc.domains[i].locations.size(); ++j) {
+// 			log.info(soc.domains[i].locations[j].path);
+// 			log.info(soc.domains[i].locations[j].root);
+// 			for (std::size_t k = 0; k < soc.domains[i].locations[j].index_files.size(); ++k) {
+// 				log.info(soc.domains[i].locations[j].index_files[k]);
+// 			}
+// 		}
+// 	}
+// }
 
 void dumpRequest(const HTTPRequest* request) {
 
@@ -97,12 +97,12 @@ void dumpRequest(const HTTPRequest* request) {
 	log.debug("State:\t\t\t\t" + state + " (" + i2a(request->parsing.state) + ")");
 
 	switch (request->getMethod()) {
+	case DELETE: log.debug("Method:\t\t\t\tDELETE"); break;
 	case GET: log.debug("Method:\t\t\t\tGET"); break;
 	case HEAD: log.debug("Method:\t\t\t\tHEAD"); break;
-	case DELETE: log.debug("Method:\t\t\t\tDELETE"); break;
+	case PATCH: log.debug("Method:\t\t\t\tPATCH"); break;
 	case POST: log.debug("Method:\t\t\t\tPOST"); break;
 	case PUT: log.debug("Method:\t\t\t\tPUT"); break;
-	case PATCH: log.debug("Method:\t\t\t\tPATCH"); break;
 	case METHOD_COUNT: log.debug("Method:\t\t\t\tN/A"); break;
 	}
 
@@ -440,10 +440,12 @@ void dumpConfigs(const std::vector<Config::Socket>& sockets) {
 				for (std::size_t l = 0; l < sockets[i].domains[j].locations[k].methods.size(); ++l) {
 					std::string method;
 					switch(sockets[i].domains[j].locations[k].methods[l]) {
-						case GET: method = "GET"; break;
-						case POST: method = "POST"; break;
 						case DELETE: method = "DELETE"; break;
+						case GET: method = "GET"; break;
 						case HEAD: method = "HEAD"; break;
+						case PATCH: method = "PATCH"; break;
+						case POST: method = "POST"; break;
+						case PUT: method = "PUT"; break;
 						default: method = "N/A"; break;
 					}
 					std::cout << method;
