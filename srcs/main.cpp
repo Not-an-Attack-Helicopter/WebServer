@@ -90,34 +90,22 @@ int main(int argc, char** argv) {
 
 		log.notice("Usage: " + av[0] + " [-v] <config_file>");
 		return 0;
-
 	}
 
-	log.info("Using configuration file: " + config_file);
-
 	// Parse phase: parse through config file and extract server setup
-	std::size_t sockets_count = 0;
-
 	try {
 
 		load(config_file);
-		log.debug("Parsing configuration file: " + config_file);
-
-		sockets_count = configs.size();
-		if (sockets_count == 0) {
-			log.error("empty configuration provided");
-			return 1;
-		}
-
-		if (log.getLevel() <= Logger::LEVEL_INFO) {
-			dumpConfigs(configs.get());
-		}
 
 	} catch (std::exception& e) {
 
 		log.error(e.what());
 		return 1;
+	}
 
+	log.info("Using configuration file: " + config_file);
+	if (log.getLevel() <= Logger::LEVEL_INFO) {
+		dumpConfigs(configs.get());
 	}
 
 	// Setup phase: create server, epoll instance, and all listening sockets
@@ -129,9 +117,9 @@ int main(int argc, char** argv) {
 
 		log.error(e.what());
 		return 1;
-
 	}
 
+	std::size_t sockets_count = configs.size();
 	for (std::size_t i = 0; i < sockets_count; ++i) {
 
 		try {
@@ -139,11 +127,10 @@ int main(int argc, char** argv) {
 			server.prepareListeningPort(configs.get(i));
 
 		} catch (const std::exception& e) {
+
 			log.error(e.what());
 			return 1;
-
 		}
-
 	}
 
 	// Run phase: listen on all sockets for events
@@ -157,5 +144,4 @@ int main(int argc, char** argv) {
 	}
 
 	return 0;
-
 }

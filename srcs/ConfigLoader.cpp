@@ -328,6 +328,8 @@ ConfigLoader& ConfigLoader::instance(void) {
 // Read line-by-line; fills config object
 void ConfigLoader::loadConfig(const std::string& config_file) {
 
+	log.debug("Loading configuration file: " + config_file);
+
 	if(!isConfigFile(config_file)) {
 		throw std::runtime_error("config validation: invalid file extension: " + config_file);
 	}
@@ -355,6 +357,7 @@ void ConfigLoader::loadConfig(const std::string& config_file) {
 
 		if (trimmed == "socket {}") {
 			found_endpoint = true;
+			continue;
 		}
 
 		else if (trimmed == "socket {") {
@@ -370,11 +373,15 @@ void ConfigLoader::loadConfig(const std::string& config_file) {
 
 	}
 
+	file.close();
+
 	if (!found_endpoint) {
 		throw std::runtime_error("config validation: config file must contain at least one socket block");
 	}
 
-	file.close();
+	if (configs.size() == 0) {
+		throw std::runtime_error("config validation: empty configuration provided");
+	}
 
 	_validateRedirectChains();
 
@@ -513,7 +520,7 @@ void ConfigLoader::_parseLocationBlock(std::ifstream& config_file_stream,
 			// If CGI scripts allowed, add catch-all extension ".cgi"
 			if (!loc.interpreters.empty()) {
 				loc.interpreters[".cgi"];
-				// Only needed for stupid 42 tester
+				// ".bla" only needed for stupid 42 tester
 				// TODO remove after evaluations
 				loc.interpreters[".bla"];
 			}
@@ -573,6 +580,11 @@ void ConfigLoader::_parseDomainBlock(std::ifstream& config_file_stream,
 				throw std::runtime_error("config validation: missing root directive");
 			}
 			const std::string path = dom.root + "/";
+
+			// Check for index file
+			if (dom.index_files.empty()) {
+				dom.index_files.push_back("index.html");
+			}
 
 			// Check domain error pages
 			std::map<int, std::string>::const_iterator err_it = dom.error_pages.begin();
@@ -650,11 +662,10 @@ void ConfigLoader::_parseSocketBlock(std::ifstream& config_file_stream) {
 		if (trimmed == "}") {
 
 			// Block is complete - now finalize and validate
-
 			// Check host address and listen port
 			if (soc.address.empty() && soc.port == 0) {
 				// throw std::runtime_error("config validation: no host address set");
-				log.warn("No host address and no listen port set. Falling back to localhost:8080");
+				log.warn("No host address and no listen port set. Falling back to localhost:8080.");
 				soc.address = "127.0.0.1";
 				soc.port = 8080;
 			}
@@ -662,14 +673,14 @@ void ConfigLoader::_parseSocketBlock(std::ifstream& config_file_stream) {
 			// Check host address
 			else if (soc.address.empty()) {
 				// throw std::runtime_error("config validation: no host address set");
-				log.warn("No host address set. Falling back to localhost");
+				log.warn("No host address set. Falling back to localhost.");
 				soc.address = "127.0.0.1";
 			}
 
 			// Check listen port
 			else if (soc.port == 0) {
 				// throw std::runtime_error("config validation: no host port set");
-				log.warn("No listen port set. Falling back to 8080");
+				log.warn("No listen port set. Falling back to 8080.");
 				soc.port = 8080;
 			}
 
@@ -678,23 +689,28 @@ void ConfigLoader::_parseSocketBlock(std::ifstream& config_file_stream) {
 			// 	soc.client_max_body_size = Config::SERVER_MAX_BODY_SIZE;
 			// }
 
-			// Check for duplicate sockets
-			if (isDuplicateSocket(configs.get(), soc.address, soc.port)) {
-				throw std::runtime_error("config validation: duplicate socket " + soc.address + ":" + i2a(soc.port));
-			}
-
+			// Check for domains
 			if (soc.domains.empty()) {
 				throw std::runtime_error("config validation: no domain provided");
 			}
 
-			if (soc.domains[0].locations.empty()) {
-				// throw std::runtime_error("config validation: no location provided");
-				log.warn("No location provided. Falling back to /");
-				Config::Location loc;
-				loc.path = "/";
-				loc.root = soc.domains[0].root;
-				loc.methods.push_back(GET);
-				soc.domains[0].locations.push_back(loc);
+			// Check each domain for locations
+			for (std::size_t i = 0; i < soc.domains.size(); ++i) {
+				if (soc.domains[i].locations.empty()) {
+					// throw std::runtime_error("config validation: no location provided");
+					log.warn("No location defined for domain '" + soc.domains[i].names.front() + "'. Falling back to /.");
+					Config::Location loc;
+					loc.path = "/";
+					loc.root = soc.domains[i].root;
+					loc.methods.push_back(GET);
+					loc.index_files = soc.domains[i].index_files;
+					soc.domains[i].locations.push_back(loc);
+				}
+			}
+
+			// Check for duplicate sockets
+			if (isDuplicateSocket(configs.get(), soc.address, soc.port)) {
+				throw std::runtime_error("config validation: duplicate socket " + soc.address + ":" + i2a(soc.port));
 			}
 
 			configs.pushConfig(soc);
