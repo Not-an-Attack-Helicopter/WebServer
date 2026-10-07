@@ -696,15 +696,16 @@ void ConfigLoader::_parseSocketBlock(std::ifstream& config_file_stream) {
 
 			// Check each domain for locations
 			for (std::size_t i = 0; i < soc.domains.size(); ++i) {
-				if (soc.domains[i].locations.empty()) {
+				Config::Domain dom = soc.domains[i];
+				if (dom.locations.empty()) {
 					// throw std::runtime_error("config validation: no location provided");
-					log.warn("No location defined for domain '" + soc.domains[i].names.front() + "'. Falling back to /.");
+					log.warn("No location defined for domain '" + dom.names.front() + "'. Falling back to /.");
 					Config::Location loc;
 					loc.path = "/";
-					loc.root = soc.domains[i].root;
+					loc.root = dom.root;
 					loc.methods.push_back(GET);
-					loc.index_files = soc.domains[i].index_files;
-					soc.domains[i].locations.push_back(loc);
+					loc.index_files = dom.index_files;
+					dom.locations.push_back(loc);
 				}
 			}
 
