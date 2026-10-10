@@ -80,6 +80,7 @@ ssize_t Buffer::find(const std::string& needle) const {
 ssize_t Buffer::fetchData(int fd, bool is_pipe) {
 
 	ssize_t n = 0;
+	if (end == data.size() && begin > 0) compact();
 	if (end < data.size()) {
 		n = is_pipe ? read(fd, &data[end], data.size() - end)
 					: recv(fd, &data[end], data.size() - end, 0);
