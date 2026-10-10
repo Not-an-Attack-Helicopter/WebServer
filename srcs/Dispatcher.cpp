@@ -319,9 +319,6 @@ static StatusCode serveDirectoryListing(const std::string& path,
 		return FORBIDDEN;
 	}
 
-	response.setStatus(OK);
-	// response.setHeader("Connection", "keep-alive");
-
 	std::ostringstream body;
 	body	<< HTML::DOC << HTML::LANG << HTML::HEAD
 			<< TAG::META << TAG::FAVICON << TAG::STYLE
@@ -403,6 +400,8 @@ static StatusCode serveDirectoryListing(const std::string& path,
 	closedir(directory);
 
 	response.setBody(body.str(), HEAP, "text/html", request.headers_only);
+	// response.setHeader("Connection", "keep-alive");
+	response.setStatus(OK);
 	return OK;
 }
 
