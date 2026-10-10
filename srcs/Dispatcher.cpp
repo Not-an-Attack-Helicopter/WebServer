@@ -375,7 +375,7 @@ static StatusCode serveDirectoryListing(const std::string& path,
 		body	<< HTML::TR;
 
 		body	<< HTML::TD << HTML::A << HTML::HREF
-				<< filename + "/" << HTML::_HREF << filename
+				<< filename << "/" << HTML::_HREF << filename
 				<< HTML::_A << HTML::_TD
 				<< HTML::TD << filesize << HTML::_TD
 				<< HTML::TD << modified << HTML::_TD;
