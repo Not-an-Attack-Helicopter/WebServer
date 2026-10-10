@@ -20,7 +20,8 @@
 // #include "../incs/Config.hpp"
 #include "../incs/Logger.hpp"
 #include "../incs/utils.hpp"
-// #include <sys/stat.h>	// stat
+#include <sys/types.h>
+#include <sys/stat.h>	// stat
 // #include <sys/wait.h>	// waitpid
 #include <dirent.h>		// opendir, readdir, closedir
 #include <unistd.h>
@@ -235,14 +236,85 @@ static StatusCode removeFile(const std::string& path,
 	return NO_CONTENT;
 }
 
+// HTML escape for filenames (< > & " ')
+static inline std::string escapeHtml(const std::string& name) {
+
+	std::ostringstream oss;
+	for (size_t i = 0; i < name.length(); ++i) {
+		switch (name[i]) {
+			case '<': oss << "&lt;"; break;
+			case '>': oss << "&gt;"; break;
+			case '&': oss << "&amp;"; break;
+			case '"': oss << "&quot;"; break;
+			case '\'': oss << "&#39;"; break;
+			default: oss << name[i];
+		}
+	}
+
+	return oss.str();
+}
+
+// Format filesize with units (B, KB, MB, etc.)
+static inline std::string formatSize(off_t bytes) {
+
+	const char* units[] = {"B", "KB", "MB", "GB", "TB"};
+	double size = static_cast<double>(bytes);
+
+	int magnitude = 0;
+	while (size >= 1024.0 && magnitude < 4) {
+		size /= 1024.0;
+		++magnitude;
+	}
+
+	// Manual float-to-string with one decimal place
+	int integer_part = static_cast<int>(size);
+	int fractional_part = static_cast<int>((size - integer_part) * 10);
+
+	std::ostringstream oss;
+	oss << integer_part << "." << fractional_part << " " << units[magnitude];
+
+	return oss.str();
+}
+
+// Format time_t as readable date (YYYY-MM-DD HH:MM:SS)
+static inline std::string formatDate(time_t mtime) {
+
+	tm* tm_info = std::localtime(&mtime);
+
+	std::ostringstream oss;
+	oss << (tm_info->tm_year + 1900) << "-";
+
+	int month = tm_info->tm_mon + 1;
+	if (month < 10) oss << "0";
+	oss << month << "-";
+
+	int day = tm_info->tm_mday;
+	if (day < 10) oss << "0";
+	oss << day << " ";
+
+	int hour = tm_info->tm_hour;
+	if (hour < 10) oss << "0";
+	oss << hour << ":";
+
+	int min = tm_info->tm_min;
+	if (min < 10) oss << "0";
+	oss << min << ":";
+
+	int sec = tm_info->tm_sec;
+	if (sec < 10) oss << "0";
+	oss << sec;
+
+	return oss.str();
+}
+
 static StatusCode serveDirectoryListing(const std::string& path,
 										bool supports_delete,
 										const HTTPRequest& request,
 										HTTPResponse& response) {
 
-	DIR* dir = opendir(path.c_str());
+	DIR* directory = opendir(path.c_str());
 
-	if (!dir) {
+	if (directory == NULL) {
 		log.warn("directory listing: could not open directory, permission denied");
 		return FORBIDDEN;
 	}
@@ -251,38 +323,76 @@ static StatusCode serveDirectoryListing(const std::string& path,
 	// response.setHeader("Connection", "keep-alive");
 
 	std::ostringstream body;
-	body	<< HTML::DOC << HTML::LANG << HTML::HEAD << TAG::META << TAG::FAVICON << TAG::STYLE
-			<< HTML::TITLE << "Index of" << HTTP::_ << request.getPath() << HTML::_TITLE
+	body	<< HTML::DOC << HTML::LANG << HTML::HEAD
+			<< TAG::META << TAG::FAVICON << TAG::STYLE
+			<< HTML::TITLE << "Index of " << request.getPath() << HTML::_TITLE
 			<< HTML::_HEAD << HTML::BODY
-			<< HTML::H1 << "Index of" << HTTP::_ << request.getPath() << HTML::_H1;
+			<< HTML::CODE << "Directory Listing" << HTML::_CODE
+			<< HTML::H1 << "Index of " << request.getPath() << HTML::_H1
+			<< HTML::A << HTML::HREF << ".." << HTML::_HREF
+			<< "Up to higher level directory" << HTML::_A
+			<< HTML::TABLE << HTML::THEAD << HTML::TR
+			<< HTML::TH << "Filename" << HTML::_TH
+			<< HTML::TH << "Filesize" << HTML::_TH
+			<< HTML::TH << "Modified" << HTML::_TH;
 
-	struct dirent* entry;
+	if (supports_delete) {
+		body << HTML::TH << "Remove" << HTML::_TH;
+	}
 
-	body	<< HTML::UL;
-	while ((entry = readdir(dir)) != NULL) {
+	body	<< HTML::_TR << HTML::_THEAD << HTML::TBODY;
 
-		std::string name = entry->d_name;
-		if (name == ".") {
+	std::string name;
+	std::string filepath;
+	std::string filename;
+	std::string filesize;
+	std::string modified;
+
+	dirent* entry;
+	while ((entry = readdir(directory)) != NULL) {
+
+		name = entry->d_name;
+		if (name == "." || name == "..") {
 			continue;
 		}
 
-		body	<< HTML::LI << HTML::A << HTML::HREF << name << HTML::_HREF;
-
-		if (name == "..") {
-			body	<< "Parent Directory";
-		} else {
-			body	<< name;
+		filepath = request.resolved.filepath + name;
+		bool is_dir = true;
+		time_t time = 0;
+		off_t size = 0;
+		struct stat sb;
+		if (stat(filepath.c_str(), &sb) == 0) {
+			time = sb.st_mtime;
+			if (!S_ISDIR(sb.st_mode)) {
+				size = sb.st_size;
+				is_dir = false;
+			}
 		}
 
-		body	<< HTML::_A;
+		filename = escapeHtml(name);
+		filesize = formatSize(size);
+		modified = formatDate(time);
 
-		if (supports_delete == true && name != "..") {
-			body	<< HTML::TAB << BUTTON::DELETE_ << request.getPath() << name << BUTTON::_DELETE;
+		if (is_dir) filesize.clear();
+
+		body	<< HTML::TR;
+
+		body	<< HTML::TD << HTML::A << HTML::HREF
+				<< filename + "/" << HTML::_HREF << filename
+				<< HTML::_A << HTML::_TD
+				<< HTML::TD << filesize << HTML::_TD
+				<< HTML::TD << modified << HTML::_TD;
+
+		if (supports_delete == true) {
+			body	<< HTML::TD << BUTTON::DELETE_
+					<< request.getPath() << filename
+					<< BUTTON::_DELETE << HTML::_TD;
 		}
 
-		body	<< HTML::_LI << HTML::BR;
+		body	<< HTML::_TR;
 	}
-	body	<< HTML::_UL;
+
+	body	<< HTML::_TBODY << HTML::_TABLE;
 
 	if (supports_delete == true) {
 		body	<< BUTTON::SCRIPT;
@@ -290,7 +400,7 @@ static StatusCode serveDirectoryListing(const std::string& path,
 
 	body	<< HTML::_BODY << HTML::_LANG;
 
-	closedir(dir);
+	closedir(directory);
 
 	response.setBody(body.str(), HEAP, "text/html", request.headers_only);
 	return OK;
@@ -314,7 +424,6 @@ static StatusCode serveDirectoryListing(const std::string& path,
 // 	response.setBody(body.str(), HEAP, "text/plain", request.headers_only);
 //
 // 	return MOVED_PERMANENTLY;
-//
 // }
 
 static StatusCode handleRedirect(const Config::Location& location,
@@ -915,8 +1024,8 @@ void Dispatcher::buildErrorResponse(const StatusCode& code,
 	} else {
 
 		std::ostringstream body ;
-		body	<< HTML::LANG << HTML::BODY << HTML::H1 << "Error" << HTTP::_ << i2a(code) << ":"
-				<< HTTP::_ << response.getStatusReason() << HTML::_H1 << HTML::_BODY << HTML::_LANG;
+		body	<< HTML::LANG << HTML::BODY << HTML::H1 << "Error " << i2a(code) << ": "
+				<< response.getStatusReason() << HTML::_H1 << HTML::_BODY << HTML::_LANG;
 		response.setBody(body.str(), HEAP, "text/html", headers_only);
 
 	}
@@ -924,10 +1033,10 @@ void Dispatcher::buildErrorResponse(const StatusCode& code,
 	return;
 }
 
-static bool startsWith(const std::string& requested_path,
-					   const std::string& config_location_path,
-					   std::size_t requested_location_path_len,
-					   std::size_t config_location_path_len) {
+static inline bool startsWith(const std::string& requested_path,
+							  const std::string& config_location_path,
+							  std::size_t requested_location_path_len,
+							  std::size_t config_location_path_len) {
 
 	if (config_location_path_len > requested_location_path_len) {
 		return false;
@@ -949,11 +1058,12 @@ const Config::Location* Dispatcher::resolveLocation(const std::vector<Config::Lo
 	// Longest prefix match wins
 	const Config::Location*	matched_location = NULL;
 	std::size_t matched_location_path_len = 0;
+	std::string config_location_path;
 
 	for (std::size_t i = 0; i < locations.size(); ++i) {
 
 		const Config::Location& config_location = locations[i];
-		std::string config_location_path = config_location.path;
+		config_location_path = config_location.path;
 		std::size_t config_location_path_len = config_location_path.length();
 		std::size_t requested_location_path_len = requested_location_path.length();
 

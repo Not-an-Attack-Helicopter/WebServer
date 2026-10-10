@@ -1054,20 +1054,20 @@ void Server::_handlePipeReadEvent(IPC* script_ipc) {
 		log.info("script_" + i2a(script_ipc->fd) + ": full response received");
 		// _cleanUpPipeEnd(script_ipc);
 		// // script_ipc->client_ipc->script_in = NULL;
-		log.error("MURDERING!");
-		log.error("BLOOD!");
-		log.error("SPLISH!");
-		log.error("SPLASH!");
-		log.error("GORE!");
+		// log.error("MURDER!");
+		// log.error("BLOOD!");
+		// log.error("SPLISH!");
+		// log.error("SPLASH!");
+		// log.error("GORE!");
 		bool is_dead = script_ipc->client_ipc->peer->cgi_process->tryReap();
 		if (!is_dead) {
 			unsigned short count = 0;
 			do {
-				log.error("MURDERING!");
-				log.error("BLOOD!");
-				log.error("SPLISH!");
-				log.error("SPLASH!");
-				log.error("GORE!");
+				// log.error("MURDER!");
+				// log.error("BLOOD!");
+				// log.error("SPLISH!");
+				// log.error("SPLASH!");
+				// log.error("GORE!");
 				script_ipc->client_ipc->peer->cgi_process->forceKill();
 				is_dead = script_ipc->client_ipc->peer->cgi_process->tryReap();
 			} while (!is_dead && ++count < 11);

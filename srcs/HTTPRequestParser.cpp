@@ -21,6 +21,7 @@
 #include <unistd.h>
 #include <cstddef>
 #include <cctype>
+#include <cstdio>
 
   //~~~~~~~~~~//
  /*  Public  */

@@ -98,20 +98,20 @@ Client::~Client(void) {
 		// } else {
 		// 	log.error("HE'S DEAD");
 		// }
-		log.error("MURDERING!");
-		log.error("BLOOD!");
-		log.error("SPLISH!");
-		log.error("SPLASH!");
-		log.error("GORE!");
+		// log.error("MURDER!");
+		// log.error("BLOOD!");
+		// log.error("SPLISH!");
+		// log.error("SPLASH!");
+		// log.error("GORE!");
 		bool is_dead = cgi_process->tryReap();
 		if (!is_dead) {
 			unsigned short count = 0;
 			do {
-				log.error("MURDERING!");
-				log.error("BLOOD!");
-				log.error("SPLISH!");
-				log.error("SPLASH!");
-				log.error("GORE!");
+				// log.error("MURDER!");
+				// log.error("BLOOD!");
+				// log.error("SPLISH!");
+				// log.error("SPLASH!");
+				// log.error("GORE!");
 				cgi_process->forceKill();
 				is_dead = cgi_process->tryReap();
 			} while (!is_dead && ++count < 11);

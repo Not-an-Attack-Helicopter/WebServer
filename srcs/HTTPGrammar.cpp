@@ -34,7 +34,6 @@ namespace HTTPGrammar {
 				std::size_t& pos) {
 		while (pos < s.size() &&
 			isOWS(s[pos])) {
-
 			++pos;
 		}
 	}
@@ -52,7 +51,6 @@ namespace HTTPGrammar {
 
 		while (pos < s.size() &&
 			isTChar(s[pos])) {
-
 			++pos;
 		}
 

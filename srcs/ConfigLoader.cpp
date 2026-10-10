@@ -341,10 +341,13 @@ void ConfigLoader::loadConfig(const std::string& config_file) {
 
 	bool found_endpoint = false;
 
+	std::string stripped;
+	std::string trimmed;
+
 	std::string line;
 	while (std::getline(file, line)) {
 
-		std::string trimmed = trim(line);
+		trimmed = trim(line);
 
 		// Skip empty lines and comments
 		if (trimmed.empty() || trimmed[0] == '#') {
@@ -352,7 +355,7 @@ void ConfigLoader::loadConfig(const std::string& config_file) {
 		}
 
 		// Strip line from inline comments
-		std::string stripped = stripInlineComment(trimmed);
+		stripped = stripInlineComment(trimmed);
 		trimmed = trim(stripped);
 
 		if (trimmed == "socket {}") {
@@ -470,10 +473,14 @@ void ConfigLoader::_parseLocationBlock(std::ifstream& config_file_stream,
 	// Falls back to domain treshold, if not specified for location
 	loc.client_max_body_size = dom.client_max_body_size;
 
+	std::string val;
+	std::string key;
+	std::string trimmed;
+
 	std::string line;
 	while (std::getline(config_file_stream, line)) {
 
-		std::string trimmed = trim(line);
+		trimmed = trim(line);
 
 		// Skip empty lines and comments
 		if (trimmed.empty() || trimmed[0] == '#') {
@@ -492,8 +499,6 @@ void ConfigLoader::_parseLocationBlock(std::ifstream& config_file_stream,
 			if (loc.alias.empty() && loc.root.empty()) {
 				loc.root = dom.root;
 			}
-			std::string path = loc.alias;
-			if (!loc.root.empty()) path = loc.root;
 
 			// Check for location index file(s): if empty, substitute domain index file(s)
 			if (loc.index_files.empty()) {
@@ -520,8 +525,8 @@ void ConfigLoader::_parseLocationBlock(std::ifstream& config_file_stream,
 			// If CGI scripts allowed, add catch-all extension ".cgi"
 			if (!loc.interpreters.empty()) {
 				loc.interpreters[".cgi"];
-				// ".bla" only needed for stupid 42 tester
-				// TODO remove after evaluations
+				// ".bla" only needed for stupid 42 Tester
+				// TODO: remove the following line after evaluations
 				loc.interpreters[".bla"];
 			}
 
@@ -534,8 +539,8 @@ void ConfigLoader::_parseLocationBlock(std::ifstream& config_file_stream,
 
 		}
 
-		std::string key = extractDirectiveKey(trimmed);
-		std::string val = extractDirectiveValue(trimmed);
+		key = extractDirectiveKey(trimmed);
+		val = extractDirectiveValue(trimmed);
 
 		if (handlers.find(key) != handlers.end()) {
 			(this->*handlers.at(key))(val, loc);
@@ -561,10 +566,14 @@ void ConfigLoader::_parseDomainBlock(std::ifstream& config_file_stream,
 	// Falls back to socket treshold, if not specified for location
 	dom.client_max_body_size = soc.client_max_body_size;
 
+	std::string val;
+	std::string key;
+	std::string trimmed;
+
 	std::string line;
 	while (std::getline(config_file_stream, line)) {
 
-		std::string trimmed = trim(line);
+		trimmed = trim(line);
 
 		// Skip empty lines and comments
 		if (trimmed.empty() || trimmed[0] == '#') {
@@ -579,7 +588,6 @@ void ConfigLoader::_parseDomainBlock(std::ifstream& config_file_stream,
 			if (dom.root.empty()) {
 				throw std::runtime_error("config validation: missing root directive");
 			}
-			const std::string path = dom.root + "/";
 
 			// Check for index file
 			if (dom.index_files.empty()) {
@@ -611,8 +619,8 @@ void ConfigLoader::_parseDomainBlock(std::ifstream& config_file_stream,
 
 		}
 
-		std::string key = extractDirectiveKey(trimmed);
-		std::string val = extractDirectiveValue(trimmed);
+		key = extractDirectiveKey(trimmed);
+		val = extractDirectiveValue(trimmed);
 
 		if (handlers.find(key) != handlers.end()) {
 			(this->*handlers.at(key))(val, dom);
@@ -648,10 +656,14 @@ void ConfigLoader::_parseSocketBlock(std::ifstream& config_file_stream) {
 
 	Config::Socket soc;
 
+	std::string val;
+	std::string key;
+	std::string trimmed;
+
 	std::string line;
 	while (std::getline(config_file_stream, line)) {
 
-		std::string trimmed = trim(line);
+		trimmed = trim(line);
 
 		// Skip empty lines and comments
 		if (trimmed.empty() || trimmed[0] == '#') {
@@ -719,8 +731,8 @@ void ConfigLoader::_parseSocketBlock(std::ifstream& config_file_stream) {
 
 		}
 
-		std::string key = extractDirectiveKey(trimmed);
-		std::string val = extractDirectiveValue(trimmed);
+		key = extractDirectiveKey(trimmed);
+		val = extractDirectiveValue(trimmed);
 
 		if (handlers.find(key) != handlers.end()) {
 			(this->*handlers.at(key))(val, soc);
@@ -793,9 +805,10 @@ void ConfigLoader::_handleAllowedMethods(const std::string& val, Config::Locatio
 	std::istringstream iss(val);
 	std::string token;
 
+	Method method;
 	while (iss >> token) {
 
-		const Method method = extractMethod(token);
+		method = extractMethod(token);
 		if (method >= METHOD_COUNT) {
 			throw std::runtime_error("config validation: invalid HTTP method: " + token);
 		}
@@ -847,7 +860,7 @@ void ConfigLoader::_handleUploadDirectory(const std::string& val, Config::Locati
 void ConfigLoader::_handleInterpreter(const std::string& val, Config::Location& loc) {
 
 	if (val.empty()) {
-		throw std::runtime_error("config validation: interpreter directive requires extension and path");
+		throw std::runtime_error("config validation: interpreter directive requires a value");
 	}
 
 	std::istringstream iss(val);
@@ -855,7 +868,7 @@ void ConfigLoader::_handleInterpreter(const std::string& val, Config::Location& 
 	std::string path;
 
 	if (!(iss >> ext >> path)) {
-		throw std::runtime_error("config validation: interpreter requires both extension and path");
+		throw std::runtime_error("config validation: interpreter requires file extension and binary path");
 	}
 
 	if (!isSupportedCGIExtension(ext)) {
@@ -911,6 +924,7 @@ void ConfigLoader::_handleHost(const std::string& val, Config::Socket& config) {
 
 void ConfigLoader::_validateRedirectChains(void) {
 
+	std::string redirect;
 	std::ostringstream oss;
 	std::vector<Config::Socket>::const_iterator conf_it = configs.get().begin();
 	while (conf_it != configs.get().end()) {
@@ -921,7 +935,7 @@ void ConfigLoader::_validateRedirectChains(void) {
 				unsigned short redirection_count = 0;
 				std::vector<std::string> redirects;
 				const Config::Location* loc = &(*loc_it);
-				std::string redirect = loc->path;
+				redirect = loc->path;
 				if (redirect != "/") redirect.append("/");
 				redirects.push_back(redirect);
 				while (!loc->redirect.empty()) {

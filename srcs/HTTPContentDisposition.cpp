@@ -122,7 +122,6 @@ namespace HTTPContentDisposition {
 				(c == '-'))) {
 				return false;
 			}
-
 		}
 
 		/*
@@ -353,11 +352,11 @@ namespace HTTPContentDisposition {
 		/*
 		* Validate filename* if present.
 		*/
+		std::string decoded;
 		for (i = 0; i < result.parameters.size(); ++i) 	{
 
 			if (equalCI(result.parameters[i].name, "filename*")) {
 				// if (!validateExtValue(result.parameters[i].value)) {
-				std::string decoded;
 				if (!decodeExtValueBytes(result.parameters[i].value, decoded)) {
 					return false;
 				}

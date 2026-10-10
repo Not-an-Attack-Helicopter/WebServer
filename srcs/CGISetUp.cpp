@@ -81,17 +81,19 @@ static std::vector<std::string> buildCGIenv(const HTTPRequest& req) {
 	}
 
 	// Copy HTTP_... headers
+	std::string h;
+	std::string val;
+	std::string key;
 	const std::map<std::string,std::string>& headers = req.getHeaders();
 	for (std::map<std::string,std::string>::const_iterator it = headers.begin(); it != headers.end(); ++it) {
-		std::string key = it->first;
-		std::string val = it->second;
+		key = it->first;
+		val = it->second;
 
 		// skip content-type/length (as they are separate) early (avoid building the string)
 		// if (key == "HTTP_CONTENT_TYPE" || key == "HTTP_CONTENT_LENGTH") continue;
 		if (ignore.count(key)) continue;
 
 		// transform header name to CGI HTTP_ form
-		std::string h;
 		h.reserve(5 + key.size());  // "HTTP_" + key
 		h.append("HTTP_");
 		for (size_t i = 0; i < key.size(); ++i) {

@@ -97,6 +97,9 @@ namespace HTTPParameters {
 
 		parameters.clear();
 
+		std::string name;
+		std::string value;
+
 		// while (true) {
 		for (;;) {
 
@@ -143,7 +146,6 @@ namespace HTTPParameters {
 			/*
 			* parameter-name = token
 			*/
-			std::string name;
 			if (!HTTPGrammar::parseToken(s, pos, name)) return false;
 
 			/*
@@ -168,7 +170,6 @@ namespace HTTPParameters {
 			/*
 			* parameter-value
 			*/
-			std::string value;
 			bool quoted;
 
 			if (!parseParameterValue(s, pos, value, quoted)) {
@@ -200,9 +201,7 @@ namespace HTTPParameters {
 			if (pos == s.size()) return true;
 
 			if (s[pos] != ';') return false;
-
 		}
-
 	}
 
 	/*

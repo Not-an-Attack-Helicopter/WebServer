@@ -33,20 +33,36 @@ namespace HTML {
 	static const char HEAD[] = "<head>";
 	static const char TITLE[] = "<title>";
 	static const char BODY[] = "<body>";
+	static const char CODE[] = "<div class=\"code\">";
 	static const char H1[] = "<h1>";
-	static const char UL[] = "<ul>";
-	static const char LI[] = "<li>";
+	// static const char H2[] = "<h2>";
+	static const char TABLE[] = "<table>";
+	static const char THEAD[] = "<thead>";
+	static const char TBODY[] = "<tbody>";
+	static const char TR[] ="<tr>";
+	static const char TH[] ="<th>";
+	static const char TD[] ="<td>";
+	// static const char UL[] = "<ul>";
+	// static const char LI[] = "<li>";
 	static const char A[] = "<a ";
 	static const char HREF[] = "href=\"";
-	static const char BR[] = "<br>";
-	static const char TAB[] = "<span style=\"display:inline-block; width: 4em;\"></span>";
+	// static const char BR[] = "<br>";
+	// static const char TAB[] = "<span style=\"display:inline-block; width: 4em;\"></span>";
 	static const char _LANG[] = "</html>";
 	static const char _HEAD[] = "</head>";
 	static const char _TITLE[] = "</title>";
 	static const char _BODY[] = "</body>";
+	static const char _CODE[] = "</div>";
 	static const char _H1[] = "</h1>";
-	static const char _UL[] = "</ul>";
-	static const char _LI[] = "</li>";
+	// static const char _H2[] = "</h2>";
+	static const char _TABLE[] = "</table>";
+	static const char _THEAD[] = "</thead>";
+	static const char _TBODY[] = "</tbody>";
+	static const char _TR[] ="</tr>";
+	static const char _TH[] ="</th>";
+	static const char _TD[] ="</td>";
+	// static const char _UL[] = "</ul>";
+	// static const char _LI[] = "</li>";
 	static const char _A[] = "</a>";
 	static const char _HREF[] = "\">";
 
@@ -57,6 +73,7 @@ namespace TAG {
 	static const char META[] = "<meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">";
 	static const char FAVICON[] = "<link rel=\"icon\" type=\"image/x-icon\" href=\"/images/icons/favicon.ico\"><link rel=\"icon\" type=\"image/png\" sizes=\"32x32\" href=\"/images/icons/favicon-32x32.png\"><link rel=\"icon\" type=\"image/png\" sizes=\"16x16\" href=\"/images/icons/favicon-16x16.png\"><link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/images/icons/apple-touch-icon.png\"><link rel=\"manifest\" href=\"/images/icons/site.webmanifest\">";
 	static const char STYLE[] = "<link rel=\"stylesheet\" href=\"/css/style.css\">";
+	// static const char STYLE[] = "<link rel=\"stylesheet\" href=\"chrome://global/skin/dirListing/dirListing.css\">";
 
 }
 
@@ -67,7 +84,7 @@ namespace BUTTON {
 
 	static const char SCRIPT[] = "<script>document.querySelectorAll(\".delete\").forEach(function (button) {button.addEventListener(\"click\", function () {fetch(button.dataset.url, {method: \"DELETE\"}).then(function (response) {if (response.status === 204) {location.reload();}});});});</script>";
 
-	static const char LEGACY[] = "<script>var buttons = document.getElementsByClassName(\"delete\");for (var i = 0; i < buttons.length; i++) {buttons[i].addEventListener(\"click\", function () {fetch(this.dataset.url, {method: \"DELETE\"}).then(function (response) {if (response.status === 204) {location.reload();}});});}</script>";
+	// static const char LEGACY[] = "<script>var buttons = document.getElementsByClassName(\"delete\");for (var i = 0; i < buttons.length; i++) {buttons[i].addEventListener(\"click\", function () {fetch(this.dataset.url, {method: \"DELETE\"}).then(function (response) {if (response.status === 204) {location.reload();}});});}</script>";
 
 }
 

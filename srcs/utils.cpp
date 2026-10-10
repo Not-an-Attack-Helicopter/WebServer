@@ -318,6 +318,8 @@ void createFile(HTTPRequest& request) {
 	}
 
 	std::string suffix;
+	std::string unique_id;
+	std::string file_path;
 	int file_descriptor;
 	unsigned short count = 0;
 	const std::time_t timestamp = std::time(NULL);
@@ -330,8 +332,8 @@ void createFile(HTTPRequest& request) {
 			oss << timestamp + std::time(NULL);
 			suffix = oss.str();
 		}
-		std::string unique_id = i2a(timestamp) + "-" + suffix;
-		std::string file_path = directory + location.upload_dir + "/upload_" + unique_id + ".part";
+		unique_id = i2a(timestamp) + "-" + suffix;
+		file_path = directory + location.upload_dir + "/upload_" + unique_id + ".part";
 		file_descriptor = open(file_path.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0600);
 		if (file_descriptor < 0) {
 			throw std::runtime_error("file creation failed:" + std::string(strerror(errno)));
@@ -403,6 +405,8 @@ void promoteFile(HTTPRequest& request) {
 }
 
 void dumpConfigs(const std::vector<Config::Socket>& sockets) {
+
+	std::string method;
 	for (std::size_t i = 0; i < sockets.size(); ++i) {
 		std::cout << "socket {\n";
 		std::cout << "\thost: " << sockets[i].address << ";\n";
@@ -438,7 +442,6 @@ void dumpConfigs(const std::vector<Config::Socket>& sockets) {
 				std::cout << "\t\t\tredirect: " << sockets[i].domains[j].locations[k].redirect << ";\n";
 				std::cout << "\t\t\tmethods: [";
 				for (std::size_t l = 0; l < sockets[i].domains[j].locations[k].methods.size(); ++l) {
-					std::string method;
 					switch(sockets[i].domains[j].locations[k].methods[l]) {
 						case DELETE: method = "DELETE"; break;
 						case GET: method = "GET"; break;
