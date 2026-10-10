@@ -272,7 +272,6 @@ static void extractLocationPath(const std::string& header, Config::Location& loc
 
 	if (first_space != std::string::npos && last_space != std::string::npos && first_space != last_space) {
 		loc.path = trim(header.substr(first_space + 1, last_space - first_space - 1));
-
 	} else {
 		loc.path = "/";
 	}

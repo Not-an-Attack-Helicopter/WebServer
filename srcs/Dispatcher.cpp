@@ -319,19 +319,38 @@ static StatusCode serveDirectoryListing(const std::string& path,
 		return FORBIDDEN;
 	}
 
+	std::string text;
+	if (request.getPath().substr(request.resolved.location->path.size()) != "/") {
+		text = "Up to higher level directory";
+	} else {
+		text = "Back to home";
+	}
+
 	std::ostringstream body;
 	body	<< HTML::DOC << HTML::LANG << HTML::HEAD
 			<< TAG::META << TAG::FAVICON << TAG::STYLE
-			<< HTML::TITLE << "Index of " << request.getPath() << HTML::_TITLE
+			<< HTML::TITLE << "Index of " << request.resolved.directory << HTML::_TITLE
 			<< HTML::_HEAD << HTML::BODY
 			<< HTML::CODE << "Directory Listing" << HTML::_CODE
-			<< HTML::H1 << "Index of " << request.getPath() << HTML::_H1
-			<< HTML::A << HTML::HREF << ".." << HTML::_HREF
-			<< "Up to higher level directory" << HTML::_A
+			<< HTML::H1 << "Index of " << request.resolved.directory << HTML::_H1
+			<< HTML::A << HTML::HREF << ".." << HTML::_HREF << text << HTML::_A
 			<< HTML::TABLE << HTML::THEAD << HTML::TR
 			<< HTML::TH << "Filename" << HTML::_TH
 			<< HTML::TH << "Filesize" << HTML::_TH
 			<< HTML::TH << "Modified" << HTML::_TH;
+
+	// if (request.getPath().substr(request.resolved.location->path.size()) != "/") {
+	// 	body	<< HTML::A << HTML::HREF << ".." << HTML::_HREF
+	// 			<< "Up to higher level directory" << HTML::_A;
+	// } else {
+	// 	body	<< HTML::A << HTML::HREF << ".." << HTML::_HREF
+	// 			<< "Back to home" << HTML::_A;
+	// }
+
+	// body	<< HTML::TABLE << HTML::THEAD << HTML::TR
+	// 		<< HTML::TH << "Filename" << HTML::_TH
+	// 		<< HTML::TH << "Filesize" << HTML::_TH
+	// 		<< HTML::TH << "Modified" << HTML::_TH;
 
 	if (supports_delete) {
 		body << HTML::TH << "Remove" << HTML::_TH;
@@ -370,12 +389,15 @@ static StatusCode serveDirectoryListing(const std::string& path,
 		filesize = formatSize(size);
 		modified = formatDate(time);
 
-		if (is_dir) filesize.clear();
+		if (is_dir) {
+			filename.append("/");
+			filesize.clear();
+		}
 
 		body	<< HTML::TR;
 
 		body	<< HTML::TD << HTML::A << HTML::HREF
-				<< filename << "/" << HTML::_HREF << filename
+				<< filename << HTML::_HREF << filename
 				<< HTML::_A << HTML::_TD
 				<< HTML::TD << filesize << HTML::_TD
 				<< HTML::TD << modified << HTML::_TD;
@@ -734,6 +756,7 @@ static StatusCode resolveRoute(Client& client) {
 										  request.cgi.path_info;
 		}
 	}
+	request.resolved.directory = normalized;
 
 	log.debug("root: " + request.resolved.location->root);
 	log.debug("alias: " + request.resolved.location->alias);

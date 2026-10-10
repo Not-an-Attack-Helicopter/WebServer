@@ -80,7 +80,7 @@ namespace TAG {
 namespace BUTTON {
 
 	static const char DELETE_[] = "<button class=\"delete\" data-url=\"";
-	static const char _DELETE[] = "\">Delete</button>";
+	static const char _DELETE[] = "\">Remove</button>";
 
 	static const char SCRIPT[] = "<script>document.querySelectorAll(\".delete\").forEach(function (button) {button.addEventListener(\"click\", function () {fetch(button.dataset.url, {method: \"DELETE\"}).then(function (response) {if (response.status === 204) {location.reload();}});});});</script>";
 

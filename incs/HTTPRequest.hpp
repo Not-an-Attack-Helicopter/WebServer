@@ -111,12 +111,14 @@ public:
 		const Config::Domain*							domain;
 		const Config::Location*							location;
 		std::string										filepath;
+		std::string										directory;
 
 		ResolvedRoute(void)
 			:	method(METHOD_COUNT),
 				domain(NULL),
 				location(NULL),
-				filepath("") {}
+				filepath(""),
+				directory("") {}
 
 	};
 
