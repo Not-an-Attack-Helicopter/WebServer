@@ -25,7 +25,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include <vector>
-#include <cstdio>
 
 static const int CGI_TIMEOUT_S = 420;
 
@@ -40,8 +39,7 @@ CGIProcess::CGIProcess(const std::string& path, const std::vector<std::string>& 
 	_status(OK), _content_type("text/html"),
 	_has_status(false), _has_location(false), _headers_done(false),
 	// _line_ending(NONE), _line_end_size(0) {
-	_line_end_size(0), _line_ending(""),
-	_body_fd(-1) {
+	_line_end_size(0), _line_ending("") {
 
 	_argv_ptrs.reserve(_argv.size() + 1);
 	for (size_t i = 0; i < _argv.size(); ++i)
@@ -157,8 +155,6 @@ CGIProcess::~CGIProcess() {
 		kill(_pid, SIGKILL);
 		waitpid(_pid, NULL, 0);
 	}
-	if (_body_fd != -1) close(_body_fd);
-	if (!_body_path.empty()) std::remove(_body_path.c_str());
 }
 
 bool  CGIProcess::valid()     const { return _pipes_open; }
@@ -414,15 +410,8 @@ void CGIProcess::consumeAvailableOutput() {
 	}
 
 	if (_headers_done) {
-		if (_body_path.empty()) {
-			static unsigned long counter = 0;
-			_body_path = "/tmp/.webserv_cgi_" + i2a(++counter);
-			_body_fd = open(_body_path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0600);
-		}
-		ssize_t size = static_cast<ssize_t>(_outstream.range());
-		ssize_t n = write(_body_fd, &_outstream.data[_outstream.begin], size);
+		_body += _outstream.substr(0);
 		_outstream.reset();
-		if (n != size) throw std::runtime_error("write: unable to store cgi body");
 		return;
 	}
 
@@ -466,10 +455,7 @@ void CGIProcess::buildResponse(HTTPResponse& response, bool headers_only) const 
 		status = FOUND;
 
 	response.setStatus(status);
-	if (_body_path.empty())
-		response.setBody("", HEAP, _content_type, headers_only);
-	else
-		response.setBody(_body_path, DISK, _content_type, headers_only);
+	response.setBody(_body, HEAP, _content_type, headers_only);
 
 }
 

@@ -149,8 +149,7 @@ private:
 	// LineEnding  _line_ending;
 	std::size_t _line_end_size;
 	std::string _line_ending;
-	int         _body_fd;
-	std::string _body_path;
+	std::string _body;
 };
 
 #endif
