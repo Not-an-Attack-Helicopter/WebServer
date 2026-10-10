@@ -122,16 +122,19 @@ bool CGIProcess::spawn() {
 	_in_pipe[0] = -1;
 	_out_pipe[1] = -1;
 
-	if (fcntl(_in_pipe[1], F_SETFL, O_NONBLOCK) == -1 ||
-	    fcntl(_out_pipe[0], F_SETFL, O_NONBLOCK) == -1) {
-	    close(_in_pipe[1]);
-	    close(_out_pipe[0]);
-	    _in_pipe[1] = -1;
-	    _out_pipe[0] = -1;
-	    kill(pid, SIGKILL);
-	    waitpid(pid, NULL, 0);
-	    return false;
-	}
+	// Let's try having to server set the pipe ends to non-blocking.
+	// If it that's too late, set them to non-blocking here.
+	// TEST
+	// if (fcntl(_in_pipe[1], F_SETFL, O_NONBLOCK) == -1 ||
+	//     fcntl(_out_pipe[0], F_SETFL, O_NONBLOCK) == -1) {
+	//     close(_in_pipe[1]);
+	//     close(_out_pipe[0]);
+	//     _in_pipe[1] = -1;
+	//     _out_pipe[0] = -1;
+	//     kill(pid, SIGKILL);
+	//     waitpid(pid, NULL, 0);
+	//     return false;
+	// }
 
 	_pid = pid;
 	_stdin_fd = _in_pipe[1];

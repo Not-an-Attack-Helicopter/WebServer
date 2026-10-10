@@ -748,10 +748,13 @@ Client& Client::operator = (const Client& other) {
 }
 
 std::size_t Client::_adjustBufferSize(std::size_t payload_size) {
-	if (payload_size < std::size_t(64) * 1024) return 64 * 1024;
-	else if (payload_size < std::size_t(512) * 1024) return 512 * 1024;
-	else if (payload_size < std::size_t(2) * 1024 * 1024) return 2 * 1024 * 1024;
-	else return 8 * 1024 * 1024;
+
+	if (payload_size < std::size_t(8) * 1024) return 8 * 1024;
+	else if (payload_size < std::size_t(32) * 1024) return 16 * 1024;
+	else if (payload_size < std::size_t(128) * 1024) return 32 * 1024;
+	else if (payload_size < std::size_t(512) * 1024) return 64 * 1024;
+	else if (payload_size < std::size_t(2) * 1024 * 1024) return 128 * 1024;
+	else return 256 * 1024;
 }
 
 void Client::_stateTransitionHandler(int fd) {
