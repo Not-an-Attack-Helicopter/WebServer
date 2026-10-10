@@ -667,6 +667,12 @@ void Server::_handleSocketReadEvent(IPC* client_ipc) {
 	if (client_ipc->peer->getState() == Client::DISPATCHING) {
 		// log.notice("client_" + i2a(client_fd) + " state: DISPATCHING");
 		dispatcher.handleRequest(*client_ipc->peer);
+		if (client_ipc->peer->getState() == Client::RECEIVING_BODY) {
+			const std::string* expect = client_ipc->peer->getCurrentRequest().getHeader("expect");
+			if (expect != NULL && tolowerASCII(*expect) == "100-continue") {
+				send(client_ipc->fd, "HTTP/1.1 100 Continue\r\n\r\n", 25, 0);
+			}
+		}
 	}
 
 	// log.error("CLIENT STATE: " + i2a(client_ipc->peer->getState()));
