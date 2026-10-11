@@ -139,7 +139,9 @@ void Server::handleEvents(void) {
 
 	for (;;) {
 
-		log.notice("+==================================================================================================+");
+		if (log.getLevel() <= Logger::LEVEL_DEBUG) {
+			log.notice("+==================================================================================================+");
+		}
 		int n = epoll_wait(_epfd, _events, MAX_EPOLL_EVENTS, EPOLL_WAIT_TIMEOUT_MS);
 		// dumpEvents(n, _events);
 
@@ -628,7 +630,6 @@ void Server::_handleSocketReadEvent(IPC* client_ipc) {
 		// }
 
 		if (bytes_received < 0) {
-
 			log.warn("recv: client_" + i2a(client_ipc->fd) + ": " + std::string(strerror(errno)));
 			_cleanUpClient(client_ipc);
 			return;
@@ -750,7 +751,7 @@ void Server::_handleSocketReadEvent(IPC* client_ipc) {
 		// log.notice("client_" + i2a(client_fd) + " state: RECEIVING_BODY");
 		std::size_t bytes_consumed = client_ipc->peer->parseDataFromPeer();
 		log.debug("client_" + i2a(client_ipc->fd) + ":\tbytes consumed:\t" + i2a(bytes_consumed));
-		if (!bytes_consumed && client_ipc->peer->getState() == Client::RECEIVING_BODY) return;
+		if (!bytes_consumed/* && client_ipc->peer->getState() == Client::RECEIVING_BODY*/) return;
 
 		// if (!capacity_left) {
 		// 	if (!_disableSocketIO(client_fd)) {

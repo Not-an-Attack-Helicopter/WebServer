@@ -299,8 +299,9 @@ ssize_t Client::parseDataFromPeer(void) {
 
 	// log.notice("previous body size: " + i2a(request.parsing.body_size));
 
-	if (request.parsing.state == HTTPRequest::READING_BODY && !request.body_chunked && request.body.size == 0)
-		request.parsing.state = HTTPRequest::COMPLETE;
+	// if (request.parsing.state == HTTPRequest::READING_BODY &&
+	// 	!request.body_chunked && request.body.size == 0)
+	// 	request.parsing.state = HTTPRequest::COMPLETE;
 
 	while (_instream.mark < _instream.end) {
 
@@ -385,7 +386,7 @@ ssize_t Client::parseDataFromPeer(void) {
 				}
 			}
 
-			if (!request.requires_CGI) promoteFile(request);
+			if (!request.requires_CGI/* && request.parsing.body_size > 0*/) promoteFile(request);
 			break;
 		}
 

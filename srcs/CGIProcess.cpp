@@ -166,7 +166,7 @@ int   CGIProcess::stdinFd()   const { return _stdin_fd; }
 int   CGIProcess::stdoutFd()  const { return _stdout_fd; }
 
 void CGIProcess::closeStdin() {
-	if (_stdin_fd != -1) {
+	if (_stdin_fd > 0) {
 		if (close(_stdin_fd)) {
 			log.warn("Error during cleanup: close: " + std::string(strerror(errno)));
 		}
@@ -175,7 +175,7 @@ void CGIProcess::closeStdin() {
 }
 
 void CGIProcess::closeStdout() {
-	if (_stdout_fd != -1) {
+	if (_stdout_fd > 1) {
 		if (close(_stdout_fd) == -1) {
 			log.warn("Error during cleanup: close: " + std::string(strerror(errno)));
 		}
