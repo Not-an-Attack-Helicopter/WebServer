@@ -79,17 +79,16 @@ void Server::prepareListeningPort(const Config::Socket& soc) {
 		throw std::runtime_error("inet_pton: " + std::string(INVALID_ADDR));
 	}
 
-	result = socket(sa.sin_family, SOCK_STREAM | O_NONBLOCK, 0);
+	result = socket(sa.sin_family, SOCK_STREAM, 0);
 	if (result == -1) {
 		throw std::runtime_error("socket: " + std::string(strerror(errno)));
 	}
-	fd = result;
 
-	// ListeningSocket socket;
-	// socket.addr = sa;
-	// socket.conf = &soc;
-	// _sockets[result] = socket;
-	// result = setsockopt(_sockets.rbegin()->first, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+	fd = result;
+	if (!_setNonblockFlag(fd)) {
+		log.error("epoll_ctl: " + std::string(strerror(errno)));
+		throw std::runtime_error("_setNonblockFlag: " + std::string(strerror(errno)));
+	}
 
 	result = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 	if (result == -1) {
@@ -97,8 +96,6 @@ void Server::prepareListeningPort(const Config::Socket& soc) {
 	}
 
 	log.debug("Created server socket listen_" + i2a(fd));
-
-	// result = bind(_sockets.rbegin()->first, (sockaddr*)&sa, sizeof(sa));
 
 	result = bind(fd, (sockaddr*)&sa, sizeof(sa));
 	if (result == -1) {

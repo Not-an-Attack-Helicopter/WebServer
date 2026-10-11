@@ -533,6 +533,13 @@ void ConfigLoader::_parseLocationBlock(std::ifstream& config_file_stream,
 			if (isDuplicateLocation(dom.locations, loc.path)) {
 				throw std::runtime_error("config validation: duplicate location path '" + loc.path + "'");
 			}
+
+			std::string path = loc.alias;
+			if (!loc.root.empty()) path = loc.root + loc.path;
+			if (((mkdir((path).c_str(), 0755) != 0) && (errno != EEXIST))) {
+				throw std::runtime_error("config validation: no write access (upload directory): " + path);
+			}
+
 			dom.locations.push_back(loc);
 			return;
 
@@ -613,6 +620,7 @@ void ConfigLoader::_parseDomainBlock(std::ifstream& config_file_stream,
 					throw std::runtime_error("config validation: duplicate domain name '" + dom.names[i] + "'");
 				}
 			}
+
 			soc.domains.push_back(dom);
 			return;
 
@@ -847,7 +855,7 @@ void ConfigLoader::_handleUploadDirectory(const std::string& val, Config::Locati
 	std::string path = loc.alias;
 	if (!loc.root.empty()) path = loc.root + loc.path;
 	if (((mkdir((path + val).c_str(), 0755) != 0) && (errno != EEXIST))) {
-		throw std::runtime_error("config validation: no write access (upload directory): " + val);
+		throw std::runtime_error("config validation: no write access (upload directory): " + path);
 	}
 
 	loc.upload_dir = val;
