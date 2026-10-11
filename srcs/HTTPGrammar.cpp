@@ -59,8 +59,8 @@ namespace HTTPGrammar {
 		}
 
 		token.assign(s,
-					start,
-					pos - start);
+					 start,
+					 pos - start);
 
 		return true;
 	}

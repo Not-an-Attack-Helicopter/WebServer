@@ -179,25 +179,23 @@ namespace HTTPContentDisposition {
 	*/
 	static bool decodeExtValueBytes(const std::string& extValue, std::string& decoded) {
 
+		decoded.clear();
 		if (!validateExtValue(extValue)) return false;
 
 		std::size_t firstQuote = extValue.find('\'');
 		std::size_t secondQuote = extValue.find('\'', firstQuote + 1);
 
-		decoded.clear();
-
 		std::size_t i = secondQuote + 1;
 		while (i < extValue.size()) {
 
-		char c = extValue[i];
-		if (c == '%') {
+			char c = extValue[i];
+			if (c == '%') {
 
-			int hi = hexDigitValue(extValue[i + 1]);
-			int lo = hexDigitValue(extValue[i + 2]);
+				int hi = hexDigitValue(extValue[i + 1]);
+				int lo = hexDigitValue(extValue[i + 2]);
 
-			decoded += static_cast<char>((hi << 4) | lo);
-
-			i += 3;
+				decoded += static_cast<char>((hi << 4) | lo);
+				i += 3;
 
 			} else {
 
@@ -356,7 +354,6 @@ namespace HTTPContentDisposition {
 		for (i = 0; i < result.parameters.size(); ++i) 	{
 
 			if (equalCI(result.parameters[i].name, "filename*")) {
-				// if (!validateExtValue(result.parameters[i].value)) {
 				if (!decodeExtValueBytes(result.parameters[i].value, decoded)) {
 					return false;
 				}
