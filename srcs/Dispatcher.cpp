@@ -820,6 +820,8 @@ static StatusCode resolveRoute(Client& client) {
 		if (content_length == NULL) {
 			log.warn("request: no content-length header provided");
 			return LENGTH_REQUIRED;
+		} else {
+			if (request.body.size == 0) return handlePOST(request, response);
 		}
 	}
 

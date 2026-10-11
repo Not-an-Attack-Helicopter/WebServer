@@ -359,10 +359,12 @@ void promoteFile(HTTPRequest& request) {
 	std::string old_path;
 	std::string extension;
 	if (request.is_multipart) {
+		if (request.body.parts.back().path.empty()) return;
 		close(request.body.parts.back().file);
 		old_path = request.body.parts.back().path;
 		extension = extractExtension(request.body.parts.back().filename);
 	} else {
+		if (request.body.path.empty()) return;
 		close(request.body.file);
 		old_path = request.body.path;
 		extension = extractExtension(request.body.filename);
