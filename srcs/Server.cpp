@@ -83,17 +83,12 @@ void Server::prepareListeningPort(const Config::Socket& soc) {
 	if (result == -1) {
 		throw std::runtime_error("socket: " + std::string(strerror(errno)));
 	}
-	fd = result;
 
+	fd = result;
 	if (!_setNonblockFlag(fd)) {
 		log.error("epoll_ctl: " + std::string(strerror(errno)));
 		throw std::runtime_error("_setNonblockFlag: " + std::string(strerror(errno)));
 	}
-	// ListeningSocket socket;
-	// socket.addr = sa;
-	// socket.conf = &soc;
-	// _sockets[result] = socket;
-	// result = setsockopt(_sockets.rbegin()->first, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
 	result = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 	if (result == -1) {
@@ -101,8 +96,6 @@ void Server::prepareListeningPort(const Config::Socket& soc) {
 	}
 
 	log.debug("Created server socket listen_" + i2a(fd));
-
-	// result = bind(_sockets.rbegin()->first, (sockaddr*)&sa, sizeof(sa));
 
 	result = bind(fd, (sockaddr*)&sa, sizeof(sa));
 	if (result == -1) {
@@ -671,12 +664,6 @@ void Server::_handleSocketReadEvent(IPC* client_ipc) {
 	if (client_ipc->peer->getState() == Client::DISPATCHING) {
 		// log.notice("client_" + i2a(client_fd) + " state: DISPATCHING");
 		dispatcher.handleRequest(*client_ipc->peer);
-		if (client_ipc->peer->getState() == Client::RECEIVING_BODY) {
-			const std::string* expect = client_ipc->peer->getCurrentRequest().getHeader("expect");
-			if (expect != NULL && tolowerASCII(*expect) == "100-continue") {
-				send(client_ipc->fd, "HTTP/1.1 100 Continue\r\n\r\n", 25, 0);
-			}
-		}
 	}
 
 	// log.error("CLIENT STATE: " + i2a(client_ipc->peer->getState()));

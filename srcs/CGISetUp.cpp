@@ -94,6 +94,7 @@ static std::vector<std::string> buildCGIenv(const HTTPRequest& req) {
 		if (ignore.count(key)) continue;
 
 		// transform header name to CGI HTTP_ form
+		h.clear();
 		h.reserve(5 + key.size());  // "HTTP_" + key
 		h.append("HTTP_");
 		for (size_t i = 0; i < key.size(); ++i) {
