@@ -55,67 +55,52 @@ static std::vector<std::string> buildCGIenv(const HTTPRequest& req) {
 	env_map["QUERY_STRING"] = req.getQuery();
 	env_map["DOCUMENT_ROOT"] = req.resolved.domain->root;
 	env_map["SERVER_NAME"] = req.resolved.domain->names[0]; // extractDomainNames() throws on empty, always non-empty here
-	env_map["SERVER_PORT"] = i2a(ntohs(req.cgi.server_socket.sin_port));
-
-	// if (!req.cgi.path_info.empty()) {
-	// 	env_map["PATH_INFO"] = req.cgi.path_info;
-	// 	env_map["PATH_TRANSLATED"] = req.resolved.filepath;
-	// }
+	env_map["SERVER_PORT"] = i2a(ntohs(req.cgi.server_socket.sin_port)); // sin_port is network byte order, need to ntohs()
 	env_map["PATH_INFO"] = req.cgi.path_info;
 	env_map["PATH_TRANSLATED"] = req.cgi.path_translated;
-
-	// sin_port is network byte order, ntohs() before treating it as a number
 	env_map["REMOTE_ADDR"] = addr2string(req.cgi.remote_socket);
 	env_map["REMOTE_PORT"] = i2a(ntohs(req.cgi.remote_socket.sin_port));
 	env_map["SERVER_ADDR"] = addr2string(req.cgi.server_socket);
 
-	const std::string* content_length = req.getHeader("content-length");
-	if (content_length != NULL) {
-		env_map["CONTENT_LENGTH"] = *content_length;
+	const std::string* length = req.getHeader("content-length");
+	if (length != NULL) {
+		env_map["CONTENT_LENGTH"] = *length;
 		ignore.insert("content-length");
 	}
-	const std::string* content_type = req.getHeader("content-type");
-	if (content_type != NULL) {
-		env_map["CONTENT_TYPE"] = *content_type;
+	const std::string* type = req.getHeader("content-type");
+	if (type != NULL) {
+		env_map["CONTENT_TYPE"] = *type;
 		ignore.insert("content-type");
 	}
 
 	// Copy HTTP_... headers
-	std::string h;
-	std::string val;
+	std::string tmp;
 	std::string key;
 	const std::map<std::string,std::string>& headers = req.getHeaders();
-	for (std::map<std::string,std::string>::const_iterator it = headers.begin(); it != headers.end(); ++it) {
-		key = it->first;
-		val = it->second;
+	for (std::map<std::string,std::string>::const_iterator it = headers.begin();
+		it != headers.end(); ++it) {
+		tmp = it->first;
 
-		// skip content-type/length (as they are separate) early (avoid building the string)
-		// if (key == "HTTP_CONTENT_TYPE" || key == "HTTP_CONTENT_LENGTH") continue;
-		if (ignore.count(key)) continue;
+		// content-type/length don't get the HTTP_ prefix, skipping them early to avoid building unnecessary string
+		if (ignore.count(tmp)) continue;
 
 		// transform header name to CGI HTTP_ form
-		h.clear();
-		h.reserve(5 + key.size());  // "HTTP_" + key
-		h.append("HTTP_");
-		for (size_t i = 0; i < key.size(); ++i) {
-			char c = key[i];
-			h.push_back(c == '-' ? '_' : (char)toupper(c));
+		key.clear();
+		key.reserve(5 + tmp.size());  // "HTTP_" + key
+		key.append("HTTP_");
+		for (size_t i = 0; i < tmp.size(); ++i) {
+			char c = tmp[i];
+			key.push_back(c == '-' ? '_' : static_cast<char>(toupper(c)));
 		}
-		// std::string h = "HTTP_";
-		// for (size_t i = 0; i < key.size(); ++i) {
-		// 	char c = key[i];
-		// 	if (c == '-') h.push_back('_');
-		// 	else h.push_back((char)toupper(c));
-		// }
-		// skip content-type/length as they are separate
-		// if (h == "HTTP_CONTENT_TYPE" || h == "HTTP_CONTENT_LENGTH") continue;
-		env_map[h] = val;
+
+		env_map[key] = it->second;
 	}
 
 	// Convert string pairs to holisic strings and store them in a vector
 	std::vector<std::string> env_vector;
 	env_vector.reserve(env_map.size());
-	for (std::map<std::string, std::string>::const_iterator it = env_map.begin(); it != env_map.end(); ++it) {
+	for (std::map<std::string, std::string>::const_iterator it = env_map.begin();
+		it != env_map.end(); ++it) {
 		env_vector.push_back(it->first + "=" + it->second);
 	}
 

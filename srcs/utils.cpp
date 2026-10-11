@@ -388,6 +388,7 @@ void promoteFile(HTTPRequest& request) {
 	} else {
 		new_path = old_path + "." + suffix + extension;
 	}
+	log.debug("old path: " + old_path);
 	log.debug("new path: " + new_path);
 
 	if (std::rename(old_path.c_str(), new_path.c_str()) != 0) {
