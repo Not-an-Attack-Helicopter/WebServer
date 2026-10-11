@@ -750,7 +750,7 @@ void Server::_handleSocketReadEvent(IPC* client_ipc) {
 		// log.notice("client_" + i2a(client_fd) + " state: RECEIVING_BODY");
 		std::size_t bytes_consumed = client_ipc->peer->parseDataFromPeer();
 		log.debug("client_" + i2a(client_ipc->fd) + ":\tbytes consumed:\t" + i2a(bytes_consumed));
-		if (!bytes_consumed) return;
+		if (!bytes_consumed && client_ipc->peer->getState() == Client::RECEIVING_BODY) return;
 
 		// if (!capacity_left) {
 		// 	if (!_disableSocketIO(client_fd)) {
