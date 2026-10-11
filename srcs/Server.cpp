@@ -139,9 +139,7 @@ void Server::handleEvents(void) {
 
 	for (;;) {
 
-		if (log.getLevel() <= Logger::LEVEL_DEBUG) {
-			log.notice("+==================================================================================================+");
-		}
+		log.notice("+==================================================================================================+");
 		int n = epoll_wait(_epfd, _events, MAX_EPOLL_EVENTS, EPOLL_WAIT_TIMEOUT_MS);
 		// dumpEvents(n, _events);
 
@@ -630,6 +628,7 @@ void Server::_handleSocketReadEvent(IPC* client_ipc) {
 		// }
 
 		if (bytes_received < 0) {
+
 			log.warn("recv: client_" + i2a(client_ipc->fd) + ": " + std::string(strerror(errno)));
 			_cleanUpClient(client_ipc);
 			return;

@@ -104,8 +104,7 @@ bool CGIProcess::spawn() {
 		close(_out_pipe[0]);
 		if (dup2(_in_pipe[0], STDIN_FILENO) == -1) _exit(CGI_EXIT_SETUP_FAILED);
 		if (dup2(_out_pipe[1], STDOUT_FILENO) == -1) _exit(CGI_EXIT_SETUP_FAILED);
-		if (_in_pipe[0] != STDIN_FILENO) close(_in_pipe[0]);
-		if (_out_pipe[1] != STDOUT_FILENO) close(_out_pipe[1]);
+		close(_in_pipe[0]); close(_out_pipe[1]);
 		if (!_working_dir.empty()) {
 			if (chdir(_working_dir.c_str()) != 0) _exit(CGI_EXIT_SETUP_FAILED);
 		}
@@ -166,8 +165,7 @@ int   CGIProcess::stdinFd()   const { return _stdin_fd; }
 int   CGIProcess::stdoutFd()  const { return _stdout_fd; }
 
 void CGIProcess::closeStdin() {
-	// if (_stdin_fd != -1) {
-	if (_stdin_fd > 0) {
+	if (_stdin_fd != -1) {
 		if (close(_stdin_fd)) {
 			log.warn("Error during cleanup: close: " + std::string(strerror(errno)));
 		}
@@ -176,8 +174,7 @@ void CGIProcess::closeStdin() {
 }
 
 void CGIProcess::closeStdout() {
-	// if (_stdout_fd != -1) {
-	if (_stdout_fd > 1) {
+	if (_stdout_fd != -1) {
 		if (close(_stdout_fd) == -1) {
 			log.warn("Error during cleanup: close: " + std::string(strerror(errno)));
 		}

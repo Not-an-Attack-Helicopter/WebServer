@@ -382,7 +382,7 @@ ssize_t Client::parseDataFromPeer(void) {
 				}
 			}
 
-			if (!request.requires_CGI/* && request.parsing.body_size > 0*/) promoteFile(request);
+			if (!request.requires_CGI) promoteFile(request);
 			break;
 		}
 
