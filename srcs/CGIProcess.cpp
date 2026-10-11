@@ -41,6 +41,7 @@ CGIProcess::CGIProcess(const std::string& path, const std::vector<std::string>& 
 	// _line_ending(NONE), _line_end_size(0) {
 	_line_end_size(0), _line_ending("") {
 
+	log.debug("CGIProcess Constructor called");
 	_argv_ptrs.reserve(_argv.size() + 1);
 	for (size_t i = 0; i < _argv.size(); ++i)
 		_argv_ptrs.push_back(const_cast<char*>(_argv[i].c_str()));
@@ -72,9 +73,9 @@ CGIProcess::CGIProcess(const std::string& path, const std::vector<std::string>& 
 	_pipes_open = true;
 
 	 _instream.data.resize(16*1024);
-	 log.info("script" + i2a(_in_pipe[1]) + ": changed buffer size to: 16384");
+	 log.info("script_" + i2a(_in_pipe[1]) + ": changed buffer size to: 16384");
 	 _outstream.data.resize(16*1024);
-	 log.info("script" + i2a(_out_pipe[0]) + ": changed buffer size to: 16384");
+	 log.info("script_" + i2a(_out_pipe[0]) + ": changed buffer size to: 16384");
 
 }
 
@@ -145,6 +146,7 @@ bool CGIProcess::spawn() {
 }
 
 CGIProcess::~CGIProcess() {
+	log.debug("CGIProcess Destructor called");
 	if (_stdin_fd != -1) close(_stdin_fd);
 	if (_stdout_fd != -1) close(_stdout_fd);
 	if (_in_pipe[0] != -1) close(_in_pipe[0]);
