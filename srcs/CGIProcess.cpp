@@ -104,7 +104,8 @@ bool CGIProcess::spawn() {
 		close(_out_pipe[0]);
 		if (dup2(_in_pipe[0], STDIN_FILENO) == -1) _exit(CGI_EXIT_SETUP_FAILED);
 		if (dup2(_out_pipe[1], STDOUT_FILENO) == -1) _exit(CGI_EXIT_SETUP_FAILED);
-		close(_in_pipe[0]); close(_out_pipe[1]);
+		if (_in_pipe[0] != STDIN_FILENO) close(_in_pipe[0]);
+		if (_out_pipe[1] != STDOUT_FILENO) close(_out_pipe[1]);
 		if (!_working_dir.empty()) {
 			if (chdir(_working_dir.c_str()) != 0) _exit(CGI_EXIT_SETUP_FAILED);
 		}
