@@ -18,6 +18,7 @@
 // #include <string>
 // #include <cstddef>
 #include <sys/epoll.h>
+#include <cerrno>
 
 static const unsigned short TEMPORARY_SUFFIX_BIT_WIDTH = 40;
 static const unsigned short SUFFIX_BIT_WIDTH = 56;
