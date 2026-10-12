@@ -622,7 +622,11 @@ void Server::_handleSocketReadEvent(IPC* client_ipc) {
 		return;
 	}
 
-	if (!client_ipc->peer->bufferSaturated()) {
+	if (client_ipc->peer->bufferSaturated()) {
+
+		log.warn("Buffer saturated");
+
+	} else {
 
 		ssize_t bytes_received = client_ipc->peer->queueIncomingData(client_ipc->fd);
 		// if (!_disableSocketIO(client_fd)) {
