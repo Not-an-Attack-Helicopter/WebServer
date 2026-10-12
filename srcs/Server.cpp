@@ -883,16 +883,20 @@ void Server::_handlePipeError(IPC* script_ipc) {
 								  client.getCurrentResponse());
 	client.setState(Client::PENDING_RESPONSE);
 	log.debug("client_" + i2a(script_ipc->client_ipc->fd) + ": state set to PENDING_RESPONSE");
+	// clean up both pipe ends while cgi_process still exists, then delete it
+	IPC* client_ipc = script_ipc->client_ipc;
+	bool registered = (script_ipc == client_ipc->script_in || script_ipc == client_ipc->script_out);
+	if (client_ipc->script_in != NULL) _cleanUpPipeEnd(client_ipc->script_in);
+	if (client_ipc->script_out != NULL) _cleanUpPipeEnd(client_ipc->script_out);
+	if (!registered) _cleanUpPipeEnd(script_ipc);
 	client.popProcess();
 	client.popRequest();
 	client.pushRequest();
-	if (!_setWRONLYInterest(script_ipc->client_ipc->fd, static_cast<void*>(script_ipc->client_ipc))) {
-		_cleanUpClient(script_ipc->client_ipc);
+	if (!_setWRONLYInterest(client_ipc->fd, static_cast<void*>(client_ipc))) {
+		_cleanUpClient(client_ipc);
 		return;
 	}
 	client.markForTermination();
-
-	_cleanUpPipeEnd(script_ipc);
 	return;
 }
 
