@@ -44,6 +44,7 @@ struct IPC {
 
 	IPCType									type;
 	int										fd;
+	bool									dead;
 	IPC*									script_in;
 	IPC*									script_out;
 	IPC*									client_ipc;
@@ -54,6 +55,7 @@ struct IPC {
 	IPC(IPCType type)
 	:	type(type),
 		fd(0),
+		dead(false),
 		script_in(NULL),
 		script_out(NULL),
 		client_ipc(NULL),
@@ -123,6 +125,7 @@ private:
 	int										_epfd;
 
 	std::vector<IPC*>						_ipcs;
+	std::vector<IPC*>						_graveyard;
 
 	// std::map<int, ListeningSocket>			_sockets;
 	// std::map<int, Client*>					_clients;

@@ -194,6 +194,7 @@ void Server::handleEvents(void) {
 				// fd = ev.data.fd;
 
 				IPC* ipc = static_cast<IPC*>(ev.data.ptr);
+				if (ipc->dead) continue;
 
 				std::string type;
 				// log.error("ipc->type: " + i2a(ipc->type));
@@ -241,7 +242,7 @@ void Server::handleEvents(void) {
 						* _handleSocketReadEvent() may have erased
 						* the client from _clients.
 						*/
-						if (ipc == NULL) {
+						if (ipc->dead) {
 							continue;
 						}
 					}
@@ -265,7 +266,7 @@ void Server::handleEvents(void) {
 						/*
 						* _handlePipeReadEvent() may erase the pipe.
 						*/
-						if (ipc == NULL) {
+						if (ipc->dead) {
 							continue;
 						}
 					}
@@ -275,6 +276,8 @@ void Server::handleEvents(void) {
 					}
 				}
 			}
+			for (std::size_t i = 0; i < _graveyard.size(); ++i) delete _graveyard[i];
+			_graveyard.clear();
 
 			break;
 		}
@@ -622,11 +625,7 @@ void Server::_handleSocketReadEvent(IPC* client_ipc) {
 		return;
 	}
 
-	if (client_ipc->peer->bufferSaturated()) {
-
-		log.warn("Buffer saturated");
-
-	} else {
+	if (!client_ipc->peer->bufferSaturated()) {
 
 		ssize_t bytes_received = client_ipc->peer->queueIncomingData(client_ipc->fd);
 		// if (!_disableSocketIO(client_fd)) {
@@ -883,16 +882,20 @@ void Server::_handlePipeError(IPC* script_ipc) {
 								  client.getCurrentResponse());
 	client.setState(Client::PENDING_RESPONSE);
 	log.debug("client_" + i2a(script_ipc->client_ipc->fd) + ": state set to PENDING_RESPONSE");
+	// clean up both pipe ends while cgi_process still exists, then delete it
+	IPC* client_ipc = script_ipc->client_ipc;
+	bool registered = (script_ipc == client_ipc->script_in || script_ipc == client_ipc->script_out);
+	if (client_ipc->script_in != NULL) _cleanUpPipeEnd(client_ipc->script_in);
+	if (client_ipc->script_out != NULL) _cleanUpPipeEnd(client_ipc->script_out);
+	if (!registered) _cleanUpPipeEnd(script_ipc);
 	client.popProcess();
 	client.popRequest();
 	client.pushRequest();
-	if (!_setWRONLYInterest(script_ipc->client_ipc->fd, static_cast<void*>(script_ipc->client_ipc))) {
-		_cleanUpClient(script_ipc->client_ipc);
+	if (!_setWRONLYInterest(client_ipc->fd, static_cast<void*>(client_ipc))) {
+		_cleanUpClient(client_ipc);
 		return;
 	}
 	client.markForTermination();
-
-	_cleanUpPipeEnd(script_ipc);
 	return;
 }
 
@@ -1371,7 +1374,8 @@ void Server::_cleanUpPipeEnd(IPC* script_ipc) {
 		}
 	}
 
-	delete script_ipc;
+	script_ipc->dead = true;
+	_graveyard.push_back(script_ipc);
 	// log.error("_cleanUpPipeEnd: " + i2a(&script_ipc) + ":" + i2a(script_ipc));
 	script_ipc = NULL;
 	// log.error("_cleanUpPipeEnd: " + i2a(&script_ipc) + ":" + i2a(script_ipc));
@@ -1454,7 +1458,8 @@ void Server::_cleanUpClient(IPC* client_ipc) {
 		}
 	}
 
-	delete client_ipc;
+	client_ipc->dead = true;
+	_graveyard.push_back(client_ipc);
 	// log.error("_cleanUpClient: " + i2a(&client_ipc) + ":" + i2a(client_ipc));
 	client_ipc = NULL;
 	// log.error("_cleanUpClient: " + i2a(&client_ipc) + ":" + i2a(client_ipc));
@@ -1518,6 +1523,7 @@ Server::~Server(void) {
 	if (_epfd != -1 || !_ipcs.empty()) {
 		_cleanUpAllRessources();
 	}
+	for (std::size_t i = 0; i < _graveyard.size(); ++i) delete _graveyard[i];
 	return;
 }
 
